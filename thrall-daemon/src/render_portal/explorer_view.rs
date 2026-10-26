@@ -204,11 +204,11 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
                 let mark = if acc { " &#10003;" } else { "" };
                 checks.push_str(&format!("<label class=\"user-chip\"><input type=\"checkbox\" name=\"users\" value=\"{u_esc}\"{chk}>{u_esc}{mark}</label>"));
             }
-            let del_btn = format!("<form method=\"POST\" action=\"/admin/shared/delete\" style=\"display:inline;margin-left:0.4rem\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><button type=\"submit\" class=\"btn-danger\">Delete</button></form>");
+            let del_btn = format!("<form method=\"POST\" action=\"/admin/shared/delete\" style=\"display:inline\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><button type=\"submit\" class=\"btn-danger\">Delete</button></form>");
             let fid_esc = escape_html(&fid);
-            sh_rows.push_str(&format!("<tr><td><strong>{f_esc}</strong><div style=\"font-size:0.75rem;color:var(--muted)\"><code>{fid_esc}</code> &bull; <code>/shared{sub}</code></div></td><td><div class=\"row\" style=\"justify-content:space-between\"><form method=\"POST\" action=\"/admin/shared/update\" class=\"row\" style=\"flex:1;justify-content:space-between\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><div>{checks}</div><button type=\"submit\" class=\"btn-secondary\">Apply ACL</button></form>{del_btn}</div></td></tr>"));
+            sh_rows.push_str(&format!("<div class=\"node-card\"><div class=\"node-header\"><div><strong style=\"font-size:0.95rem\">{f_esc}</strong> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">{fid_esc}</code> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">/shared{sub}</code></div>{del_btn}</div><form method=\"POST\" action=\"/admin/shared/update\" style=\"margin-top:0.55rem\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><div class=\"acl-user-grid\">{checks}</div><div style=\"margin-top:0.65rem;text-align:right\"><button type=\"submit\" class=\"btn-secondary\">Apply ACL</button></div></form></div>"));
         }
-        return format!("<div class=\"card\"><h2>4. Access Control — Top-Level Shared Folders (Outside &lt;user&gt;)</h2><table><thead><tr><th>Shared Folder</th><th>Authorized Principals &amp; Actions</th></tr></thead><tbody>{sh_rows}</tbody></table><form method=\"POST\" action=\"/admin/shared/create\" style=\"margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:240px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Top-Level Shared Folder Name (e.g. Engineering)\"></div><button type=\"submit\">Create Shared Folder</button></div></form></div>");
+        return format!("<div class=\"card\"><h2>4. Access Control — Top-Level Shared Folders (Outside &lt;user&gt;)</h2><div class=\"grid\">{sh_rows}</div><form method=\"POST\" action=\"/admin/shared/create\" style=\"margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:240px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Top-Level Shared Folder Name (e.g. Engineering)\"></div><button type=\"submit\">Create Shared Folder</button></div></form></div>");
     }
     let mut srv_cards = String::new();
     for node in &snap.nodes {
@@ -221,7 +221,7 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
         };
         let (n_esc, wan_esc) = (escape_html(&node.name), escape_html(&node.wan_addr));
         let info_esc = escape_html(if node.device_id.is_empty() { &node.last_error } else { &node.device_id });
-        srv_cards.push_str(&format!("<div class=\"node-card\"><div class=\"node-header\"><strong>{n_esc}</strong>{badge}</div><div style=\"font-size:0.78rem;color:var(--muted)\"><code>{wan_esc}</code></div><div class=\"mono\">{info_esc}</div><form method=\"POST\" action=\"/admin/servers/toggle\" style=\"margin-top:0.5rem\"><input type=\"hidden\" name=\"server\" value=\"{n_esc}\"><button type=\"submit\" class=\"{btn_cls}\" style=\"width:100%\">{btn_lbl}</button></form></div>"));
+        srv_cards.push_str(&format!("<div class=\"node-card\"><div class=\"node-header\"><div><strong>{n_esc}</strong> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">{wan_esc}</code></div><div class=\"row\">{badge}<form method=\"POST\" action=\"/admin/servers/toggle\" style=\"display:inline\"><input type=\"hidden\" name=\"server\" value=\"{n_esc}\"><button type=\"submit\" class=\"{btn_cls}\" style=\"padding:0.25rem 0.65rem;font-size:0.78rem\">{btn_lbl}</button></form></div></div><div class=\"mono\" style=\"margin:0\">{info_esc}</div></div>"));
     }
     let mut all_rows = String::new();
     for (u, devs) in &store.users {
