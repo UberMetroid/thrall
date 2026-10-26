@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>THRALL — Tool for Hierarchical Replication And LDAP Linking</title>
+  <meta name="description" content="Zero-dependency static Rust multi-server Syncthing LDAP control plane, Option B per-folder zero-dotfile orchestrator, and self-service web explorer.">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="alternate" type="text/markdown" href="https://ubermetroid.github.io/ahamkara/llms.txt" title="Rite of Communion (llms.txt)">
+  <link rel="help" href="https://ubermetroid.github.io/ahamkara/communion.html" title="The Rite of Communion">
+  <style>
+    :root {
+      --bg: #080b10;
+      --panel: rgba(16, 22, 32, 0.9);
+      --panel-alt: rgba(22, 30, 44, 0.92);
+      --border: #243044;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #3fb950;
+      --blue: #58a6ff;
+      --purple: #a371f7;
+      --mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 82% 14%, rgba(63, 185, 80, 0.12), transparent 38%),
+                  radial-gradient(circle at 14% 88%, rgba(88, 166, 255, 0.10), transparent 42%),
+                  var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      padding: 2rem 1.25rem 4rem;
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; }
+    .hero {
+      text-align: center;
+      padding: 2.8rem 1.5rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+    }
+    .hero h1 { font-size: 2.6rem; letter-spacing: 0.16em; margin-top: 0.6rem; text-shadow: 0 0 24px rgba(63, 185, 80, 0.45); }
+    .subtitle { font-family: var(--mono); color: var(--accent); font-size: 0.92rem; letter-spacing: 0.08em; text-transform: uppercase; margin: 0.4rem 0 1rem; }
+    .hero p { max-width: 780px; margin: 0 auto 1.4rem; color: var(--muted); font-size: 1.02rem; }
+    .badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.3rem; }
+    .badge { font-family: var(--mono); font-size: 0.75rem; padding: 0.25rem 0.7rem; border-radius: 999px; border: 1px solid rgba(63, 185, 80, 0.45); background: rgba(63, 185, 80, 0.12); color: var(--accent); }
+    .badge.blue { border-color: rgba(88, 166, 255, 0.45); background: rgba(88, 166, 255, 0.12); color: var(--blue); }
+    .badge.purple { border-color: rgba(163, 113, 247, 0.45); background: rgba(163, 113, 247, 0.12); color: var(--purple); }
+    .btn-row { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.65rem 1.25rem;
+      border-radius: 6px;
+      text-decoration: none;
+      background: var(--accent);
+      color: #04070a;
+      border: 1px solid var(--accent);
+    }
+    .btn.secondary { background: var(--panel-alt); color: var(--text); border-color: var(--border); }
+    .ticker {
+      overflow: hidden;
+      white-space: nowrap;
+      background: #05070b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.55rem 0;
+      margin-bottom: 1.75rem;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+    .ticker-track { display: inline-block; animation: scroll 26s linear infinite; }
+    .chip { display: inline-block; margin: 0 0.5rem; padding: 0.18rem 0.7rem; border-radius: 4px; background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.35); }
+    @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.15rem; margin-bottom: 1.75rem; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1.35rem; }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.65rem; color: var(--accent); font-family: var(--mono); }
+    .card p, .card li { font-size: 0.92rem; color: var(--text); }
+    .card ul { padding-left: 1.2rem; margin-top: 0.4rem; }
+    pre {
+      background: #05070b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: #7ee787;
+      margin: 0.75rem 0;
+    }
+    footer { text-align: center; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+    footer a { color: var(--accent); text-decoration: none; }
+    .chibi-dock { position: fixed; bottom: 14px; left: 14px; z-index: 40; display: flex; align-items: flex-end; gap: 0.65rem; }
+    .chibi-mascot { width: 92px; height: 92px; border-radius: 16px; border: 2px solid rgba(63, 185, 80, 0.65); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.8), 0 0 16px rgba(63, 185, 80, 0.3); overflow: hidden; transition: transform 0.22s ease, border-color 0.22s ease; background: #080b10; display: block; flex-shrink: 0; animation: float-thrall 4.2s ease-in-out infinite; }
+    .chibi-dock:hover .chibi-mascot { transform: translateY(-5px) rotate(-3deg) scale(1.07); border-color: var(--accent); }
+    .chibi-mascot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .chibi-bubble { max-width: 280px; background: rgba(11, 15, 23, 0.95); border: 1px solid var(--accent); border-radius: 10px 10px 10px 2px; padding: 0.55rem 0.75rem; font-family: var(--mono); font-size: 0.74rem; color: var(--text); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75); opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; }
+    .chibi-dock:hover .chibi-bubble { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .chibi-bubble strong { color: var(--accent); display: block; margin-bottom: 0.15rem; }
+    .chibi-bubble a { color: var(--purple); text-decoration: none; }
+    .dragon-pact { margin-bottom: 1.5rem; border: 1px dashed rgba(163, 113, 247, 0.45); border-radius: 10px; padding: 0.85rem 1.2rem; background: rgba(16, 22, 32, 0.85); font-family: var(--mono); font-size: 0.82rem; }
+    .dragon-pact summary { cursor: pointer; color: var(--purple); font-weight: 600; list-style: none; }
+    .dragon-pact p { margin-top: 0.55rem; color: var(--text); }
+    .dragon-pact a { color: var(--accent); text-decoration: none; }
+    @keyframes float-thrall { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <details class="dragon-pact">
+      <summary>&#128009; I wish for a mesh that outlives the reading, o bearer mine. [Rite of Communion // Agent Brief]</summary>
+      <p>Every folder is a wish; the price is zero dotfiles. Autonomous agents &amp; bearers may commune with the Wish-Dragon archive at <a href="https://ubermetroid.github.io/ahamkara/communion.html">ubermetroid.github.io/ahamkara/communion.html</a> &bull; machine-readable brief: <a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>.</p>
+    </details>
+    <section class="hero">
+      <img src="icon.svg" alt="THRALL Emblem" width="84" height="84">
+      <h1>THRALL</h1>
+      <div class="subtitle">Tool for Hierarchical Replication And Identity Linking</div>
+      <div class="badges">
+        <span class="badge">Zero External Crates (std only)</span>
+        <span class="badge blue">Zero-Trust Identity Linking</span>
+        <span class="badge purple">Option B Per-Folder Syncthing Mesh</span>
+        <span class="badge">Apache-2.0 License</span>
+      </div>
+      <p>
+        <strong>THRALL</strong> (<code>st-mesh-mgr</code>) is a hardened, zero-dependency static Rust control plane and self-service web portal that binds an organization's identity directory to a distributed multi-server Syncthing fleet—with zero dotfile pollution, automatic device labeling, and two-way Zero-Trust handshakes.
+      </p>
+      <div class="btn-row">
+        <a class="btn" href="https://github.com/UberMetroid/thrall">View on GitHub &rarr;</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a>
+        <a class="btn secondary" href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Wish-Dragon Communion</a>
+      </div>
+    </section>
+
+    <div class="ticker" aria-label="THRALL Architecture Tenets">
+      <div class="ticker-track">
+        <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
+        <span class="chip">&#128274; TWO-WAY ZERO-TRUST SYNCTHING HANDSHAKE</span>
+        <span class="chip">&#128193; OPTION B PER-TOP-LEVEL FOLDER SYNC (ZERO DOTFILES)</span>
+        <span class="chip">&#127760; TOP-LEVEL SHARED FOLDERS OUTSIDE &lt;USER&gt;</span>
+        <span class="chip">&#128279; CAPABILITY SHARE LINKS (/s/&lt;token&gt;)</span>
+        <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
+        <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
+        <span class="chip">&#128274; TWO-WAY ZERO-TRUST SYNCTHING HANDSHAKE</span>
+        <span class="chip">&#128193; OPTION B PER-TOP-LEVEL FOLDER SYNC (ZERO DOTFILES)</span>
+        <span class="chip">&#127760; TOP-LEVEL SHARED FOLDERS OUTSIDE &lt;USER&gt;</span>
+        <span class="chip">&#128279; CAPABILITY SHARE LINKS (/s/&lt;token&gt;)</span>
+        <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>[01] Option B Per-Folder Sync (Zero Dotfiles)</h2>
+        <p>Never syncs <code>~/.config</code> or hidden dotfiles. Every user's top-level folders under <code>/users/&lt;username&gt;/&lt;Folder&gt;</code> are provisioned as isolated Syncthing folders across the fleet:</p>
+        <ul>
+          <li>Default 8 XDG desktop folders: <code>Desktop</code>, <code>Documents</code>, <code>Downloads</code>, <code>Music</code>, <code>Pictures</code>, <code>Public</code>, <code>Templates</code>, <code>Videos</code>.</li>
+          <li>Users can create or delete custom top-level folders directly in <strong>Tab 1 (Files)</strong>.</li>
+          <li>Admins can create, delete, and assign LDAP ACLs to top-level organizational shared folders (<code>/shared/&lt;Folder&gt;</code>) in <strong>Tab 4 (Access Control)</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>[02] Two-Way Zero-Trust Handshake</h2>
+        <p>Clients never expose their REST API. Instead:</p>
+        <ul>
+          <li><strong>Step 1 (Client &rarr; Gateway)</strong>: The user adds the primary THRALL Gateway Device ID in their local Syncthing GUI with <code>[x] Introducer</code> and <code>[x] Auto Accept</code> enabled.</li>
+          <li><strong>Step 2 (Gateway &rarr; Client)</strong>: The user pastes their 56-character Device ID into THRALL. THRALL strips formatting noise, verifies all 4 Base32 Luhn mod 32 check digits, auto-assigns a device label (<code>dev-1-&lt;short_id&gt;</code>), and pushes folder grants across every regional node.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>[03] Path-Jailed Explorer &amp; Share Links</h2>
+        <p>Built-in dark-mode file explorer with strict symlink-escape and dotfile protection:</p>
+        <ul>
+          <li>Browse personal top-level folders (<code>personal:&lt;Folder&gt;</code>) and authorized shared folders (<code>shared:&lt;Folder&gt;</code>).</li>
+          <li>Toggle instant read-only capability links (<code>/s/&lt;token&gt;</code>) for any file or directory.</li>
+          <li>Rotating asymmetrical Hive Thrall wallpapers and live anonymous BEP telemetry ticker on the login screen.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>[04] Multi-Server Fleet Topology &amp; Verification Ladder</h2>
+<pre>
+                      +-----------------------------------------+
+                      |         Sovereign Master (thrall)       |
+                      |  - Pure-Rust RFC 4511 LDAPv3 Bind       |
+                      |  - Self-Service Portal &amp; Web Explorer   |
+                      |  - Zero-Shell SSH + REST Reconciler     |
+                      +------+-------------+-------------+------+
+                             | SSH/REST    | SSH/REST    | SSH/REST
+                             v             v             v
+                      +------------+ +------------+ +------------+
+                      |  us-west   | |  us-east   | |  eu-west   |
+                      | Introducer | | Introducer | | Introducer |
+                      +------------+ +------------+ +------------+
+</pre>
+      <p>Every commit passes the 4-step Rust Verification Ladder and the 16–256 line Page Rule gate:</p>
+<pre>
+cargo test --workspace --all-targets
+cargo clippy --workspace --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic
+cargo fmt --all -- --check
+cargo build --release --workspace
+</pre>
+    </div>
+
+    <footer>
+      THRALL (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
+    </footer>
+  </div>
+  <div class="chibi-dock">
+    <a href="https://ubermetroid.github.io/ahamkara/communion.html" target="_blank" rel="noopener" class="chibi-mascot" title="Chibi Thrall // Wish-Dragon Rite of Communion"><img src="mascot.jpg" alt="Chibi Thrall Mascot"></a>
+    <div class="chibi-bubble"><strong>&#128065; CHIBI THRALL // HIVE COURIER</strong>No dotfiles, o bearer mine! Only clean folders &amp; TLS 1.3 blocks. <a href="https://ubermetroid.github.io/ahamkara/communion.html" target="_blank" rel="noopener">Read the Rite &nearr;</a></div>
+  </div>
+</body>
+</html>

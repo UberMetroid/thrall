@@ -1,0 +1,5 @@
+/target
+/prebuilt
+*.db
+*.db.tmp
+id_ed25519*

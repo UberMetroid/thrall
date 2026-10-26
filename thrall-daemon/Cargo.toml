@@ -1,0 +1,14 @@
+[package]
+name = "thrall-daemon"
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "THRALL — Tool for Hierarchical Replication And LDAP Linking (Multi-Server Syncthing LDAP Control Plane)"
+repository = "https://github.com/UberMetroid/thrall"
+homepage = "https://ubermetroid.github.io/thrall/"
+
+[[bin]]
+name = "thrall"
+path = "src/main.rs"
+
+[dependencies]

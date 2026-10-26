@@ -1,0 +1,37 @@
+# THRALL — Declarative Fleet Configuration
+# Environment variable overrides:
+#   PORTAL_LISTEN_ADDR, PORTAL_DATABASE_PATH, PORTAL_SESSION_SECRET
+#   LDAP_URL, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, LDAP_USER_FILTER, ADMIN_USERS
+
+portal:
+  listen_addr: "0.0.0.0:8080"
+  database_path: "/config/mesh-mgr.db"
+  session_secret: "change-me"
+
+ldap:
+  url: "ldap://ldap.example.com:389"
+  base_dn: "dc=example,dc=com"
+  bind_dn: "cn=admin,dc=example,dc=com"
+  bind_password: ""
+  user_filter: "(&(objectClass=person)(uid=%s))"
+  admin_users: ["admin"]
+
+servers:
+  - name: "us-west"
+    ssh_host: "10.0.1.10:22"
+    ssh_user: "root"
+    ssh_key_path: "/config/id_ed25519"
+    syncthing_api_url: "http://127.0.0.1:8384"
+    syncthing_api_key: ""
+    syncthing_wan_addr: "tcp://west.example.com:22000"
+    users_base_path: "/users"
+    shared_base_path: "/shared"
+  - name: "us-east"
+    ssh_host: "10.0.2.10:22"
+    ssh_user: "root"
+    ssh_key_path: "/config/id_ed25519"
+    syncthing_api_url: "http://127.0.0.1:8384"
+    syncthing_api_key: ""
+    syncthing_wan_addr: "tcp://east.example.com:22000"
+    users_base_path: "/users"
+    shared_base_path: "/shared"

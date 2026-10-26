@@ -1,0 +1,55 @@
+[Unit]
+Description=Hardened Syncthing Peer Node for THRALL Mesh (Quadlet)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/syncthing/syncthing:latest
+ContainerName=syncthing
+AutoUpdate=registry
+
+# Run directly as non-root user 1000:1000
+User=1000:1000
+GroupAdd=keep-groups
+
+# Environment
+Environment=TZ=UTC
+Environment=HOME=/var/syncthing
+Environment=STGUIADDRESS=0.0.0.0:8384
+Environment=STNOUPGRADE=1
+
+# Bind REST API strictly to host loopback; bind BEP sync protocol to Tailscale/WAN
+PublishPort=127.0.0.1:8384:8384/tcp
+PublishPort=22000:22000/tcp
+PublishPort=22000:22000/udp
+
+# Ephemeral/Experimental THRALL Storage Layout (/config, /users, /shared)
+Volume=/srv/thrall-exp/syncthing/config:/var/syncthing/config:rw,Z
+Volume=/srv/thrall-exp/syncthing/config:/config:rw,Z
+Volume=/srv/thrall-exp/users:/users:rw,z
+Volume=/srv/thrall-exp/shared:/shared:rw,z
+
+# Security Hardening
+NoNewPrivileges=true
+DropCapability=ALL
+ReadOnly=true
+Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m
+
+# Native Healthcheck & systemd readiness
+HealthCmd=wget -q -O - http://127.0.0.1:8384/rest/noauth/health | grep -q '"status": *"OK"' || exit 1
+HealthInterval=15s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=10s
+HealthOnFailure=restart
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5s
+TimeoutStartSec=120s
+MemoryMax=512M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target default.target

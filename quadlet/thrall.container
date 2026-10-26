@@ -1,0 +1,49 @@
+[Unit]
+Description=THRALL (st-mesh-mgr) Multi-Server Syncthing LDAP Control Plane (Quadlet)
+After=network-online.target syncthing.service
+Wants=network-online.target syncthing.service
+
+[Container]
+Image=localhost/thrall:latest
+ContainerName=thrall
+AutoUpdate=local
+Network=host
+
+# Run directly as non-root user 1000:1000
+User=1000:1000
+GroupAdd=keep-groups
+
+# Environment & Podman Secrets
+Environment=TZ=UTC
+Environment=PORTAL_LISTEN_ADDR=0.0.0.0:8088
+Secret=ldap_bind_password,type=env,target=LDAP_BIND_PASSWORD
+
+# Storage Layout (/config, /users, /shared)
+Volume=/srv/thrall-exp/thrall-config:/config:rw,Z
+Volume=/srv/thrall-exp/users:/users:rw,z
+Volume=/srv/thrall-exp/shared:/shared:rw,z
+
+# Security Hardening
+NoNewPrivileges=true
+DropCapability=ALL
+ReadOnly=true
+Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m
+
+# Native Healthcheck & systemd readiness
+HealthCmd=/bin/thrall --check
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=10s
+HealthOnFailure=restart
+Notify=healthy
+
+[Service]
+Restart=always
+RestartSec=5s
+TimeoutStartSec=120s
+MemoryMax=256M
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target default.target
