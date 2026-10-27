@@ -76,10 +76,40 @@
       btn.setAttribute('tabindex', active ? '0' : '-1');
     }
 
+    if (window.thrallRenderHeaderWordmark) {
+      window.thrallRenderHeaderWordmark();
+    }
     if (window.thrallRenderSpotlight) {
       window.thrallRenderSpotlight();
     }
   }
+
+  function renderHeaderWordmark() {
+    var hCanvas = document.getElementById('header-wordmark');
+    if (!hCanvas || !hCanvas.getContext) return;
+    var hCtx = hCanvas.getContext('2d');
+    if (!hCtx) return;
+    var cols = THRALL_WORDMARK[0].length, rows = THRALL_WORDMARK.length;
+    var scale = 2;
+    hCanvas.width = cols * scale;
+    hCanvas.height = rows * scale;
+    hCtx.clearRect(0, 0, hCanvas.width, hCanvas.height);
+    var acc = window.thrallCurrentAccent || [80, 250, 123];
+    var ar = acc[0], ag = acc[1], ab = acc[2];
+    var hr = Math.min(255, Math.round(ar + (255 - ar) * 0.48));
+    var hg = Math.min(255, Math.round(ag + (255 - ag) * 0.48));
+    var hb = Math.min(255, Math.round(ab + (255 - ab) * 0.48));
+    for (var r = 0; r < rows; r++) {
+      var rowStr = THRALL_WORDMARK[r];
+      for (var c = 0; c < cols; c++) {
+        if (rowStr.charAt(c) === '1') {
+          hCtx.fillStyle = r < 5 ? '#ffffff' : (r < 11 ? ('rgb(' + hr + ',' + hg + ',' + hb + ')') : ('rgb(' + ar + ',' + ag + ',' + ab + ')'));
+          hCtx.fillRect(c * scale, r * scale, scale - 0.35, scale - 0.35);
+        }
+      }
+    }
+  }
+  window.thrallRenderHeaderWordmark = renderHeaderWordmark;
 
   function initPalette() {
     var saved = 'emerald';
@@ -283,14 +313,8 @@
       }
       var targetW = Math.min(width * 0.86, 840 * dpr);
       cellPx = Math.max(4, Math.floor(targetW / wmWidth));
-      originX = Math.round((width - wmWidth * cellPx) / 2);
-      var heroEl = document.getElementById('wordmark-anchor');
-      if (heroEl) {
-        var r = heroEl.getBoundingClientRect();
-        originY = Math.round((r.bottom - 10) * dpr - (wmHeight * cellPx));
-      } else {
-        originY = Math.round(height * 0.78 - (wmHeight * cellPx) * 0.5);
-      }
+      originX = -99999;
+      originY = -99999;
       gridCols = Math.ceil(width / cellPx) + 1;
       gridRows = Math.ceil(height / cellPx) + 1;
       refreshSpotCards();
@@ -443,20 +467,10 @@
       var colorSpotMid = 'rgba(' + midRgb + ',' + (0.88 * glareCut).toFixed(2) + ')';
       var ditherThreshold = 0.72 + 0.08 * textDim;
 
-      var heroEl = document.getElementById('wordmark-anchor');
-      if (heroEl) {
-        var rect = heroEl.getBoundingClientRect();
-        originY = Math.round((rect.bottom - 10) * dpr - (wmHeight * cellPx));
-      }
-
       for (var r = 0; r < gridRows; r++) {
-        var py = r * cellPx, wmRow = Math.floor((py - originY) / cellPx);
-        var hasWordRow = wmRow >= 0 && wmRow < wmHeight;
+        var py = r * cellPx;
         for (var c = 0; c < gridCols; c++) {
-          var px = c * cellPx, wmCol = Math.floor((px - originX) / cellPx);
-          var inWordBox = hasWordRow && wmCol >= 0 && wmCol < wmWidth;
-          var isWord = inWordBox && wmRows[wmRow] && wmRows[wmRow].charAt(wmCol) === '1';
-
+          var px = c * cellPx;
           var cx = px + cellPx * 0.5, cy = py + cellPx * 0.5;
           var spot = 0;
           for (var m = 0; m < meshCount; m++) {
@@ -475,39 +489,20 @@
             }
           }
 
-          var wordDrawn = false;
-          if (isWord) {
-            var lit = (0.52 + spot * 1.65 + ripGlow * 1.45) * (1 - 0.38 * textDim);
-            if (lit > 0.05) {
-              ctx.fillStyle = lit > 1.32
-                ? '#ffffff'
-                : lit > 0.90
-                  ? ('rgb(' + hotRgb + ')')
-                  : lit > 0.55
-                    ? ('rgb(' + midRgb + ')')
-                    : ('rgb(' + Math.round(ar * 0.68) + ',' + Math.round(ag * 0.68) + ',' + Math.round(ab * 0.68) + ')');
-              ctx.fillRect(px, py, cellPx - 1, cellPx - 1);
-              wordDrawn = true;
-            }
-          }
-
-          if (!wordDrawn) {
-            var nx = c * 0.07 + sec * 0.16, ny = r * 0.07 - sec * 0.11;
-            var nVal = 0.6 * sampleNoise(nx, ny) + 0.4 * sampleNoise(nx * 0.5 - sec * 0.08, ny * 0.5 + sec * 0.07);
-            var energy = nVal * 0.75 + (0.5 + 0.5 * Math.sin(sec * 1.8 + (r * 37 + c * 11) % 6.283)) * 0.25;
-            if (inWordBox) energy *= 0.12;
-            var fieldVal = energy * 0.45 + spot * 0.85 + ripGlow * 0.95;
-            var dither = BAYER[(r & 7) * 8 + (c & 7)] / 64;
-            if (fieldVal > dither * ditherThreshold) {
-              ctx.fillStyle = (spot > 0.38 || ripGlow > 0.4)
-                ? colorSpotHigh
-                : (spot > 0.14 || ripGlow > 0.15)
-                  ? colorSpotMid
-                  : fieldVal > 0.56
-                    ? colorFieldHigh
-                    : colorFieldLow;
-              ctx.fillRect(px, py, cellPx - 1, cellPx - 1);
-            }
+          var nx = c * 0.07 + sec * 0.16, ny = r * 0.07 - sec * 0.11;
+          var nVal = 0.6 * sampleNoise(nx, ny) + 0.4 * sampleNoise(nx * 0.5 - sec * 0.08, ny * 0.5 + sec * 0.07);
+          var energy = nVal * 0.75 + (0.5 + 0.5 * Math.sin(sec * 1.8 + (r * 37 + c * 11) % 6.283)) * 0.25;
+          var fieldVal = energy * 0.45 + spot * 0.85 + ripGlow * 0.95;
+          var dither = BAYER[(r & 7) * 8 + (c & 7)] / 64;
+          if (fieldVal > dither * ditherThreshold) {
+            ctx.fillStyle = (spot > 0.38 || ripGlow > 0.4)
+              ? colorSpotHigh
+              : (spot > 0.14 || ripGlow > 0.15)
+                ? colorSpotMid
+                : fieldVal > 0.56
+                  ? colorFieldHigh
+                  : colorFieldLow;
+            ctx.fillRect(px, py, cellPx - 1, cellPx - 1);
           }
         }
       }
@@ -877,6 +872,7 @@
 
   function start() {
     initPalette();
+    renderHeaderWordmark();
     initCanvas();
     initSectionNav();
     initChibiHints();
