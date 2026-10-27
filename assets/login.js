@@ -947,6 +947,78 @@
     setInterval(poll, 15000);
   }
 
+  function initExplorerTree() {
+    var STORAGE_KEY = 'thrall_expanded_dirs';
+    function loadExpanded() {
+      try {
+        var raw = sessionStorage.getItem(STORAGE_KEY);
+        var arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) {
+        return [];
+      }
+    }
+    function saveExpanded(list) {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {}
+    }
+    function getDirectChildren(targetKey) {
+      var rows = document.querySelectorAll('tr.tree-child[data-parent]');
+      var out = [];
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i].getAttribute('data-parent') === targetKey) out.push(rows[i]);
+      }
+      return out;
+    }
+    function setBranchExpanded(btn, expand, persist) {
+      if (!btn) return;
+      var targetKey = btn.getAttribute('data-target');
+      if (!targetKey) return;
+      btn.setAttribute('aria-expanded', expand ? 'true' : 'false');
+      btn.textContent = expand ? '\u2212' : '+';
+      var kids = getDirectChildren(targetKey);
+      for (var i = 0; i < kids.length; i++) {
+        kids[i].style.display = expand ? '' : 'none';
+        if (!expand) {
+          var subBtns = kids[i].querySelectorAll('.tree-toggle[aria-expanded="true"]');
+          for (var j = 0; j < subBtns.length; j++) {
+            setBranchExpanded(subBtns[j], false, false);
+          }
+        }
+      }
+      if (persist) {
+        var openBtns = document.querySelectorAll('.tree-toggle[aria-expanded="true"]');
+        var keys = [];
+        for (var k = 0; k < openBtns.length; k++) {
+          var tk = openBtns[k].getAttribute('data-target');
+          if (tk) keys.push(tk);
+        }
+        saveExpanded(keys);
+      }
+    }
+    var saved = loadExpanded();
+    if (saved.length) {
+      for (var s = 0; s < saved.length; s++) {
+        var allBtns = document.querySelectorAll('.tree-toggle[data-target]');
+        for (var b = 0; b < allBtns.length; b++) {
+          if (allBtns[b].getAttribute('data-target') === saved[s]) {
+            setBranchExpanded(allBtns[b], true, false);
+          }
+        }
+      }
+    }
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+      var btn = t.closest('.tree-toggle[data-target]');
+      if (!btn) return;
+      e.preventDefault();
+      var isExp = btn.getAttribute('aria-expanded') === 'true';
+      setBranchExpanded(btn, !isExp, true);
+    });
+  }
+
   function start() {
     initPalette();
     renderHeaderWordmark();
@@ -954,6 +1026,7 @@
     initSectionNav();
     initChibiHints();
     initTelemetryPolling();
+    initExplorerTree();
   }
 
   if (document.readyState === 'loading') {

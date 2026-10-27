@@ -124,6 +124,7 @@ mod tests {
     use crate::render_portal::{render_dashboard_page, render_login_page};
 
     #[test]
+    #[rustfmt::skip]
     fn test_tabs_security_pending_folders_and_shares() {
         assert!(sanitize_rel_subpath("../etc/passwd").is_err());
         assert!(sanitize_rel_subpath(".ssh/id_rsa").is_err());
@@ -204,25 +205,19 @@ mod tests {
         let user_html = render_dashboard_page("bob", false, &store, &snap, 3, "", "", None, None);
         assert!(!user_html.contains("3. Access Control") && !user_html.contains("4. Mesh Hubs"));
         assert!(user_html.contains("1. Explorer") && user_html.contains("2. Spokes &amp; Setup"));
-        assert!(user_html.contains("Shared / Ops/") && !user_html.contains("pending-folder"));
-        assert!(
-            user_html.contains("name=\"browse\" value=\"\"")
-                && user_html.contains("name=\"item\" value=\"shared:Ops\"")
-        );
+        assert!(user_html.contains("1A. User Vault") && user_html.contains("1B. Shared Vault"));
+        assert!(user_html.contains("&#127760; Ops/") && !user_html.contains("Shared / Ops/"));
+        assert!(user_html.contains("<th>Share</th><th style=\"text-align:right\">Action</th>"));
+        assert!(user_html.contains("class=\"tree-toggle\" data-target=\"shared:Ops\""));
         assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
 
-        let empty_h = render_dashboard_page(
-            "emptyuser",
-            false,
-            &store,
-            &snap,
-            1,
-            "personal",
-            "",
-            None,
-            None,
-        );
+        let empty_h =
+            render_dashboard_page("emptyuser", false, &store, &snap, 1, "personal", "", None, None);
         assert!(empty_h.contains("0 folders accessible yet. Create a personal folder below."));
+
+        let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
+        assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/"));
+        assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\""));
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);

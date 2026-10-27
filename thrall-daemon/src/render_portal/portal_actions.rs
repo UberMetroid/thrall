@@ -17,6 +17,7 @@ use crate::reconcile_mesh::{
 use crate::render_portal::admin_actions::{handle_admin_post_action, short_id};
 use crate::render_portal::render_dashboard_page;
 
+#[rustfmt::skip]
 #[allow(clippy::too_many_arguments)]
 pub fn handle_post_action(
     stream: &mut TcpStream,
@@ -52,19 +53,12 @@ pub fn handle_post_action(
             let _ = store.save(&cfg.portal.database_path);
             let flow = fname.to_ascii_lowercase();
             let base = format!("user-{username}-{flow}");
-            for id in [
-                base.clone(),
-                format!("{base}-mesh"),
-                syncthing_folder_id(&format!("user:{username}:{flow}:mesh")),
-            ] {
+            for id in [base.clone(), format!("{base}-mesh"), syncthing_folder_id(&format!("user:{username}:{flow}:mesh"))] {
                 purge_folder_from_fleet(cfg, &snap.nodes, &id);
             }
             for d in store.users.get(username).into_iter().flatten() {
                 let sid = short_id(&d.device_id);
-                for cfid in [
-                    format!("{base}-{sid}"),
-                    syncthing_folder_id(&format!("user:{username}:{flow}:{sid}")),
-                ] {
+                for cfid in [format!("{base}-{sid}"), syncthing_folder_id(&format!("user:{username}:{flow}:{sid}"))] {
                     purge_folder_from_fleet(cfg, &snap.nodes, &cfid);
                 }
             }
@@ -78,95 +72,50 @@ pub fn handle_post_action(
     }
     if path == "/folders/mkdir" {
         let (br, sub) = (fval("browse"), fval("sub"));
-        if let (Ok(d), Some((_, base, rel))) = (
-            sanitize_folder_name(fval("dirname")),
-            resolve_jailed_path(username, store, br, sub),
-        ) {
+        if let (Ok(d), Some((_, base, rel))) = (sanitize_folder_name(fval("dirname")), resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::create_dir_all(base.join(&d));
-            let nsub = if rel.is_empty() {
-                d
-            } else {
-                format!("{rel}/{d}")
-            };
-            let u = format!("/?tab=1&browse={br}&sub={nsub}&ok=Folder+created");
-            write_redirect(stream, &u, "");
+            let nsub = if rel.is_empty() { d } else { format!("{rel}/{d}") };
+            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={nsub}&ok=Folder+created"), "");
         } else {
-            let u = format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+subfolder+name");
-            write_redirect(stream, &u, "");
+            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+subfolder+name"), "");
         }
         return true;
     }
     if path == "/files/create" {
         let (br, sub, fnm) = (fval("browse"), fval("sub"), fval("filename").trim());
-        let valid_fn = !fnm.is_empty()
-            && !fnm.starts_with('.')
-            && fnm.len() <= 64
-            && fnm
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
-        if let (true, Some((_, base, _))) =
-            (valid_fn, resolve_jailed_path(username, store, br, sub))
-        {
+        let valid_fn = !fnm.is_empty() && !fnm.starts_with('.') && fnm.len() <= 64 && fnm.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+        if let (true, Some((_, base, _))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::write(base.join(fnm), fval("content").as_bytes());
-            write_redirect(
-                stream,
-                &format!("/?tab=1&browse={br}&sub={sub}&ok=File+saved"),
-                "",
-            );
+            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={sub}&ok=File+saved"), "");
         } else {
-            write_redirect(
-                stream,
-                &format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+file+name"),
-                "",
-            );
+            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+file+name"), "");
         }
         return true;
     }
     if path == "/files/delete" {
         let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
-        if let Some((_, fp, rel_i)) = resolve_jailed_path(username, store, br, item) {
+        let (s_br, i_rel) = if br.is_empty() { item.split_once('/').unwrap_or((item, "")) } else { (br, item) };
+        if let Some((_, fp, rel_i)) = resolve_jailed_path(username, store, s_br, i_rel) {
             if !rel_i.is_empty() {
-                if fp.is_dir() {
-                    let _ = fs::remove_dir_all(&fp);
-                } else {
-                    let _ = fs::remove_file(&fp);
-                }
+                if fp.is_dir() { let _ = fs::remove_dir_all(&fp); } else { let _ = fs::remove_file(&fp); }
             }
         }
-        write_redirect(
-            stream,
-            &format!("/?tab=1&browse={br}&sub={sub}&ok=Item+deleted"),
-            "",
-        );
+        let u = if br.is_empty() { "/?tab=1&ok=Item+deleted".to_string() } else { format!("/?tab=1&browse={br}&sub={sub}&ok=Item+deleted") };
+        write_redirect(stream, &u, "");
         return true;
     }
     if path == "/shares/toggle" {
         let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
-        let (s_br, i_rel) = if br.is_empty() {
-            (item, "")
-        } else {
-            (br, item)
-        };
+        let (s_br, i_rel) = if br.is_empty() { item.split_once('/').unwrap_or((item, "")) } else { (br, item) };
         if let Some((_, _, clean_item)) = resolve_jailed_path(username, store, s_br, i_rel) {
-            let scope = if let Some(pf) = s_br
-                .strip_prefix("personal:")
-                .or_else(|| s_br.strip_prefix("personal/"))
-            {
-                format!("personal:{username}:{pf}")
-            } else {
-                s_br.to_string()
-            };
-            let target = if clean_item.is_empty() {
-                scope
-            } else {
-                format!("{scope}/{clean_item}")
-            };
+            let scope = if let Some(pf) = s_br.strip_prefix("personal:").or_else(|| s_br.strip_prefix("personal/")) { format!("personal:{username}:{pf}") } else { s_br.to_string() };
+            let target = if clean_item.is_empty() { scope } else { format!("{scope}/{clean_item}") };
             let tok = compute_share_token(&target);
             if store.public_shares.remove(&tok).is_none() {
                 store.public_shares.insert(tok, target);
             }
             let _ = store.save(&cfg.portal.database_path);
-            let u = format!("/?tab=1&browse={br}&sub={sub}&ok=Share+mode+updated");
+            let u = if br.is_empty() { "/?tab=1&ok=Share+mode+updated".to_string() } else { format!("/?tab=1&browse={br}&sub={sub}&ok=Share+mode+updated") };
             write_redirect(stream, &u, "");
             return true;
         }
@@ -184,17 +133,7 @@ pub fn handle_post_action(
                 write_redirect(stream, "/?tab=2&ok=Spoke+provisioned+across+fleet", "");
             }
             Err(e) => {
-                let p = render_dashboard_page(
-                    username,
-                    is_admin,
-                    store,
-                    snap,
-                    2,
-                    "",
-                    "",
-                    None,
-                    Some(&e),
-                );
+                let p = render_dashboard_page(username, is_admin, store, snap, 2, "", "", None, Some(&e));
                 write_html(stream, "400 Bad Request", &p);
             }
         }
