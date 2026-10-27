@@ -188,7 +188,7 @@ mod tests {
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
         assert!(h.contains("id=\"sec-thrall\"") && h.contains("id=\"sec-telemetry\""));
         assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\""));
-        assert!(h.contains("id=\"nav-arrow-up\"") && h.contains("id=\"nav-arrow-down\""));
+        assert!(!h.contains("nav-arrow-up") && !h.contains("THRALL MESH //"));
         assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
         assert!(h.contains("data-mesh-bearings="));
         for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
