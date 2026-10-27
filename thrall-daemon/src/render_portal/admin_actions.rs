@@ -1,4 +1,4 @@
-//! Admin POST form handlers (Tab 4 shared folder ACLs & Tab 5 Thrall Nodes) for THRALL.
+//! Admin POST form handlers (Tab 3 shared folder ACLs & Tab 4 Mesh Hubs) for THRALL.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -60,7 +60,7 @@ pub fn handle_admin_post_action(
     let fval = |k: &str| form.get(k).map(String::as_str).unwrap_or("");
     if path == "/reconcile" {
         *snap = reconcile_fleet(cfg, store);
-        write_redirect(stream, "/?tab=5&ok=Fleet+mesh+reconciled", "");
+        write_redirect(stream, "/?tab=4&ok=Fleet+mesh+reconciled", "");
         return true;
     }
     if path == "/admin/shared/delete" {
@@ -91,10 +91,10 @@ pub fn handle_admin_post_action(
                 let _ = fs::remove_dir_all(format!("/shared/{fname}"));
             }
             snap.shared_completion.remove(&fname);
-            write_redirect(stream, "/?tab=4&ok=Shared+folder+deleted", "");
+            write_redirect(stream, "/?tab=3&ok=Shared+folder+deleted", "");
             return true;
         }
-        write_redirect(stream, "/?tab=4&err=Cannot+delete+shared+folder", "");
+        write_redirect(stream, "/?tab=3&err=Cannot+delete+shared+folder", "");
         return true;
     }
     if path.starts_with("/admin/shared/") {
@@ -126,11 +126,11 @@ pub fn handle_admin_post_action(
             provision_single_folder(cfg, snap, store, None, &fname);
             write_redirect(
                 stream,
-                "/?tab=4&ok=Shared+folder+provisioned!+Authorized+users+should+open+http://127.0.0.1:8384+on+their+Spoke+to+accept+the+share.",
+                "/?tab=3&ok=Shared+folder+provisioned!+Authorized+users+should+open+http://127.0.0.1:8384+on+their+Spoke+to+accept+the+share.",
                 "",
             );
         } else {
-            write_redirect(stream, "/?tab=4&err=Invalid+shared+folder+name", "");
+            write_redirect(stream, "/?tab=3&err=Invalid+shared+folder+name", "");
         }
         return true;
     }
@@ -147,11 +147,11 @@ pub fn handle_admin_post_action(
                 cfg.servers.push(node);
                 let _ = save_fleet_config("/config/fleet.yaml", cfg);
                 *snap = reconcile_fleet(cfg, store);
-                write_redirect(stream, "/?tab=5&ok=Mesh+Hub+added+to+fleet", "");
+                write_redirect(stream, "/?tab=4&ok=Mesh+Hub+added+to+fleet", "");
                 return true;
             }
         }
-        write_redirect(stream, "/?tab=5&err=Invalid+Mesh+Hub+name+or+host", "");
+        write_redirect(stream, "/?tab=4&err=Invalid+Mesh+Hub+name+or+host", "");
         return true;
     }
     let srv = fval("server").trim();
@@ -169,7 +169,7 @@ pub fn handle_admin_post_action(
         }
         let _ = store.save(&cfg.portal.database_path);
         *snap = reconcile_fleet(cfg, store);
-        write_redirect(stream, "/?tab=5&ok=Server+mesh+connection+updated", "");
+        write_redirect(stream, "/?tab=4&ok=Server+mesh+connection+updated", "");
         return true;
     }
     false

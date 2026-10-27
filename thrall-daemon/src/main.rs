@@ -201,20 +201,26 @@ mod tests {
             assert!(!h.contains(w));
         }
         assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
-        let user_html = render_dashboard_page("bob", false, &store, &snap, 4, "", "", None, None);
-        assert!(!user_html.contains("4. Access Control"));
-        assert!(!user_html.contains("5. Mesh Hubs"));
-        assert!(user_html.contains("3. Spokes"));
-        assert!(user_html.contains("pending-folder"));
-        assert!(
-            user_html.contains("THRALL — Tool for Hierarchical Replication And Identity Linking")
-        );
+        let user_html = render_dashboard_page("bob", false, &store, &snap, 3, "", "", None, None);
+        assert!(!user_html.contains("3. Access Control") && !user_html.contains("4. Mesh Hubs"));
+        assert!(user_html.contains("1. Explorer") && user_html.contains("2. Spokes &amp; Setup"));
+        assert!(user_html.contains("Shared / Ops/") && !user_html.contains("pending-folder"));
         assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
 
-        let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
-        assert!(admin_html.contains("4. Access Control"));
-        assert!(admin_html.contains("5. Mesh Hubs") && admin_html.contains("Add Mesh Hub"));
-        assert!(!admin_html.contains("LDAP") && !admin_html.contains("ahamkara"));
+        let br = "personal:Documents";
+        let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);
+        assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents"));
+
+        let s2 = render_dashboard_page("alice", false, &store, &snap, 2, "", "", None, None);
+        assert!(s2.contains("2A. Enrolled Spokes") && s2.contains("2B. Per-Spoke Folder"));
+        assert!(s2.contains("2C. Two-Way Hub &amp; Spoke") && s2.contains("pending-folder"));
+
+        let acl_html = render_dashboard_page("admin", true, &store, &snap, 3, "", "", None, None);
+        assert!(acl_html.contains("3. Access Control") && acl_html.contains("Apply ACL"));
+
+        let admin_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
+        assert!(admin_html.contains("3. Access Control") && admin_html.contains("4. Mesh Hubs"));
+        assert!(admin_html.contains("Add Mesh Hub") && !admin_html.contains("LDAP"));
 
         let tmp_base = std::env::temp_dir().join("thrall_test_jail");
         let _ = std::fs::create_dir_all(&tmp_base);

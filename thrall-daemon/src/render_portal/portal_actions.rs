@@ -183,7 +183,7 @@ pub fn handle_post_action(
         match res {
             Ok(()) => {
                 *snap = reconcile_fleet(cfg, store);
-                write_redirect(stream, "/?tab=3&ok=Spoke+provisioned+across+fleet", "");
+                write_redirect(stream, "/?tab=2&ok=Spoke+provisioned+across+fleet", "");
             }
             Err(e) => {
                 let p = render_dashboard_page(
@@ -191,7 +191,7 @@ pub fn handle_post_action(
                     is_admin,
                     store,
                     snap,
-                    3,
+                    2,
                     "",
                     "",
                     None,
@@ -245,7 +245,7 @@ pub fn handle_post_action(
                 }
             }
         }
-        write_redirect(stream, "/?tab=3&ok=Spoke+removed+from+fleet", "");
+        write_redirect(stream, "/?tab=2&ok=Spoke+removed+from+fleet", "");
         return true;
     }
     if is_admin {

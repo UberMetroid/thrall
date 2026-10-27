@@ -136,10 +136,6 @@ header {
   border-radius: 6px;
   padding: 1rem;
 }
-.node-card.pending-folder {
-  opacity: 0.72;
-  border: 1px dashed var(--warn);
-}
 .st-reminder {
   margin-top: 0.45rem;
   padding: 0.4rem 0.65rem;

@@ -1,4 +1,4 @@
-//! Web File Explorer, Share Mode UI, and Admin Tabs (Tab 4 & Tab 5) for THRALL.
+//! Web File Explorer, Share Mode UI, and Admin Tabs (Tab 3 & Tab 4) for THRALL.
 
 use std::fs;
 use std::path::Path;
@@ -87,7 +87,7 @@ fn render_share_cell(user: &str, store: &MeshStore, br: &str, sub: &str, item: &
 pub fn render_device_badges(user: &str, scope_key: &str, store: &MeshStore, snap: &FleetSnapshot) -> (bool, String, String) {
     let devs: Vec<_> = store.users.get(user).into_iter().flatten().collect();
     if devs.is_empty() {
-        return (false, "<span class=\"badge badge-warn\">NO SPOKES</span>".into(), "<div class=\"st-reminder\">&#9888; Enroll a Spoke in Tab 2 / Tab 3 first.</div>".into());
+        return (false, "<span class=\"badge badge-warn\">NO SPOKES</span>".into(), "<div class=\"st-reminder\">&#9888; Enroll a Spoke in Step 1 &amp; Step 2 below first.</div>".into());
     }
     let (mut chips, mut missing) = (String::from("<div class=\"row\" style=\"gap:0.35rem;margin-top:0.35rem\">"), Vec::new());
     for d in &devs {
@@ -112,23 +112,32 @@ pub fn render_device_badges(user: &str, scope_key: &str, store: &MeshStore, snap
 
 #[rustfmt::skip]
 pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &str) -> String {
-    let f = store
-        .folders_for_user(user)
-        .into_iter()
-        .next()
-        .unwrap_or_default();
-    let def_br = format!("personal:{f}");
-    let br = if browse.is_empty() || browse == "personal" {
-        def_br.as_str()
-    } else {
-        browse
-    };
-    let Some((label, dir_path, rel)) = resolve_jailed_path(user, store, br, sub) else {
+    if browse.is_empty() {
+        let mut rows = String::new();
+        for f in store.folders_for_user(user) {
+            let f_esc = escape_html(&f);
+            let br_p = format!("personal:{f}");
+            let sh_btn = render_share_cell(user, store, &br_p, "", "");
+            let del_f = format!("<form method=\"POST\" action=\"/user/folders/delete\" style=\"display:inline\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><button type=\"submit\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\">Delete</button></form>");
+            rows.push_str(&format!("<tr><td><a href=\"/?tab=1&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:700\">&#128193; Personal / {f_esc}/</a></td><td><span class=\"badge badge-online\">Personal Vault</span></td><td style=\"text-align:right\">{sh_btn} <a href=\"/?tab=1&amp;browse=personal:{f_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Open</a> {del_f}</td></tr>"));
+        }
+        for (fname, _) in store.shared_folders.iter().filter(|(_, a)| a.contains(user)) {
+            let f_esc = escape_html(fname);
+            let br_s = format!("shared:{fname}");
+            let sh_btn = render_share_cell(user, store, &br_s, "", "");
+            rows.push_str(&format!("<tr><td><a href=\"/?tab=1&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:700\">&#127760; Shared / {f_esc}/</a></td><td><span class=\"badge badge-admin\">Shared Vault</span></td><td style=\"text-align:right\">{sh_btn} <a href=\"/?tab=1&amp;browse=shared:{f_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Open</a></td></tr>"));
+        }
+        if rows.is_empty() {
+            rows.push_str("<tr><td colspan=\"3\" style=\"color:var(--muted)\">0 folders accessible yet. Create a personal folder below.</td></tr>");
+        }
+        return format!("<div class=\"card\"><div class=\"node-header\"><h2>1. Explorer &mdash; All Accessible Folders</h2><span class=\"badge badge-online\">PERSONAL &amp; SHARED VAULTS</span></div><table><thead><tr><th>Folder</th><th>Scope</th><th style=\"text-align:right\">Share / Action</th></tr></thead><tbody>{rows}</tbody></table><form method=\"POST\" action=\"/user/folders/create\" style=\"margin-top:0.95rem;padding-top:0.85rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Personal Folder Name (e.g. Projects)\"></div><button type=\"submit\">+ Create Personal Folder</button></div></form></div>");
+    }
+    let Some((label, dir_path, rel)) = resolve_jailed_path(user, store, browse, sub) else {
         return String::new();
     };
-    let (br_esc, lbl_esc, rel_esc) = (escape_html(br), escape_html(&label), escape_html(&rel));
+    let (br_esc, lbl_esc, rel_esc) = (escape_html(browse), escape_html(&label), escape_html(&rel));
     let mut crumbs = format!(
-        "<a href=\"/?tab=1&amp;browse={br_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">&#128194; {lbl_esc}</a>"
+        "<a href=\"/?tab=1\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">All Folders</a> / <a href=\"/?tab=1&amp;browse={br_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">&#128194; {lbl_esc}</a>"
     );
     let mut accum = String::new();
     for seg in rel.split('/').filter(|s| !s.is_empty()) {
@@ -141,7 +150,7 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
             " / <a href=\"/?tab=1&amp;browse={br_esc}&amp;sub={a_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">{s_esc}</a>"
         ));
     }
-    let dir_share = render_share_cell(user, store, br, &rel, &rel);
+    let dir_share = render_share_cell(user, store, browse, &rel, &rel);
     let mut entries = Vec::new();
     if let Ok(rd) = fs::read_dir(&dir_path) {
         for e in rd.flatten() {
@@ -165,7 +174,7 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
             format!("{rel}/{name}")
         };
         let next = escape_html(&item_rel);
-        let sh_btn = render_share_cell(user, store, br, &rel, &item_rel);
+        let sh_btn = render_share_cell(user, store, browse, &rel, &item_rel);
         let del_f = format!("<form method=\"POST\" action=\"/files/delete\" style=\"display:inline\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><input type=\"hidden\" name=\"item\" value=\"{next}\"><button type=\"submit\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\">Delete</button></form>");
         if is_dir {
             rows.push_str(&format!(
@@ -186,13 +195,13 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
         rows.push_str("<tr><td colspan=\"3\" style=\"color:var(--muted)\">Empty</td></tr>");
     }
     format!(
-        "<div class=\"card\"><div class=\"node-header\"><h2>Explorer</h2><div class=\"row\">{crumbs} {dir_share}</div></div><table><thead><tr><th>Name</th><th>Size</th><th style=\"text-align:right\">Share / Action</th></tr></thead><tbody>{rows}</tbody></table><div class=\"row\" style=\"margin-top:0.9rem;padding-top:0.8rem;border-top:1px solid var(--border);gap:0.75rem\"><form method=\"POST\" action=\"/folders/mkdir\" class=\"row\" style=\"flex:1;min-width:260px\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div style=\"flex:1\"><input type=\"text\" name=\"dirname\" required placeholder=\"Subfolder Name\"></div><button type=\"submit\" class=\"btn-secondary\">+ Subfolder</button></form><form method=\"POST\" action=\"/files/create\" class=\"row\" style=\"flex:2;min-width:340px\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div style=\"width:170px\"><input type=\"text\" name=\"filename\" required placeholder=\"File (e.g. note.md)\"></div><div style=\"flex:1\"><input type=\"text\" name=\"content\" placeholder=\"File contents\"></div><button type=\"submit\">Save File</button></form></div></div>"
+        "<div class=\"card\"><div class=\"node-header\"><h2>1. Explorer</h2><div class=\"row\">{crumbs} {dir_share}</div></div><table><thead><tr><th>Name</th><th>Size</th><th style=\"text-align:right\">Share / Action</th></tr></thead><tbody>{rows}</tbody></table><div class=\"row\" style=\"margin-top:0.9rem;padding-top:0.8rem;border-top:1px solid var(--border);gap:0.75rem\"><form method=\"POST\" action=\"/folders/mkdir\" class=\"row\" style=\"flex:1;min-width:260px\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div style=\"flex:1\"><input type=\"text\" name=\"dirname\" required placeholder=\"Subfolder Name\"></div><button type=\"submit\" class=\"btn-secondary\">+ Subfolder</button></form><form method=\"POST\" action=\"/files/create\" class=\"row\" style=\"flex:2;min-width:340px\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div style=\"width:170px\"><input type=\"text\" name=\"filename\" required placeholder=\"File (e.g. note.md)\"></div><div style=\"flex:1\"><input type=\"text\" name=\"content\" placeholder=\"File contents\"></div><button type=\"submit\">Save File</button></form></div></div>"
     )
 }
 
 #[rustfmt::skip]
 pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> String {
-    if tab == 4 {
+    if tab == 3 {
         let mut sh_rows = String::new();
         for (fname, allowed) in &store.shared_folders {
             let (f_esc, is_root) = (escape_html(fname), fname == "Shared");
@@ -209,7 +218,7 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
             let fid_esc = escape_html(&fid);
             sh_rows.push_str(&format!("<div class=\"node-card\"><div class=\"node-header\"><div><strong style=\"font-size:0.95rem\">{f_esc}</strong> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">{fid_esc}</code> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">/shared{sub}</code></div>{del_btn}</div><form method=\"POST\" action=\"/admin/shared/update\" style=\"margin-top:0.55rem\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><div class=\"acl-user-grid\">{checks}</div><div style=\"margin-top:0.65rem;text-align:right\"><button type=\"submit\" class=\"btn-secondary\">Apply ACL</button></div></form></div>"));
         }
-        return format!("<div class=\"card\"><h2>4. Access Control — Top-Level Shared Folders (Outside &lt;user&gt;)</h2><div class=\"grid\">{sh_rows}</div><form method=\"POST\" action=\"/admin/shared/create\" style=\"margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:240px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Top-Level Shared Folder Name (e.g. Engineering)\"></div><button type=\"submit\">Create Shared Folder</button></div></form></div>");
+        return format!("<div class=\"card\"><h2>3. Access Control — Top-Level Shared Folders (Outside &lt;user&gt;)</h2><div class=\"grid\">{sh_rows}</div><form method=\"POST\" action=\"/admin/shared/create\" style=\"margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:240px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Top-Level Shared Folder Name (e.g. Engineering)\"></div><button type=\"submit\">Create Shared Folder</button></div></form></div>");
     }
     let mut srv_cards = String::new();
     for node in &snap.nodes {
@@ -235,5 +244,5 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
     if all_rows.is_empty() {
         all_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 enrolled spokes.</td></tr>");
     }
-    format!("<div class=\"card\"><div class=\"node-header\"><h2>5. Mesh Hubs</h2><form method=\"POST\" action=\"/reconcile\"><button type=\"submit\" class=\"btn-secondary\">Reconcile</button></form></div><div class=\"grid\" style=\"margin-bottom:1rem\">{srv_cards}</div><form method=\"POST\" action=\"/admin/servers/add\" style=\"margin:1rem 0;padding:0.9rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:180px\"><input type=\"text\" name=\"name\" required placeholder=\"Hub Name (e.g. hyperion)\"></div><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"host\" required placeholder=\"Tailscale IP / Host (e.g. 100.x.y.z)\"></div><button type=\"submit\">Add Mesh Hub</button></div></form><table><thead><tr><th>Principal</th><th>Spoke Name</th><th>Spoke Device ID</th><th>Scope</th></tr></thead><tbody>{all_rows}</tbody></table></div>")
+    format!("<div class=\"card\"><div class=\"node-header\"><h2>4. Mesh Hubs</h2><form method=\"POST\" action=\"/reconcile\"><button type=\"submit\" class=\"btn-secondary\">Reconcile</button></form></div><div class=\"grid\" style=\"margin-bottom:1rem\">{srv_cards}</div><form method=\"POST\" action=\"/admin/servers/add\" style=\"margin:1rem 0;padding:0.9rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:180px\"><input type=\"text\" name=\"name\" required placeholder=\"Hub Name (e.g. hyperion)\"></div><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"host\" required placeholder=\"Tailscale IP / Host (e.g. 100.x.y.z)\"></div><button type=\"submit\">Add Mesh Hub</button></div></form><table><thead><tr><th>Principal</th><th>Spoke Name</th><th>Spoke Device ID</th><th>Scope</th></tr></thead><tbody>{all_rows}</tbody></table></div>")
 }
