@@ -174,11 +174,16 @@ pub fn render_dashboard_page(
             if devs_rows.is_empty() {
                 devs_rows.push_str("<tr><td colspan=\"3\" style=\"color:var(--muted)\">0 enrolled spokes. Follow Step 1 &amp; Step 2 below to enroll a Spoke.</td></tr>");
             }
-            let sid = store.users.get(username).and_then(|d| d.first()).and_then(|d| d.device_id.split('-').next()).unwrap_or("mesh").to_ascii_lowercase();
+            let u_devs: Vec<_> = store.users.get(username).into_iter().flatten().collect();
+            let sids: Vec<String> = if u_devs.is_empty() {
+                vec!["mesh".into()]
+            } else {
+                u_devs.iter().map(|d| d.device_id.split('-').next().unwrap_or("mesh").to_ascii_lowercase()).collect()
+            };
             let mut sync_cards = String::new();
             for f in store.folders_for_user(username) {
                 let (f_esc, flow, k) = (escape_html(&f), f.to_ascii_lowercase(), format!("{username}:{f}"));
-                let fid = escape_html(&syncthing_folder_id(&format!("user:{username}:{flow}:{sid}")));
+                let fid = sids.iter().map(|s| escape_html(&syncthing_folder_id(&format!("user:{username}:{flow}:{s}")))).collect::<Vec<_>>().join(", ");
                 let pct = online_nodes.iter().filter_map(|n| snap.user_completion.get(&(k.clone(), n.name.clone())).copied()).min().unwrap_or(100);
                 let (acc, badge, rem) = explorer_view::render_device_badges(username, &format!("user:{k}"), store, snap);
                 let (cls, st) = if acc { ("node-card", "") } else { ("node-card pending-folder", " style=\"opacity:0.75;border:1px dashed var(--warn)\"") };
@@ -186,7 +191,7 @@ pub fn render_dashboard_page(
             }
             for (fname, _) in store.shared_folders.iter().filter(|(_, a)| a.contains(username)) {
                 let (f_esc, flow) = (escape_html(fname), fname.to_ascii_lowercase());
-                let fid = escape_html(&syncthing_folder_id(&format!("shared:{flow}:{sid}")));
+                let fid = sids.iter().map(|s| escape_html(&syncthing_folder_id(&format!("shared:{flow}:{s}")))).collect::<Vec<_>>().join(", ");
                 let pct = snap.shared_completion.get(fname).copied().unwrap_or(100);
                 let (acc, s_badge, s_rem) = explorer_view::render_device_badges(username, &format!("shared:{fname}"), store, snap);
                 let (s_cls, s_st) = if acc { ("node-card", "") } else { ("node-card pending-folder", " style=\"opacity:0.75;border:1px dashed var(--warn)\"") };

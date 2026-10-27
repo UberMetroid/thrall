@@ -59,11 +59,16 @@ fn browse_scope(user: &str, store: &MeshStore, br: &str) -> String {
 }
 
 fn render_share_cell(user: &str, store: &MeshStore, br: &str, sub: &str, item: &str) -> String {
-    let scope = browse_scope(user, store, br);
-    let target = if item.is_empty() {
+    let (s_br, i_rel) = if br.is_empty() {
+        (item, "")
+    } else {
+        (br, item)
+    };
+    let scope = browse_scope(user, store, s_br);
+    let target = if i_rel.is_empty() {
         scope
     } else {
-        format!("{scope}/{item}")
+        format!("{scope}/{i_rel}")
     };
     let tok = compute_share_token(&target);
     let on = store.public_shares.contains_key(&tok);
@@ -112,19 +117,19 @@ pub fn render_device_badges(user: &str, scope_key: &str, store: &MeshStore, snap
 
 #[rustfmt::skip]
 pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &str) -> String {
-    if browse.is_empty() {
+    if browse.is_empty() || browse == "personal" {
         let mut rows = String::new();
         for f in store.folders_for_user(user) {
             let f_esc = escape_html(&f);
             let br_p = format!("personal:{f}");
-            let sh_btn = render_share_cell(user, store, &br_p, "", "");
+            let sh_btn = render_share_cell(user, store, "", "", &br_p);
             let del_f = format!("<form method=\"POST\" action=\"/user/folders/delete\" style=\"display:inline\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><button type=\"submit\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\">Delete</button></form>");
             rows.push_str(&format!("<tr><td><a href=\"/?tab=1&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:700\">&#128193; Personal / {f_esc}/</a></td><td><span class=\"badge badge-online\">Personal Vault</span></td><td style=\"text-align:right\">{sh_btn} <a href=\"/?tab=1&amp;browse=personal:{f_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Open</a> {del_f}</td></tr>"));
         }
         for (fname, _) in store.shared_folders.iter().filter(|(_, a)| a.contains(user)) {
             let f_esc = escape_html(fname);
             let br_s = format!("shared:{fname}");
-            let sh_btn = render_share_cell(user, store, &br_s, "", "");
+            let sh_btn = render_share_cell(user, store, "", "", &br_s);
             rows.push_str(&format!("<tr><td><a href=\"/?tab=1&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:700\">&#127760; Shared / {f_esc}/</a></td><td><span class=\"badge badge-admin\">Shared Vault</span></td><td style=\"text-align:right\">{sh_btn} <a href=\"/?tab=1&amp;browse=shared:{f_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Open</a></td></tr>"));
         }
         if rows.is_empty() {

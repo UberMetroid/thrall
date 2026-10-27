@@ -142,21 +142,19 @@ pub fn handle_post_action(
     }
     if path == "/shares/toggle" {
         let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
-        if let Some((_, _, clean_item)) = resolve_jailed_path(username, store, br, item) {
-            let scope = if br.is_empty() || br == "personal" {
-                let first = store
-                    .folders_for_user(username)
-                    .into_iter()
-                    .next()
-                    .unwrap_or_default();
-                format!("personal:{username}:{first}")
-            } else if let Some(pf) = br
+        let (s_br, i_rel) = if br.is_empty() {
+            (item, "")
+        } else {
+            (br, item)
+        };
+        if let Some((_, _, clean_item)) = resolve_jailed_path(username, store, s_br, i_rel) {
+            let scope = if let Some(pf) = s_br
                 .strip_prefix("personal:")
-                .or_else(|| br.strip_prefix("personal/"))
+                .or_else(|| s_br.strip_prefix("personal/"))
             {
                 format!("personal:{username}:{pf}")
             } else {
-                br.to_string()
+                s_br.to_string()
             };
             let target = if clean_item.is_empty() {
                 scope

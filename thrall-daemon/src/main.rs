@@ -205,7 +205,24 @@ mod tests {
         assert!(!user_html.contains("3. Access Control") && !user_html.contains("4. Mesh Hubs"));
         assert!(user_html.contains("1. Explorer") && user_html.contains("2. Spokes &amp; Setup"));
         assert!(user_html.contains("Shared / Ops/") && !user_html.contains("pending-folder"));
+        assert!(
+            user_html.contains("name=\"browse\" value=\"\"")
+                && user_html.contains("name=\"item\" value=\"shared:Ops\"")
+        );
         assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
+
+        let empty_h = render_dashboard_page(
+            "emptyuser",
+            false,
+            &store,
+            &snap,
+            1,
+            "personal",
+            "",
+            None,
+            None,
+        );
+        assert!(empty_h.contains("0 folders accessible yet. Create a personal folder below."));
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);
