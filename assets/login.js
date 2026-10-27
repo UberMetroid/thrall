@@ -573,7 +573,7 @@
         ctx.fillRect(mx, my, cellPx - 1, cellPx - 1);
         ctx.font = '700 ' + Math.round(11 * dpr) + 'px ui-monospace, monospace';
         ctx.fillStyle = colorSpotHigh;
-        ctx.fillText('NODE-0' + (m + 1), mx + mPad + 6 * dpr, my + 4 * dpr);
+        ctx.fillText('HUB-0' + (m + 1), mx + mPad + 6 * dpr, my + 4 * dpr);
         ctx.restore();
       }
       for (var s = 0; s < miniCount; s++) {
@@ -592,7 +592,7 @@
         ctx.fillRect(sx + off, sy + off, inner, inner);
         ctx.font = '700 ' + Math.round(9.5 * dpr) + 'px ui-monospace, monospace';
         ctx.fillStyle = '#00e5ff';
-        ctx.fillText('WS-0' + (s + 1), sx + pad + 4 * dpr, sy + 3 * dpr);
+        ctx.fillText('SPOKE-0' + (s + 1), sx + pad + 4 * dpr, sy + 3 * dpr);
         ctx.restore();
       }
 

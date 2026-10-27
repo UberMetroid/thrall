@@ -182,13 +182,15 @@ mod tests {
         let snap = FleetSnapshot::default();
         let h = render_login_page(None, &snap, &store);
         assert!(!h.contains("login-sub") && !h.contains("sec-ticker") && !h.contains("sec-chibi"));
-        assert!(h.contains("User or Email") && h.contains("HIVE MESH TELEMETRY"));
+        assert!(h.contains("User or Email") && h.contains("HUB &amp; SPOKE TELEMETRY"));
         assert!(h.contains("THRALL MESH DIRECTOR") && h.contains("Active BEP Links"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
         assert!(h.contains("id=\"sec-thrall\"") && h.contains("id=\"sec-telemetry\""));
         assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\""));
-        assert!(!h.contains("nav-arrow-up") && !h.contains("THRALL MESH //"));
+        assert!(
+            !h.contains("nav-arrow-up") && h.contains("MESH HUB") && h.contains("ENROLLED SPOKE")
+        );
         assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
         assert!(h.contains("data-mesh-bearings="));
         for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
@@ -197,8 +199,8 @@ mod tests {
         assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
         let user_html = render_dashboard_page("bob", false, &store, &snap, 4, "", "", None, None);
         assert!(!user_html.contains("4. Access Control"));
-        assert!(!user_html.contains("5. Thrall Nodes"));
-        assert!(user_html.contains("3. Client Devices"));
+        assert!(!user_html.contains("5. Mesh Hubs"));
+        assert!(user_html.contains("3. Spokes"));
         assert!(user_html.contains("pending-folder"));
         assert!(
             user_html.contains("THRALL — Tool for Hierarchical Replication And Identity Linking")
@@ -207,7 +209,7 @@ mod tests {
 
         let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
         assert!(admin_html.contains("4. Access Control"));
-        assert!(admin_html.contains("5. Thrall Nodes") && admin_html.contains("Add Thrall Node"));
+        assert!(admin_html.contains("5. Mesh Hubs") && admin_html.contains("Add Mesh Hub"));
         assert!(!admin_html.contains("LDAP") && !admin_html.contains("ahamkara"));
 
         let tmp_base = std::env::temp_dir().join("thrall_test_jail");

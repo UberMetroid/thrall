@@ -39,7 +39,7 @@ pub fn handle_post_action(
             let _ = fs::create_dir_all(format!("/users/{username}/{fname}/.stfolder"));
             let _ = store.save(&cfg.portal.database_path);
             provision_single_folder(cfg, snap, store, Some(username), &fname);
-            let u = format!("/?tab=1&browse=personal:{fname}&ok=Personal+folder+created!+Open+http://127.0.0.1:8384+on+your+Client+Device+to+accept+the+new+share.");
+            let u = format!("/?tab=1&browse=personal:{fname}&ok=Personal+folder+created!+Open+http://127.0.0.1:8384+on+your+Spoke+to+accept+the+new+share.");
             write_redirect(stream, &u, "");
         } else {
             write_redirect(stream, "/?tab=1&err=Invalid+folder+name", "");
@@ -183,7 +183,7 @@ pub fn handle_post_action(
         match res {
             Ok(()) => {
                 *snap = reconcile_fleet(cfg, store);
-                write_redirect(stream, "/?tab=3&ok=Device+provisioned+across+fleet", "");
+                write_redirect(stream, "/?tab=3&ok=Spoke+provisioned+across+fleet", "");
             }
             Err(e) => {
                 let p = render_dashboard_page(
@@ -245,7 +245,7 @@ pub fn handle_post_action(
                 }
             }
         }
-        write_redirect(stream, "/?tab=3&ok=Device+removed+from+fleet", "");
+        write_redirect(stream, "/?tab=3&ok=Spoke+removed+from+fleet", "");
         return true;
     }
     if is_admin {

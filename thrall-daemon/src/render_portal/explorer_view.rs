@@ -87,7 +87,7 @@ fn render_share_cell(user: &str, store: &MeshStore, br: &str, sub: &str, item: &
 pub fn render_device_badges(user: &str, scope_key: &str, store: &MeshStore, snap: &FleetSnapshot) -> (bool, String, String) {
     let devs: Vec<_> = store.users.get(user).into_iter().flatten().collect();
     if devs.is_empty() {
-        return (false, "<span class=\"badge badge-warn\">NO CLIENT DEVICES</span>".into(), "<div class=\"st-reminder\">&#9888; Enroll a workstation in Tab 2 / Tab 3 first.</div>".into());
+        return (false, "<span class=\"badge badge-warn\">NO SPOKES</span>".into(), "<div class=\"st-reminder\">&#9888; Enroll a Spoke in Tab 2 / Tab 3 first.</div>".into());
     }
     let (mut chips, mut missing) = (String::from("<div class=\"row\" style=\"gap:0.35rem;margin-top:0.35rem\">"), Vec::new());
     for d in &devs {
@@ -101,10 +101,10 @@ pub fn render_device_badges(user: &str, scope_key: &str, store: &MeshStore, snap
     }
     chips.push_str("</div>");
     if missing.is_empty() {
-        (true, "<span class=\"badge badge-online\">ACCEPTED ON ALL DEVICES</span>".into(), chips)
+        (true, "<span class=\"badge badge-online\">ACCEPTED ON ALL SPOKES</span>".into(), chips)
     } else {
         let m_str = missing.join(", ");
-        let badge = format!("<span class=\"badge badge-warn\">ACCEPTED {}/{} DEVICES</span>", devs.len() - missing.len(), devs.len());
+        let badge = format!("<span class=\"badge badge-warn\">ACCEPTED {}/{} SPOKES</span>", devs.len() - missing.len(), devs.len());
         let rem = format!("{chips}<div class=\"st-reminder\">&#9888; Pending on <strong>{m_str}</strong> &mdash; open <a href=\"http://127.0.0.1:8384\" target=\"_blank\" rel=\"noopener\">http://127.0.0.1:8384</a> on {m_str} to accept this share.</div>");
         (false, badge, rem)
     }
@@ -233,7 +233,7 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
         }
     }
     if all_rows.is_empty() {
-        all_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 enrolled client devices.</td></tr>");
+        all_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 enrolled spokes.</td></tr>");
     }
-    format!("<div class=\"card\"><div class=\"node-header\"><h2>5. Thrall Nodes</h2><form method=\"POST\" action=\"/reconcile\"><button type=\"submit\" class=\"btn-secondary\">Reconcile</button></form></div><div class=\"grid\" style=\"margin-bottom:1rem\">{srv_cards}</div><form method=\"POST\" action=\"/admin/servers/add\" style=\"margin:1rem 0;padding:0.9rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:180px\"><input type=\"text\" name=\"name\" required placeholder=\"Node Name (e.g. hyperion)\"></div><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"host\" required placeholder=\"Tailscale IP / Host (e.g. 100.x.y.z)\"></div><button type=\"submit\">Add Thrall Node</button></div></form><table><thead><tr><th>Principal</th><th>Client Device Name</th><th>Client Device ID</th><th>Scope</th></tr></thead><tbody>{all_rows}</tbody></table></div>")
+    format!("<div class=\"card\"><div class=\"node-header\"><h2>5. Mesh Hubs</h2><form method=\"POST\" action=\"/reconcile\"><button type=\"submit\" class=\"btn-secondary\">Reconcile</button></form></div><div class=\"grid\" style=\"margin-bottom:1rem\">{srv_cards}</div><form method=\"POST\" action=\"/admin/servers/add\" style=\"margin:1rem 0;padding:0.9rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:180px\"><input type=\"text\" name=\"name\" required placeholder=\"Hub Name (e.g. hyperion)\"></div><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"host\" required placeholder=\"Tailscale IP / Host (e.g. 100.x.y.z)\"></div><button type=\"submit\">Add Mesh Hub</button></div></form><table><thead><tr><th>Principal</th><th>Spoke Name</th><th>Spoke Device ID</th><th>Scope</th></tr></thead><tbody>{all_rows}</tbody></table></div>")
 }
