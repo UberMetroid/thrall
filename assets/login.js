@@ -585,48 +585,45 @@
   }
 
   function initChibiHints() {
-    var tips = [
-      {
-        tab: 2,
-        title: 'STEP 1 // TRUST THE MESH GATEWAY',
-        body: 'In Tab 2 (Initial Setup), copy the 56-character Gateway Thrall Node ID, open http://127.0.0.1:8384 on your workstation, click + Add Remote Device, and check [x] Introducer & [x] Auto Accept.'
-      },
-      {
-        tab: 2,
-        title: 'STEP 2 // AUTHORIZE YOUR WORKSTATION',
-        body: 'In your local Syncthing GUI (localhost:8384), click Actions -> Show ID, copy your 56-char Client Device ID, and paste it into Tab 2 or Tab 3 so the Thrall Nodes trust you back!'
-      },
-      {
-        tab: 1,
-        title: 'ACCEPT NEW SHARES IN LOCALHOST:8384',
-        body: 'Whenever you create a Personal Folder (1A) or an admin grants you a Shared Folder (1B), open http://127.0.0.1:8384 on your Client Device to click Accept (unless Auto-Accept is enabled).'
-      },
-      {
-        tab: 1,
-        title: '1A PERSONAL vs. 1B SHARED VAULTS',
-        body: '1A Personal Folders (/users/<you>/<Folder>) are private to your devices. 1B Shared Folders (/shared/<Folder>) are multi-user team vaults managed by admins in Tab 4.'
-      },
-      {
-        tab: 3,
-        title: 'HUB-AND-MESH CLIENT ISOLATION',
-        body: 'Your laptops and workstations (Client Devices) ONLY connect to Regional Thrall Nodes. Client Devices never peer with or see other users\' workstations.'
-      },
-      {
-        tab: 3,
-        title: 'AUTO-DETECTED DEVICE NAMES',
-        body: 'You only need to paste your 56-character Syncthing ID! THRALL automatically learns your workstation\'s hostname on first connection.'
-      },
-      {
-        tab: 1,
-        title: 'INSTANT /s/<token> PUBLIC LINKS',
-        body: 'In the File Explorer (Tab 1), click "Share: OFF" next to any file or subfolder to turn it ON and generate a read-only /s/<token> download link.'
-      },
-      {
-        tab: 4,
-        title: 'ADMIN ACLs & ZERO DOTFILES',
-        body: 'Admins control team folder access in Tab 4 (Access Control) and regional servers in Tab 5 (Thrall Nodes). Dotfiles (.git, .ssh, .config) are never synced.'
-      }
-    ];
+    var tipsByTab = {
+      0: [
+        { title: 'TWO-WAY ZERO-TRUST HANDSHAKE', body: 'Sign in at the top bar, then visit Tab 2 (Initial Setup): add the Gateway Thrall Node ID in your local Syncthing (http://127.0.0.1:8384) and paste your 56-character Client Device ID into THRALL.' },
+        { title: 'HUB-AND-SPOKE PRIVACY', body: 'Your workstations only connect to regional Thrall Nodes over TLS 1.3 BEP—never directly to other users\' laptops or desktops.' },
+        { title: 'EXPLICIT TOP-LEVEL VAULTS', body: 'THRALL never syncs ~/.config or hidden dotfiles. Only explicit 1A Personal Folders and 1B Shared Folders are replicated.' },
+        { title: '8-BIT PALETTE & ORB LIGHT', body: 'Move your cursor to guide the dithered spotlight orb across the mesh cards, or click the 8-bit color swatches in the bottom dock.' }
+      ],
+      1: [
+        { title: 'ACCEPT SHARES AT LOCALHOST:8384', body: 'When a folder card shows PENDING on a workstation, open http://127.0.0.1:8384 on that machine to click Accept (or enable Auto-Accept in Syncthing).' },
+        { title: '1A PERSONAL vs. 1B SHARED VAULTS', body: '1A Personal Folders (/users/<you>/<Folder>) sync only to your own enrolled workstations. 1B Shared Folders (/shared/<Folder>) are multi-user team vaults.' },
+        { title: 'PER-WORKSTATION ACCEPTANCE', body: 'Each folder card shows a badge for every workstation you enrolled (e.g. \u2713 accepted vs. \u23F3 unaccepted) so you know exactly which machine still needs to accept.' },
+        { title: 'INSTANT /s/<token> PUBLIC LINKS', body: 'In the Explorer table below, click "Share: OFF" next to any file or subfolder to toggle it ON and generate a read-only /s/<token> download link.' },
+        { title: 'NATIVE SYNCTHING FOLDER IDs', body: 'Every folder uses a deterministic 5+5 character Syncthing Folder ID (xxxxx-xxxxx) and automatically strips dotfiles and symlinks.' }
+      ],
+      2: [
+        { title: 'STEP 1 // TRUST THE GATEWAY NODE', body: 'Open http://127.0.0.1:8384 on your workstation, click + Add Remote Device, paste the Gateway Thrall Node ID from Step 1 below, and check [x] Introducer & [x] Auto Accept.' },
+        { title: 'STEP 2 // PASTE YOUR 56-CHAR ID', body: 'In your local Syncthing GUI (localhost:8384), click Actions -> Show ID, copy your 56-character Device ID, and paste it into Step 2.' },
+        { title: 'WHY CHECK INTRODUCER & AUTO-ACCEPT?', body: 'Checking [x] Introducer lets the Gateway automatically introduce you to all other regional Thrall Nodes; [x] Auto Accept mounts your 1A & 1B folders without manual prompts.' },
+        { title: 'MESSY PASTE TOLERANCE', body: 'Don\'t worry about spaces or hyphens when pasting your Device ID—THRALL strips formatting noise and verifies all four Base32 Luhn check digits automatically.' }
+      ],
+      3: [
+        { title: 'AUTO-DETECTED WORKSTATION NAMES', body: 'You only need to paste your 56-character Device ID! THRALL automatically learns your workstation\'s hostname from Syncthing as soon as it connects.' },
+        { title: 'MULTI-WORKSTATION SYNC', body: 'Enroll your desktop, laptop, or workstation here. Every Personal (1A) and Shared (1B) folder is automatically pushed to each enrolled device.' },
+        { title: 'CLIENT-TO-CLIENT ISOLATION', body: 'Revoking a device here immediately purges its folder grants and device peering from every regional Thrall Node in under a second.' },
+        { title: 'RE-ENROLLING A DEVICE', body: 'Pasting an already-enrolled Device ID is safe and idempotent—it simply refreshes its folder grants across the regional mesh.' }
+      ],
+      4: [
+        { title: 'MULTI-COLUMN TEAM ACLs', body: 'Check or uncheck users in the aligned columns for any Shared Folder and click Apply ACL to immediately grant or revoke Syncthing shares.' },
+        { title: 'CHECKMARKS MEAN ACCEPTED', body: 'A \u2713 next to a username in the ACL grid means all of that user\'s enrolled workstations have accepted and mounted the shared folder.' },
+        { title: 'TOP-LEVEL SHARED VAULTS', body: 'Shared folders live at /shared/<Folder> outside individual user home directories so team data stays cleanly separated from personal vaults.' },
+        { title: 'INSTANT REVOCATION', body: 'Unchecking a user and clicking Apply ACL immediately deletes that shared folder grant from all of their workstations across every Thrall Node.' }
+      ],
+      5: [
+        { title: 'REGIONAL THRALL BACKBONE', body: 'Regional Thrall Nodes peer in a full server-to-server mesh over port 22000 while serving Client Devices in a hub-and-spoke topology.' },
+        { title: 'MULTIPLEXED SSH CONTROL PLANE', body: 'THRALL manages regional nodes over persistent OpenSSH ControlMaster sockets, keeping folder creation and device revocation sub-second.' },
+        { title: 'ADD OR ISOLATE NODES', body: 'Use Disconnect on any node card to temporarily isolate a regional server from the mesh, or Reconcile to force a full fleet state refresh.' },
+        { title: 'ENROLLING A NEW THRALL NODE', body: 'Enter a node name and Tailscale/mesh IP below to add a new regional server—THRALL will discover its API key and peer it into the mesh.' }
+      ]
+    };
 
     var heroTitle = document.getElementById('chibi-tip-title');
     var heroBody = document.getElementById('chibi-tip-body');
@@ -642,30 +639,28 @@
     if (!heroTitle && !dockTitle) return;
 
     var curTab = dock ? parseInt(dock.getAttribute('data-tab') || '0', 10) : 0;
-    var idx = Math.floor(Math.random() * tips.length);
-    if (curTab > 0) {
-      for (var i = 0; i < tips.length; i++) {
-        if (tips[i].tab === curTab) { idx = i; break; }
-      }
-    }
+    var pool = tipsByTab[curTab] || tipsByTab[0];
+    var tabNames = { 0: 'LOGIN', 1: 'TAB 1 (FILES)', 2: 'TAB 2 (SETUP)', 3: 'TAB 3 (DEVICES)', 4: 'TAB 4 (ACL)', 5: 'TAB 5 (NODES)' };
+    var tLabel = tabNames[curTab] || 'MESH';
+    var idx = Math.floor(Math.random() * pool.length);
 
     function renderTip(i) {
-      var t = tips[i % tips.length];
-      var num = ((i % tips.length) + 1) + '/' + tips.length;
+      var t = pool[i % pool.length];
+      var num = ((i % pool.length) + 1) + '/' + pool.length;
       if (heroTitle && heroBody) {
         heroTitle.textContent = '\uD83D\uDC41 CHIBI THRALL // TIP ' + num + ' — ' + t.title;
         heroBody.textContent = t.body;
       }
       if (dockTitle && dockBody) {
-        dockTitle.textContent = '\uD83D\uDC41 CHIBI HELPER (' + num + ') // ' + t.title;
+        dockTitle.textContent = '\uD83D\uDC41 CHIBI THRALL // ' + tLabel + ' TIP ' + num + ' — ' + t.title;
         dockBody.textContent = t.body;
       }
     }
 
     function advanceTip() {
-      if (tips.length > 1) {
-        var step = 1 + Math.floor(Math.random() * (tips.length - 1));
-        idx = (idx + step) % tips.length;
+      if (pool.length > 1) {
+        var step = 1 + Math.floor(Math.random() * (pool.length - 1));
+        idx = (idx + step) % pool.length;
       }
       renderTip(idx);
     }

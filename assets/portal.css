@@ -646,12 +646,42 @@ details.node-card > summary::-webkit-details-marker { display: none; }
 .chibi-section { width: 100%; padding: 1.1rem 1.25rem; }
 .chibi-card-body { display: flex; align-items: center; gap: 1rem; }
 .chibi-hero-img { width: 72px; height: 72px; border-radius: 12px; border: 1.5px solid var(--border-accent); box-shadow: 0 0 14px var(--phosphor-dim); object-fit: cover; flex-shrink: 0; }
-.chibi-dock { position: fixed; bottom: 20px; left: 20px; z-index: 90; display: flex; align-items: flex-end; gap: 0.75rem; }
-.chibi-mascot { width: 86px; height: 86px; padding: 0; cursor: pointer; border-radius: 16px; border: 2px solid var(--border-accent); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.8), 0 0 16px var(--phosphor-glow); overflow: hidden; transition: transform 0.22s ease, border-color 0.22s ease; background: #080b10; display: block; flex-shrink: 0; animation: float-thrall 4.2s ease-in-out infinite; }
-.chibi-dock:hover .chibi-mascot { transform: translateY(-5px) rotate(-3deg) scale(1.07); border-color: var(--phosphor); }
+.chibi-dock {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--border-accent);
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1.15rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.chibi-mascot {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-accent);
+  box-shadow: 0 0 12px var(--phosphor-dim);
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  background: #080b10;
+  display: block;
+  flex-shrink: 0;
+}
+.chibi-dock:hover .chibi-mascot { transform: scale(1.06); border-color: var(--phosphor); }
 .chibi-mascot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.chibi-bubble { max-width: 340px; background: rgba(11, 15, 23, 0.96); border: 1.5px solid var(--phosphor); border-radius: 10px 10px 10px 2px; padding: 0.65rem 0.85rem; font-family: var(--mono); font-size: 0.75rem; line-height: 1.48; color: var(--text); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.85), 0 0 12px var(--phosphor-dim); opacity: 1; transform: translateY(0); pointer-events: auto; transition: opacity 0.2s ease, transform 0.2s ease; }
-.chibi-bubble strong { color: var(--phosphor); display: block; margin-bottom: 0.15rem; }
+.chibi-bubble {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+.chibi-bubble strong { color: var(--phosphor); display: block; }
 .chibi-bubble a { color: var(--hot); font-weight: 700; text-decoration: underline; }
 @keyframes float-thrall { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (max-width: 640px) {
