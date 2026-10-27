@@ -182,11 +182,9 @@ mod tests {
         let snap = FleetSnapshot::default();
         let h = render_login_page(None, &snap, &store);
         assert!(!h.contains("login-sub") && !h.contains("sec-ticker") && !h.contains("sec-chibi"));
-        assert!(h.contains("User or Email") && h.contains("HUB &amp; SPOKE TELEMETRY"));
-        assert!(h.contains("THRALL MESH DIRECTOR") && h.contains("Active BEP Links"));
+        assert!(h.contains("User or Email") && !h.contains("THRALL MESH DIRECTOR"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
-        assert!(h.contains("id=\"sec-thrall\"") && h.contains("id=\"sec-telemetry\""));
         assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\""));
         assert!(
             !h.contains("nav-arrow-up") && h.contains("MESH HUB") && h.contains("ENROLLED SPOKE")
