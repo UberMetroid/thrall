@@ -380,6 +380,14 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   animation: marquee-scroll 28s linear infinite;
   will-change: transform;
 }
+.tenets-track-rev {
+  animation-direction: reverse;
+  animation-duration: 32s;
+}
+.node-ticker-card {
+  width: 100%;
+  padding: 12px 16px;
+}
 .tenets-marquee-wrap:hover .tenets-track { animation-play-state: paused; }
 .tenet-chip {
   color: var(--text-secondary);

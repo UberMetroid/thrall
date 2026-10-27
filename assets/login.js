@@ -198,8 +198,11 @@
     var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var dpr = 1, width = 0, height = 0, cellPx = 8, originX = 0, originY = 0, gridCols = 0, gridRows = 0;
     var wmWidth = THRALL_WORDMARK[0].length, wmHeight = THRALL_WORDMARK.length, wmRows = THRALL_WORDMARK;
+    var meshCount = Math.max(1, parseInt(canvas.getAttribute('data-mesh-nodes') || '3', 10) || 3);
+    var miniCount = Math.max(meshCount, parseInt(canvas.getAttribute('data-mini-nodes') || '6', 10) || 6);
     var mouse = { x: -2000, y: -2000, active: false, lastMove: 0 };
     var orb = { x: 0, y: 0, initialized: false };
+    var meshOrbs = [], miniOrbs = [];
     var isOverText = false, smoothText = 0, smoothControl = 0;
     var ripples = [], rafId = 0, isVisible = true;
     var spotCards = [];
@@ -208,18 +211,28 @@
       spotCards = Array.prototype.slice.call(document.querySelectorAll('.spotlight-card'));
     }
 
-    function syncCardsToOrb(clientX, clientY, radiusPx, overInteractive) {
+    function syncCardsToOrbs(orbsList, radiusPx, overInteractive) {
       if (!spotCards.length) refreshSpotCards();
       for (var i = 0; i < spotCards.length; i++) {
         var card = spotCards[i];
         var r = card.getBoundingClientRect();
-        var dx = clientX < r.left ? r.left - clientX : (clientX > r.right ? clientX - r.right : 0);
-        var dy = clientY < r.top ? r.top - clientY : (clientY > r.bottom ? clientY - r.bottom : 0);
-        if (dx * dx + dy * dy < radiusPx * radiusPx) {
-          card.style.setProperty('--mouse-x', Math.round(clientX - r.left) + 'px');
-          card.style.setProperty('--mouse-y', Math.round(clientY - r.top) + 'px');
+        var bestDistSq = Infinity, bestX = orb.x / dpr, bestY = orb.y / dpr;
+        for (var k = 0; k < orbsList.length; k++) {
+          var ox = orbsList[k].x / dpr, oy = orbsList[k].y / dpr;
+          var dx = ox < r.left ? r.left - ox : (ox > r.right ? ox - r.right : 0);
+          var dy = oy < r.top ? r.top - oy : (oy > r.bottom ? oy - r.bottom : 0);
+          var dSq = dx * dx + dy * dy;
+          if (dSq < bestDistSq) {
+            bestDistSq = dSq;
+            bestX = ox;
+            bestY = oy;
+          }
+        }
+        if (bestDistSq < radiusPx * radiusPx) {
+          card.style.setProperty('--mouse-x', Math.round(bestX - r.left) + 'px');
+          card.style.setProperty('--mouse-y', Math.round(bestY - r.top) + 'px');
           card.classList.add('spotlight-active');
-          card.classList.toggle('spotlight-over-text', Boolean(overInteractive && dx === 0 && dy === 0));
+          card.classList.toggle('spotlight-over-text', Boolean(overInteractive && bestDistSq === 0));
         } else {
           card.classList.remove('spotlight-active', 'spotlight-over-text');
         }
@@ -314,7 +327,31 @@
       orb.x += (destX - orb.x) * followRate;
       orb.y += (destY - orb.y) * followRate;
 
-      syncCardsToOrb(orb.x / dpr, orb.y / dpr, 340, isOverText && cursorControlled);
+      var baseOrbitR = meshCount > 1 ? ((125 - 38 * smoothControl) * dpr) : 0;
+      meshOrbs.length = meshCount;
+      for (var m = 0; m < meshCount; m++) {
+        var ang = sec * 0.92 + (m * 2 * Math.PI) / meshCount;
+        var rad = baseOrbitR * (1 + 0.14 * Math.sin(sec * 1.45 + m * 2.1));
+        meshOrbs[m] = {
+          x: orb.x + Math.cos(ang) * rad,
+          y: orb.y + Math.sin(ang) * (rad * 0.78)
+        };
+      }
+
+      miniOrbs.length = miniCount;
+      for (var s = 0; s < miniCount; s++) {
+        var pOrb = meshOrbs[s % meshCount];
+        var sDir = (s % 2 === 0) ? 1 : -1;
+        var sSpeed = 2.35 + (s % 3) * 0.55;
+        var sAng = sec * sSpeed * sDir + s * 1.37;
+        var sRad = (44 + (s % 3) * 16) * (1 - 0.25 * smoothControl) * dpr;
+        miniOrbs[s] = {
+          x: pOrb.x + Math.cos(sAng) * sRad,
+          y: pOrb.y + Math.sin(sAng) * sRad
+        };
+      }
+
+      syncCardsToOrbs(meshOrbs, 340, isOverText && cursorControlled);
       ripples = ripples.filter(function (rp) { return (t - rp.born) < rp.dur; });
 
       ctx.fillStyle = '#06080a';
@@ -322,9 +359,12 @@
 
       var textDim = smoothText;
       var reachScale = 1 - 0.58 * textDim;
-      var orbReach = (235 + 25 * smoothControl) * reachScale * dpr;
+      var orbReach = (185 + 22 * smoothControl) * reachScale * dpr;
       var orbReachSq = orbReach * orbReach;
+      var miniReach = 54 * reachScale * dpr;
+      var miniReachSq = miniReach * miniReach;
       var orbWeight = (0.82 + 0.18 * smoothControl) * (1 - 0.55 * textDim);
+      var miniWeight = 0.66 * (1 - 0.55 * textDim);
       var ringW = 28 * dpr;
 
       var activeRipples = ripples.map(function (rp) {
@@ -371,8 +411,20 @@
           var isWord = inWordBox && wmRows[wmRow] && wmRows[wmRow].charAt(wmCol) === '1';
 
           var cx = px + cellPx * 0.5, cy = py + cellPx * 0.5;
-          var dxo = cx - orb.x, dyo = cy - orb.y, dsqO = dxo * dxo + dyo * dyo;
-          var spot = dsqO < orbReachSq ? Math.pow(1 - Math.sqrt(dsqO) / orbReach, 2) * orbWeight : 0;
+          var spot = 0;
+          for (var m = 0; m < meshCount; m++) {
+            var dxo = cx - meshOrbs[m].x, dyo = cy - meshOrbs[m].y, dsqO = dxo * dxo + dyo * dyo;
+            if (dsqO < orbReachSq) {
+              spot += Math.pow(1 - Math.sqrt(dsqO) / orbReach, 2) * orbWeight;
+            }
+          }
+          for (var s = 0; s < miniCount; s++) {
+            var dxs = cx - miniOrbs[s].x, dys = cy - miniOrbs[s].y, dsqS = dxs * dxs + dys * dys;
+            if (dsqS < miniReachSq) {
+              spot += Math.pow(1 - Math.sqrt(dsqS) / miniReach, 2) * miniWeight;
+            }
+          }
+          if (spot > 1.25) spot = 1.25;
           var ripGlow = 0;
 
           for (var i = 0; i < activeRipples.length; i++) {
@@ -417,6 +469,24 @@
             }
           }
         }
+      }
+
+      for (var m = 0; m < meshCount; m++) {
+        ctx.fillStyle = colorSpotHigh;
+        var mx = Math.round(meshOrbs[m].x / cellPx) * cellPx;
+        var my = Math.round(meshOrbs[m].y / cellPx) * cellPx;
+        ctx.fillRect(mx - cellPx, my, cellPx - 1, cellPx - 1);
+        ctx.fillRect(mx + cellPx, my, cellPx - 1, cellPx - 1);
+        ctx.fillRect(mx, my - cellPx, cellPx - 1, cellPx - 1);
+        ctx.fillRect(mx, my + cellPx, cellPx - 1, cellPx - 1);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(mx, my, cellPx - 1, cellPx - 1);
+      }
+      for (var s = 0; s < miniCount; s++) {
+        var sx = Math.round(miniOrbs[s].x / cellPx) * cellPx;
+        var sy = Math.round(miniOrbs[s].y / cellPx) * cellPx;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(sx, sy, cellPx - 1, cellPx - 1);
       }
 
       if (!reducedMotion && isVisible) {
