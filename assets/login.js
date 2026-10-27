@@ -359,8 +359,8 @@
       for (var s = 0; s < miniCount; s++) {
         var pIdx = miniParents[s] !== undefined ? miniParents[s] : (s % meshCount);
         var pOrb = meshOrbs[pIdx] || orb;
-        var sAng = sec * (2.25 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
-        var sRad = (36 + (s % 3) * 12) * (1 + 0.1 * Math.cos(sec * 1.3 + s)) * dpr;
+        var sAng = sec * (1.85 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
+        var sRad = (68 + (s % 3) * 16) * (1 + 0.08 * Math.cos(sec * 1.3 + s)) * dpr;
         miniOrbs[s] = {
           x: pOrb.x + Math.cos(sAng) * sRad,
           y: pOrb.y + Math.sin(sAng) * (sRad * 0.85)
@@ -377,10 +377,10 @@
       var reachScale = 1 - 0.58 * textDim;
       var orbReach = 104 * reachScale * dpr;
       var orbReachSq = orbReach * orbReach;
-      var miniReach = 34 * reachScale * dpr;
+      var miniReach = 54 * reachScale * dpr;
       var miniReachSq = miniReach * miniReach;
       var orbWeight = 0.56 * (1 - 0.55 * textDim);
-      var miniWeight = 0.48 * (1 - 0.55 * textDim);
+      var miniWeight = 0.72 * (1 - 0.55 * textDim);
       var ringW = 28 * dpr;
 
       var activeRipples = ripples.map(function (rp) {
@@ -490,27 +490,22 @@
       function drawPacketStream(x1, y1, x2, y2, rateBps, seed) {
         var dx = x2 - x1, dy = y2 - y1;
         var dist = Math.hypot(dx, dy);
-        var steps = Math.max(4, Math.floor(dist / (cellPx * 2.2)));
-        ctx.fillStyle = colorFieldHigh;
+        var steps = Math.max(4, Math.floor(dist / (cellPx * 3.2)));
+        ctx.fillStyle = colorFieldLow;
         for (var k = 1; k < steps; k += 2) {
           var f = k / steps;
           var lx = Math.round((x1 + dx * f) / cellPx) * cellPx;
           var ly = Math.round((y1 + dy * f) / cellPx) * cellPx;
           ctx.fillRect(lx, ly, cellPx - 1, cellPx - 1);
         }
-        var pktCnt = rateBps > 100000 ? 4 : (rateBps > 1000 ? 3 : 2);
-        var speed = 0.55 + Math.min(1.6, Math.log10((rateBps || 0) + 10) * 0.22);
+        var pktCnt = rateBps > 100000 ? 3 : (rateBps > 1000 ? 2 : 1);
+        var speed = 0.45 + Math.min(1.4, Math.log10((rateBps || 0) + 10) * 0.2);
         for (var p = 0; p < pktCnt; p++) {
-          var prog = (sec * speed + seed * 0.29 + p / pktCnt) % 1;
+          var prog = 0.08 + ((sec * speed + seed * 0.29 + p / pktCnt) % 1) * 0.84;
           var px1 = Math.round((x1 + dx * prog) / cellPx) * cellPx;
           var py1 = Math.round((y1 + dy * prog) / cellPx) * cellPx;
-          ctx.fillStyle = '#ffffff';
+          ctx.fillStyle = colorSpotMid;
           ctx.fillRect(px1, py1, cellPx - 1, cellPx - 1);
-          var tail = Math.max(0, prog - 0.045);
-          var tx1 = Math.round((x1 + dx * tail) / cellPx) * cellPx;
-          var ty1 = Math.round((y1 + dy * tail) / cellPx) * cellPx;
-          ctx.fillStyle = colorSpotHigh;
-          ctx.fillRect(tx1, ty1, cellPx - 1, cellPx - 1);
         }
       }
 
@@ -545,8 +540,22 @@
       for (var s = 0; s < miniCount; s++) {
         var sx = Math.round(miniOrbs[s].x / cellPx) * cellPx;
         var sy = Math.round(miniOrbs[s].y / cellPx) * cellPx;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.9)';
+        ctx.lineWidth = Math.max(1.5, dpr * 1.4);
+        var pad = cellPx * 1.6;
+        ctx.strokeRect(sx - pad, sy - pad, cellPx + pad * 2 - 1, cellPx + pad * 2 - 1);
+        ctx.fillStyle = '#00e5ff';
+        ctx.fillRect(sx - cellPx, sy, cellPx - 1, cellPx - 1);
+        ctx.fillRect(sx + cellPx, sy, cellPx - 1, cellPx - 1);
+        ctx.fillRect(sx, sy - cellPx, cellPx - 1, cellPx - 1);
+        ctx.fillRect(sx, sy + cellPx, cellPx - 1, cellPx - 1);
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(sx, sy, cellPx - 1, cellPx - 1);
+        ctx.font = '700 ' + Math.round(10 * dpr) + 'px ui-monospace, monospace';
+        ctx.fillStyle = '#00e5ff';
+        ctx.fillText('WS-0' + (s + 1), sx + pad + 5 * dpr, sy + 4 * dpr);
+        ctx.restore();
       }
 
       if (!reducedMotion && isVisible) {
