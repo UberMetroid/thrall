@@ -2,7 +2,8 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::time::Instant;
+use std::net::{TcpStream, ToSocketAddrs};
+use std::time::{Duration, Instant};
 
 use crate::device_store::{sanitize_folder_name, MeshStore};
 use crate::fleet_config::{FleetConfig, ServerNodeConfig};
@@ -89,23 +90,38 @@ pub fn build_folder_json(fid: &str, label: &str, path: &str, device_ids: &[Strin
     format!("{{\"id\":\"{fid}\",\"label\":\"{label}\",\"filesystemType\":\"basic\",\"path\":\"{path}\",\"type\":\"sendreceive\",\"devices\":[{devs}],\"rescanIntervalS\":3600,\"fsWatcherEnabled\":true,\"fsWatcherDelayS\":10,\"ignorePerms\":true,\"autoNormalize\":true}}")
 }
 
+fn tcp_ping_ms(wan_addr: &str, ssh_host: &str) -> u64 {
+    let raw = wan_addr.strip_prefix("tcp://").unwrap_or(ssh_host);
+    let target = if raw.contains(':') {
+        raw.to_string()
+    } else {
+        format!("{raw}:22000")
+    };
+    if let Some(addr) = target.to_socket_addrs().ok().and_then(|mut i| i.next()) {
+        let t0 = Instant::now();
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(800)).is_ok() {
+            return (t0.elapsed().as_millis() as u64).max(1);
+        }
+    }
+    0
+}
+
 #[rustfmt::skip]
 pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
     let err = if disabled { "Disconnected by admin" } else { "" };
+    let rtt = if disabled { 0 } else { tcp_ping_ms(&node.syncthing_wan_addr, &node.ssh_host) };
     let mut st = NodeStatus {
         name: node.name.clone(), ssh_host: node.ssh_host.clone(), wan_addr: node.syncthing_wan_addr.clone(),
         online: false, disabled, device_id: String::new(), api_key: String::new(), uptime_sec: 0,
-        active_conns: 0, in_bps: 0, out_bps: 0, rtt_ms: 0, last_error: err.to_string(),
+        active_conns: 0, in_bps: 0, out_bps: 0, rtt_ms: rtt, last_error: err.to_string(),
     };
     if disabled { return st; }
     match discover_remote_api_key(node) {
         Ok(k) => st.api_key = k,
         Err(e) => { st.last_error = e; return st; }
     }
-    let t0 = Instant::now();
     match ssh_syncthing_rest(node, &st.api_key, "GET", "/rest/system/status", None) {
         Ok(body) => {
-            st.rtt_ms = (t0.elapsed().as_millis() as u64).max(1);
             st.device_id = parse_json_string_field(&body, "myID").unwrap_or_default();
             st.uptime_sec = parse_json_u64_field(&body, "uptime").unwrap_or(0);
             st.online = !st.device_id.is_empty();
@@ -117,9 +133,7 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
             let t = b.rfind("\"total\"").map(|i| &b[i..]).unwrap_or(b);
             (parse_json_u64_field(t, "inBytesTotal").unwrap_or(0), parse_json_u64_field(t, "outBytesTotal").unwrap_or(0))
         };
-        let t1 = Instant::now();
         if let Ok(c1) = ssh_syncthing_rest(node, &st.api_key, "GET", "/rest/system/connections", None) {
-            st.rtt_ms = st.rtt_ms.min((t1.elapsed().as_millis() as u64).max(1));
             let conns = c1.matches("\"connected\": true").count() + c1.matches("\"connected\":true").count();
             st.active_conns = conns as u64;
             let (rx1, tx1) = totals(&c1);
