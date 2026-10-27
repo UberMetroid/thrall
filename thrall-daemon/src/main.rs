@@ -192,7 +192,13 @@ mod tests {
             !h.contains("nav-arrow-up") && h.contains("MESH HUB") && h.contains("ENROLLED SPOKE")
         );
         assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
-        assert!(h.contains("data-mesh-bearings="));
+        let tj = crate::render_portal::render_telemetry_json(&snap, &store);
+        assert!(
+            tj.contains("\"hubs_total\":")
+                && tj.contains("\"spokes\":1")
+                && !tj.contains("alice")
+                && !tj.contains("dev-1")
+        );
         for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
             assert!(!h.contains(w));
         }

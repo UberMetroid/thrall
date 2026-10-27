@@ -606,6 +606,47 @@
       if (reducedMotion) render(performance.now());
     };
 
+    window.thrallApplyLiveTelemetry = function (d) {
+      if (!d || typeof d !== 'object') return;
+      if (typeof d.hubs_total === 'number' && d.hubs_total >= 1) meshCount = d.hubs_total;
+      if (typeof d.spokes === 'number' && d.spokes >= 0) miniCount = d.spokes;
+      if (Array.isArray(d.rtts)) {
+        for (var i = 0; i < meshCount; i++) {
+          var rv = parseFloat(d.rtts[i]);
+          meshRtts[i] = isNaN(rv) || rv <= 0 ? (i + 1) * 14 : rv;
+        }
+      }
+      if (Array.isArray(d.bps)) {
+        totalBps = 0;
+        for (var j = 0; j < meshCount; j++) {
+          var bv = parseFloat(d.bps[j]);
+          var cb = isNaN(bv) || bv < 0 ? 0 : bv;
+          meshBps[j] = cb;
+          totalBps += cb;
+        }
+      }
+      if (Array.isArray(d.masses)) {
+        for (var k = 0; k < meshCount; k++) {
+          var mv = parseFloat(d.masses[k]);
+          meshMasses[k] = isNaN(mv) || mv <= 0 ? (k + 1) * 1024 : mv;
+        }
+      }
+      if (Array.isArray(d.bearings)) {
+        for (var b = 0; b < meshCount; b++) {
+          var brv = parseFloat(d.bearings[b]);
+          var deg = isNaN(brv) ? (b * 360 / meshCount) : brv;
+          meshBearings[b] = (deg * Math.PI) / 180;
+        }
+      }
+      if (Array.isArray(d.parents)) {
+        for (var p = 0; p < miniCount; p++) {
+          var pv = parseInt(d.parents[p], 10);
+          miniParents[p] = isNaN(pv) || pv < 0 ? (p % meshCount) : (pv % meshCount);
+        }
+      }
+      wakeRender();
+    };
+
     resize();
     render(performance.now());
     var scroller = document.getElementById('middle-scroll');
@@ -870,12 +911,49 @@
     setInterval(advanceTip, 14000);
   }
 
+  function padRight(str, len) {
+    var s = String(str);
+    while (s.length < len) s += ' ';
+    return s;
+  }
+
+  function initTelemetryPolling() {
+    function poll() {
+      if (document.hidden || typeof window.fetch !== 'function') return;
+      fetch('/api/telemetry', { cache: 'no-store', credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d) return;
+          if (window.thrallApplyLiveTelemetry) window.thrallApplyLiveTelemetry(d);
+          var elHubs = document.getElementById('tui-hubs');
+          if (elHubs) elHubs.textContent = padRight(d.hubs_online + '/' + d.hubs_total, 8);
+          var elLinks = document.getElementById('tui-links');
+          if (elLinks) elLinks.textContent = padRight(d.active_links, 6);
+          var elUp = document.getElementById('tui-uptime');
+          if (elUp) elUp.textContent = padRight(d.uptime_h + 'h', 11);
+          var elRx = document.getElementById('tui-rx');
+          if (elRx && d.rx) elRx.textContent = '\u25B8 ' + padRight(d.rx, 16);
+          var elTx = document.getElementById('tui-tx');
+          if (elTx && d.tx) elTx.textContent = '\u25B8 ' + padRight(d.tx, 16);
+          var elSum = document.getElementById('footer-fleet-summary');
+          if (elSum) {
+            var hw = d.hubs_total === 1 ? 'HUB' : 'HUBS';
+            var sw = d.spokes === 1 ? 'SPOKE' : 'SPOKES';
+            elSum.textContent = d.hubs_total + ' MESH ' + hw + ' \u2022 ' + d.spokes + ' ENROLLED ' + sw;
+          }
+        })
+        .catch(function () {});
+    }
+    setInterval(poll, 15000);
+  }
+
   function start() {
     initPalette();
     renderHeaderWordmark();
     initCanvas();
     initSectionNav();
     initChibiHints();
+    initTelemetryPolling();
   }
 
   if (document.readyState === 'loading') {

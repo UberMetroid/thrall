@@ -17,7 +17,7 @@ pub use crate::render_portal::share_jail::{
     extract_cookie, parse_form_multi, parse_form_urlencoded, sign_session_token, url_decode,
     verify_session_token,
 };
-use crate::render_portal::{render_dashboard_page, render_login_page};
+use crate::render_portal::{render_dashboard_page, render_login_page, render_telemetry_json};
 
 #[rustfmt::skip]
 const THRALL_BGS: [&[u8]; 5] = [include_bytes!("../../assets/thrall-bg-1.jpg"), include_bytes!("../../assets/thrall-bg-2.jpg"), include_bytes!("../../assets/thrall-bg-3.jpg"), include_bytes!("../../assets/thrall-bg-4.jpg"), include_bytes!("../../assets/thrall-bg.jpg")];
@@ -26,7 +26,7 @@ const FAVICON_ICO: &[u8] = include_bytes!("../../assets/icons/favicon.ico");
 const CEL_ICON_JPG: &[u8] = include_bytes!("../../assets/icons/thrall-cel-icon.jpg");
 const MASCOT_JPG: &[u8] = include_bytes!("../../assets/thrall-mascot.jpg");
 const LOGIN_JS: &[u8] = include_bytes!("../../assets/login.js");
-const SEC_HDRS: &str = "X-Frame-Options: DENY\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nCross-Origin-Opener-Policy: same-origin\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\nConnection: close\r\n";
+const SEC_HDRS: &str = "X-Frame-Options: DENY\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nCross-Origin-Opener-Policy: same-origin\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\nConnection: close\r\n";
 
 pub(crate) fn write_http(s: &mut TcpStream, status: &str, ct: &str, extra: &str, body: &[u8]) {
     let len = body.len();
@@ -140,6 +140,16 @@ pub fn handle_http_client(
             let (tot, ulen) = (snap.nodes.len(), store.users.len());
             let j = format!("{{\"status\":\"healthy\",\"online_nodes\":{on},\"total_nodes\":{tot},\"registered_users\":{ulen}}}\n");
             return write_http(s, "200 OK", "application/json", "", j.as_bytes());
+        }
+        "/api/telemetry" => {
+            let j = render_telemetry_json(snap, store);
+            return write_http(
+                s,
+                "200 OK",
+                "application/json",
+                "Cache-Control: no-store\r\n",
+                j.as_bytes(),
+            );
         }
         _ if path.starts_with("/bg") && path.ends_with(".jpg") => {
             let idx = match path {
