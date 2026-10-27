@@ -71,24 +71,28 @@ pub fn handle_post_action(
         return true;
     }
     if path == "/folders/mkdir" {
-        let (br, sub) = (fval("browse"), fval("sub"));
+        let (br, sub, rbr) = (fval("browse"), fval("sub"), form.get("ret_br").map(String::as_str).unwrap_or(fval("browse")));
         if let (Ok(d), Some((_, base, rel))) = (sanitize_folder_name(fval("dirname")), resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::create_dir_all(base.join(&d));
             let nsub = if rel.is_empty() { d } else { format!("{rel}/{d}") };
-            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={nsub}&ok=Folder+created"), "");
+            let u = if rbr.is_empty() { "/?tab=1&ok=Folder+created".into() } else { format!("/?tab=1&browse={rbr}&sub={nsub}&ok=Folder+created") };
+            write_redirect(stream, &u, "");
         } else {
-            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+subfolder+name"), "");
+            let u = if rbr.is_empty() { "/?tab=1&err=Invalid+subfolder+name".into() } else { format!("/?tab=1&browse={rbr}&sub={sub}&err=Invalid+subfolder+name") };
+            write_redirect(stream, &u, "");
         }
         return true;
     }
     if path == "/files/create" {
-        let (br, sub, fnm) = (fval("browse"), fval("sub"), fval("filename").trim());
+        let (br, sub, fnm, rbr) = (fval("browse"), fval("sub"), fval("filename").trim(), form.get("ret_br").map(String::as_str).unwrap_or(fval("browse")));
         let valid_fn = !fnm.is_empty() && !fnm.starts_with('.') && fnm.len() <= 64 && fnm.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
         if let (true, Some((_, base, _))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::write(base.join(fnm), fval("content").as_bytes());
-            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={sub}&ok=File+saved"), "");
+            let u = if rbr.is_empty() { "/?tab=1&ok=File+saved".into() } else { format!("/?tab=1&browse={rbr}&sub={sub}&ok=File+saved") };
+            write_redirect(stream, &u, "");
         } else {
-            write_redirect(stream, &format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+file+name"), "");
+            let u = if rbr.is_empty() { "/?tab=1&err=Invalid+file+name".into() } else { format!("/?tab=1&browse={rbr}&sub={sub}&err=Invalid+file+name") };
+            write_redirect(stream, &u, "");
         }
         return true;
     }

@@ -218,6 +218,7 @@ mod tests {
         let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
         assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/"));
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\""));
+        assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("name=\"ret_br\""));
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);

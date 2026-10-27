@@ -120,7 +120,6 @@ fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str,
     if entries.is_empty() {
         let msg = if pkey.is_empty() { "Empty" } else { "Empty directory" };
         out.push_str(&format!("<tr{p_attr}><td colspan=\"3\" style=\"padding-left:{pad:.2}rem;color:var(--muted);font-size:0.8rem\">{pfx}{msg}</td></tr>"));
-        return;
     }
     for (_, name, is_dir, sz, cpath) in entries {
         let n_esc = escape_html(&name);
@@ -139,6 +138,9 @@ fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str,
             let sz_s = if sz >= 1024 { format!("{:.1} KiB", sz as f64 / 1024.0) } else { format!("{sz} B") };
             out.push_str(&format!("<tr{p_attr}><td style=\"padding-left:{pad:.2}rem\">{pfx}<a href=\"/files?browse={br_e}&amp;sub={next}\" style=\"color:var(--text);text-decoration:none\">&#128196; {n_esc}</a> <code style=\"color:var(--muted);font-size:0.74rem;margin-left:0.35rem\">{sz_s}</code></td><td>{sh_btn}</td><td style=\"text-align:right\"><a href=\"/files?browse={br_e}&amp;sub={next}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Download</a> {del_f}</td></tr>"));
         }
+    }
+    if !pkey.is_empty() {
+        out.push_str(&format!("<tr{p_attr}><td colspan=\"3\" style=\"padding-left:{pad:.2}rem\"><div class=\"row\" style=\"gap:0.45rem\">{pfx}<form method=\"POST\" action=\"/folders/mkdir\" class=\"row\" style=\"gap:0.35rem\"><input type=\"hidden\" name=\"browse\" value=\"{br_e}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_e}\"><input type=\"hidden\" name=\"ret_br\" value=\"{fbr_e}\"><input type=\"text\" name=\"dirname\" required placeholder=\"Subfolder\" style=\"width:130px;padding:0.22rem 0.45rem;font-size:0.76rem\"><button type=\"submit\" class=\"btn-secondary\" style=\"padding:0.2rem 0.5rem;font-size:0.74rem\">+ Subfolder</button></form><form method=\"POST\" action=\"/files/create\" class=\"row\" style=\"gap:0.35rem\"><input type=\"hidden\" name=\"browse\" value=\"{br_e}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_e}\"><input type=\"hidden\" name=\"ret_br\" value=\"{fbr_e}\"><input type=\"text\" name=\"filename\" required placeholder=\"File (note.md)\" style=\"width:125px;padding:0.22rem 0.45rem;font-size:0.76rem\"><input type=\"text\" name=\"content\" placeholder=\"Contents\" style=\"width:155px;padding:0.22rem 0.45rem;font-size:0.76rem\"><button type=\"submit\" style=\"padding:0.2rem 0.5rem;font-size:0.74rem\">Save File</button></form></div></td></tr>"));
     }
 }
 

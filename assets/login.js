@@ -980,10 +980,14 @@
       var kids = getDirectChildren(targetKey);
       for (var i = 0; i < kids.length; i++) {
         kids[i].style.display = expand ? '' : 'none';
-        if (!expand) {
-          var subBtns = kids[i].querySelectorAll('.tree-toggle[aria-expanded="true"]');
-          for (var j = 0; j < subBtns.length; j++) {
-            setBranchExpanded(subBtns[j], false, false);
+      }
+      if (!expand) {
+        var prefix = targetKey + ':';
+        var openSub = document.querySelectorAll('.tree-toggle[aria-expanded="true"]');
+        for (var j = 0; j < openSub.length; j++) {
+          var subKey = openSub[j].getAttribute('data-target') || '';
+          if (subKey.indexOf(prefix) === 0) {
+            setBranchExpanded(openSub[j], false, false);
           }
         }
       }
