@@ -1097,12 +1097,20 @@
           '<button type="submit" class="btn-danger" id="thrall-del-submit-btn" disabled>Permanently Delete</button>' +
           '</div></form>';
         openModal(html, true, function (card) {
+          var form = card.querySelector('form');
           var inp = card.querySelector('#thrall-del-confirm-input');
           var subBtn = card.querySelector('#thrall-del-submit-btn');
           if (inp && subBtn) {
             inp.focus();
             inp.addEventListener('input', function () {
               subBtn.disabled = inp.value.trim() !== name;
+            });
+          }
+          if (form && inp) {
+            form.addEventListener('submit', function (ev) {
+              if (inp.value.trim() !== name) {
+                ev.preventDefault();
+              }
             });
           }
         });
@@ -1177,7 +1185,7 @@
               picker.addEventListener('change', function () {
                 var f = picker.files && picker.files[0];
                 if (!f) return;
-                fnInp.value = f.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                fnInp.value = f.name.replace(/^\.+/, '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
                 if (typeof FileReader !== 'undefined') {
                   var reader = new FileReader();
                   reader.onload = function (ev) {

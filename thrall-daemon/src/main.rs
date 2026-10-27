@@ -174,7 +174,7 @@ mod tests {
         let tok = compute_share_token("personal:alice:Documents");
         store
             .public_shares
-            .insert(tok, "personal:alice:Documents".into());
+            .insert(tok.clone(), "personal:alice:Documents".into());
         let p = resolve_share_target("personal:alice:Documents", "spec.txt").unwrap();
         assert_eq!(p.to_str(), Some("/users/alice/Documents/spec.txt"));
 
@@ -221,6 +221,7 @@ mod tests {
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\""));
         assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\""));
         assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("data-modal-open=\"mkdir\"") && root_a.contains("data-modal-open=\"upload-file\""));
+        assert!(root_a.contains(&format!(">/s/{tok}</a></td>")) && root_a.contains(">Share: OFF</button></form></td><td></td>"));
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);
