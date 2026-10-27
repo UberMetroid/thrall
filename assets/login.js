@@ -362,24 +362,23 @@
 
       var idleMs = t - mouse.lastMove;
       var cursorControlled = mouse.active && idleMs < 2400;
-      var targetText = (isOverText && cursorControlled) ? 1 : 0;
       smoothControl = 0;
-      smoothText += (targetText - smoothText) * 0.18;
+      smoothText = 0;
 
       orb.x += (patrolX - orb.x) * 0.045;
       orb.y += (patrolY - orb.y) * 0.045;
 
-      var maxOrbitR = 180 * dpr;
+      var maxOrbitR = 290 * dpr;
       meshOrbs.length = meshCount;
       for (var m = 0; m < meshCount; m++) {
         var rttMs = meshRtts[m] || ((m + 1) * 14);
         var nodeBps = meshBps[m] || 0;
-        var gravPull = Math.min(0.18, Math.log10(nodeBps + 1) * 0.032);
-        var pingDist = Math.min(540, Math.max(195, (92 + Math.sqrt(rttMs) * 24 + m * 36) * 2.1 * (1 - gravPull))) * dpr;
+        var gravPull = Math.min(0.14, Math.log10(nodeBps + 1) * 0.025);
+        var pingDist = Math.min(780, Math.max(290, (140 + Math.sqrt(rttMs) * 34 + m * 55) * 2.4 * (1 - gravPull))) * dpr;
         if (pingDist > maxOrbitR) maxOrbitR = pingDist;
         var evenAngle = (m * 2 * Math.PI) / meshCount;
         var rawBrg = meshBearings[m] !== undefined ? meshBearings[m] : evenAngle;
-        var baseBearing = evenAngle + ((rawBrg % 0.52) - 0.26);
+        var baseBearing = evenAngle + ((rawBrg % 0.42) - 0.21);
         var nodeSpin = spinRate / (1 + 0.05 * Math.sqrt(rttMs));
         var ang = baseBearing + sec * nodeSpin + 0.08 * Math.sin(sec * 0.9 + m * 1.7);
         var rad = pingDist * (1 + 0.05 * Math.sin(sec * 1.35 + m * 2.1));
@@ -394,8 +393,8 @@
       for (var s = 0; s < miniCount; s++) {
         var pIdx = miniParents[s] !== undefined ? miniParents[s] : (s % meshCount);
         var pOrb = meshOrbs[pIdx] || orb;
-        var sAng = sec * (1.65 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
-        var sRad = (96 + (s % 3) * 20) * (1 + 0.06 * Math.cos(sec * 1.3 + s)) * dpr;
+        var sAng = sec * (1.45 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
+        var sRad = (155 + (s % 3) * 32) * (1 + 0.06 * Math.cos(sec * 1.3 + s)) * dpr;
         miniOrbs[s] = {
           x: pOrb.x + Math.cos(sAng) * sRad,
           y: pOrb.y + Math.sin(sAng) * (sRad * 0.85)
