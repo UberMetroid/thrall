@@ -826,14 +826,14 @@
   function initChibiHints() {
     var tipsByTab = {
       0: [
-        { title: 'HANDSHAKE', body: 'Sign in above, then go to Tab 2: add the Gateway ID in localhost:8384 and paste your 56-char ID into THRALL.' },
+        { title: 'HANDSHAKE', body: 'Sign in above, then go to Tab 3: add the Gateway ID in localhost:8384 and paste your 56-char ID into THRALL.' },
         { title: 'PRIVACY', body: 'Workstations only connect to regional Thrall Nodes over TLS 1.3 BEP—never directly to other users\' devices.' },
-        { title: 'VAULTS', body: 'THRALL never syncs ~/.config or dotfiles. Only explicit 1A Personal and 1B Shared folders replicate.' },
+        { title: 'VAULTS', body: 'THRALL never syncs ~/.config or dotfiles. Only explicit Tab 1 Personal and Tab 2 Common folders replicate.' },
         { title: 'PALETTE', body: 'Click anywhere for a shockwave ripple, or pick one of the 8-bit color swatches in the footer.' }
       ],
       1: [
         { title: 'ACCEPT SHARES', body: 'When a folder card says PENDING, open http://127.0.0.1:8384 on that workstation to click Accept.' },
-        { title: '1A vs. 1B', body: '1A Personal Folders sync only to your devices; 1B Shared Folders are multi-user team vaults.' },
+        { title: 'PERSONAL vs. COMMON', body: 'Tab 1 Personal Folders sync only to your devices; Tab 2 Common Folders are multi-user team vaults.' },
         { title: 'DEVICE BADGES', body: 'Each folder card shows \u2713 accepted vs. \u23F3 unaccepted per workstation so you know which machine needs to accept.' },
         { title: 'PUBLIC LINKS', body: 'In the Explorer below, click "Share: OFF" on any file or subfolder to generate a read-only /s/<token> link.' },
         { title: 'FOLDER IDs', body: 'Every folder uses a native 5+5 char Syncthing Folder ID (xxxxx-xxxxx) and rejects dotfiles/symlinks.' }

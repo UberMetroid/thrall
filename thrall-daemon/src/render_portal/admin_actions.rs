@@ -1,4 +1,4 @@
-//! Admin POST form handlers (Tab 3 shared folder ACLs & Tab 4 Mesh Hubs) for THRALL.
+//! Admin POST form handlers (Tab 4 shared folder ACLs & Tab 5 Mesh Hubs) for THRALL.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

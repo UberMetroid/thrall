@@ -1,4 +1,4 @@
-//! Web File Explorer, Share Mode UI, and Admin Tabs (Tab 3 & Tab 4) for THRALL.
+//! Web File Explorer, Share Mode UI, and Admin Tabs (Tab 4 & Tab 5) for THRALL.
 
 use std::fs;
 use std::path::Path;
