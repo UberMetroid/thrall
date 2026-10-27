@@ -352,8 +352,8 @@
         baryDx /= weightSum;
         baryDy /= weightSum;
       }
-      var patrolX = width * (0.5 + 0.28 * Math.sin(sec * 0.48) + 0.12 * baryDx);
-      var patrolY = height * (0.36 + 0.20 * Math.sin(sec * 0.66 + 1.2) + 0.10 * baryDy);
+      var patrolX = width * (0.5 + 0.18 * Math.sin(sec * 0.42) + 0.08 * baryDx);
+      var patrolY = height * (0.34 + 0.14 * Math.sin(sec * 0.58 + 1.2) + 0.07 * baryDy);
       if (!orb.initialized) {
         orb.x = patrolX;
         orb.y = patrolY;
@@ -369,22 +369,24 @@
       orb.x += (patrolX - orb.x) * 0.045;
       orb.y += (patrolY - orb.y) * 0.045;
 
-      var maxOrbitR = 95 * dpr;
+      var maxOrbitR = 180 * dpr;
       meshOrbs.length = meshCount;
       for (var m = 0; m < meshCount; m++) {
         var rttMs = meshRtts[m] || ((m + 1) * 14);
         var nodeBps = meshBps[m] || 0;
-        var gravPull = Math.min(0.26, Math.log10(nodeBps + 1) * 0.045);
-        var pingDist = Math.min(360, Math.max(92, (46 + Math.sqrt(rttMs) * 16 + m * 22) * 1.5 * (1 - gravPull))) * dpr;
+        var gravPull = Math.min(0.18, Math.log10(nodeBps + 1) * 0.032);
+        var pingDist = Math.min(540, Math.max(195, (92 + Math.sqrt(rttMs) * 24 + m * 36) * 2.1 * (1 - gravPull))) * dpr;
         if (pingDist > maxOrbitR) maxOrbitR = pingDist;
-        var baseBearing = meshBearings[m] !== undefined ? meshBearings[m] : ((m * 2 * Math.PI) / meshCount);
+        var evenAngle = (m * 2 * Math.PI) / meshCount;
+        var rawBrg = meshBearings[m] !== undefined ? meshBearings[m] : evenAngle;
+        var baseBearing = evenAngle + ((rawBrg % 0.52) - 0.26);
         var nodeSpin = spinRate / (1 + 0.05 * Math.sqrt(rttMs));
-        var ang = baseBearing + sec * nodeSpin + 0.14 * Math.sin(sec * 0.9 + m * 1.7);
-        var rad = pingDist * (1 + 0.06 * Math.sin(sec * 1.35 + m * 2.1));
+        var ang = baseBearing + sec * nodeSpin + 0.08 * Math.sin(sec * 0.9 + m * 1.7);
+        var rad = pingDist * (1 + 0.05 * Math.sin(sec * 1.35 + m * 2.1));
         var jitter = rttMs > 45 ? Math.sin(sec * 14 + m) * 2.5 * dpr : 0;
         meshOrbs[m] = {
           x: orb.x + Math.cos(ang) * rad + jitter,
-          y: orb.y + Math.sin(ang) * (rad * 0.78) - jitter
+          y: orb.y + Math.sin(ang) * (rad * 0.72) - jitter
         };
       }
 
@@ -392,8 +394,8 @@
       for (var s = 0; s < miniCount; s++) {
         var pIdx = miniParents[s] !== undefined ? miniParents[s] : (s % meshCount);
         var pOrb = meshOrbs[pIdx] || orb;
-        var sAng = sec * (1.85 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
-        var sRad = (68 + (s % 3) * 16) * (1 + 0.08 * Math.cos(sec * 1.3 + s)) * dpr;
+        var sAng = sec * (1.65 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
+        var sRad = (96 + (s % 3) * 20) * (1 + 0.06 * Math.cos(sec * 1.3 + s)) * dpr;
         miniOrbs[s] = {
           x: pOrb.x + Math.cos(sAng) * sRad,
           y: pOrb.y + Math.sin(sAng) * (sRad * 0.85)
@@ -408,12 +410,9 @@
 
       var textDim = smoothText;
       var reachScale = 1 - 0.58 * textDim;
-      var orbReach = 104 * reachScale * dpr;
+      var orbReach = 108 * reachScale * dpr;
       var orbReachSq = orbReach * orbReach;
-      var miniReach = 54 * reachScale * dpr;
-      var miniReachSq = miniReach * miniReach;
-      var orbWeight = 0.56 * (1 - 0.55 * textDim);
-      var miniWeight = 0.72 * (1 - 0.55 * textDim);
+      var orbWeight = 0.62 * (1 - 0.55 * textDim);
       var ringW = 28 * dpr;
 
       var activeRipples = ripples.map(function (rp) {
@@ -465,12 +464,6 @@
             var dxo = cx - meshOrbs[m].x, dyo = cy - meshOrbs[m].y, dsqO = dxo * dxo + dyo * dyo;
             if (dsqO < orbReachSq) {
               spot += Math.pow(1 - Math.sqrt(dsqO) / orbReach, 2) * orbWeight;
-            }
-          }
-          for (var s = 0; s < miniCount; s++) {
-            var dxs = cx - miniOrbs[s].x, dys = cy - miniOrbs[s].y, dsqS = dxs * dxs + dys * dys;
-            if (dsqS < miniReachSq) {
-              spot += Math.pow(1 - Math.sqrt(dsqS) / miniReach, 2) * miniWeight;
             }
           }
           if (spot > 1.25) spot = 1.25;
@@ -560,34 +553,52 @@
       }
 
       for (var m = 0; m < meshCount; m++) {
-        ctx.fillStyle = colorSpotHigh;
         var mx = Math.round(meshOrbs[m].x / cellPx) * cellPx;
         var my = Math.round(meshOrbs[m].y / cellPx) * cellPx;
-        ctx.fillRect(mx - cellPx, my, cellPx - 1, cellPx - 1);
-        ctx.fillRect(mx + cellPx, my, cellPx - 1, cellPx - 1);
-        ctx.fillRect(mx, my - cellPx, cellPx - 1, cellPx - 1);
-        ctx.fillRect(mx, my + cellPx, cellPx - 1, cellPx - 1);
+        var massLog = Math.min(3, Math.max(1, Math.floor(Math.log10((meshMasses[m] || 1024) + 10) / 2.2)));
+        ctx.save();
+        ctx.strokeStyle = colorSpotHigh;
+        ctx.lineWidth = Math.max(2, dpr * 1.8);
+        var mPad = cellPx * (1.8 + massLog * 0.45);
+        ctx.strokeRect(mx - mPad, my - mPad, cellPx + mPad * 2 - 1, cellPx + mPad * 2 - 1);
+        ctx.fillStyle = colorSpotMid;
+        for (var dyM = -2; dyM <= 2; dyM++) {
+          for (var dxM = -2; dxM <= 2; dxM++) {
+            if (Math.abs(dxM) + Math.abs(dyM) <= 2 + (massLog > 1 ? 1 : 0)) {
+              ctx.fillRect(mx + dxM * cellPx, my + dyM * cellPx, cellPx - 1, cellPx - 1);
+            }
+          }
+        }
+        ctx.fillStyle = colorSpotHigh;
+        for (var dyC = -1; dyC <= 1; dyC++) {
+          for (var dxC = -1; dxC <= 1; dxC++) {
+            ctx.fillRect(mx + dxC * cellPx, my + dyC * cellPx, cellPx - 1, cellPx - 1);
+          }
+        }
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(mx, my, cellPx - 1, cellPx - 1);
+        ctx.font = '700 ' + Math.round(11 * dpr) + 'px ui-monospace, monospace';
+        ctx.fillStyle = colorSpotHigh;
+        ctx.fillText('NODE-0' + (m + 1), mx + mPad + 6 * dpr, my + 4 * dpr);
+        ctx.restore();
       }
       for (var s = 0; s < miniCount; s++) {
         var sx = Math.round(miniOrbs[s].x / cellPx) * cellPx;
         var sy = Math.round(miniOrbs[s].y / cellPx) * cellPx;
         ctx.save();
-        ctx.strokeStyle = 'rgba(0, 229, 255, 0.9)';
-        ctx.lineWidth = Math.max(1.5, dpr * 1.4);
-        var pad = cellPx * 1.6;
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.88)';
+        ctx.lineWidth = Math.max(1.2, dpr * 1.1);
+        var pad = cellPx * 0.85;
         ctx.strokeRect(sx - pad, sy - pad, cellPx + pad * 2 - 1, cellPx + pad * 2 - 1);
         ctx.fillStyle = '#00e5ff';
-        ctx.fillRect(sx - cellPx, sy, cellPx - 1, cellPx - 1);
-        ctx.fillRect(sx + cellPx, sy, cellPx - 1, cellPx - 1);
-        ctx.fillRect(sx, sy - cellPx, cellPx - 1, cellPx - 1);
-        ctx.fillRect(sx, sy + cellPx, cellPx - 1, cellPx - 1);
-        ctx.fillStyle = '#ffffff';
         ctx.fillRect(sx, sy, cellPx - 1, cellPx - 1);
-        ctx.font = '700 ' + Math.round(10 * dpr) + 'px ui-monospace, monospace';
+        ctx.fillStyle = '#ffffff';
+        var inner = Math.max(2, Math.floor(cellPx * 0.45));
+        var off = Math.floor((cellPx - 1 - inner) * 0.5);
+        ctx.fillRect(sx + off, sy + off, inner, inner);
+        ctx.font = '700 ' + Math.round(9.5 * dpr) + 'px ui-monospace, monospace';
         ctx.fillStyle = '#00e5ff';
-        ctx.fillText('WS-0' + (s + 1), sx + pad + 5 * dpr, sy + 4 * dpr);
+        ctx.fillText('WS-0' + (s + 1), sx + pad + 4 * dpr, sy + 3 * dpr);
         ctx.restore();
       }
 
