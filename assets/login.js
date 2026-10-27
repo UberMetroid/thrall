@@ -201,6 +201,12 @@
     var meshCount = Math.max(1, parseInt(canvas.getAttribute('data-mesh-nodes') || '3', 10));
     var rawMini = parseInt(canvas.getAttribute('data-mini-nodes'), 10);
     var miniCount = isNaN(rawMini) ? 0 : Math.max(0, rawMini);
+    var rawRtts = (canvas.getAttribute('data-mesh-rtts') || '').split(',');
+    var meshRtts = [];
+    for (var ri = 0; ri < meshCount; ri++) {
+      var rv = parseFloat(rawRtts[ri]);
+      meshRtts.push(isNaN(rv) || rv <= 0 ? (ri + 1) * 14 : rv);
+    }
     var mouse = { x: -2000, y: -2000, active: false, lastMove: 0 };
     var orb = { x: 0, y: 0, initialized: false };
     var meshOrbs = [], miniOrbs = [];
@@ -323,11 +329,14 @@
       orb.x += (patrolX - orb.x) * 0.045;
       orb.y += (patrolY - orb.y) * 0.045;
 
-      var baseOrbitR = meshCount > 1 ? (125 * dpr) : 0;
+      var maxOrbitR = 65 * dpr;
       meshOrbs.length = meshCount;
       for (var m = 0; m < meshCount; m++) {
-        var ang = sec * 0.92 + (m * 2 * Math.PI) / meshCount;
-        var rad = baseOrbitR * (1 + 0.14 * Math.sin(sec * 1.45 + m * 2.1));
+        var rttMs = meshRtts[m] || ((m + 1) * 14);
+        var pingDist = Math.min(240, Math.max(58, 46 + Math.sqrt(rttMs) * 16 + m * 22)) * dpr;
+        if (pingDist > maxOrbitR) maxOrbitR = pingDist;
+        var ang = sec * (0.95 / (1 + 0.06 * Math.sqrt(rttMs))) + (m * 2 * Math.PI) / meshCount;
+        var rad = pingDist * (1 + 0.08 * Math.sin(sec * 1.45 + m * 2.1));
         meshOrbs[m] = {
           x: orb.x + Math.cos(ang) * rad,
           y: orb.y + Math.sin(ang) * (rad * 0.78)
@@ -337,7 +346,7 @@
       miniOrbs.length = miniCount;
       for (var s = 0; s < miniCount; s++) {
         var sAng = sec * (1.85 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
-        var sRad = (baseOrbitR + 52 * dpr) * (1 + 0.12 * Math.cos(sec * 1.3 + s));
+        var sRad = (maxOrbitR + 42 * dpr) * (1 + 0.1 * Math.cos(sec * 1.3 + s));
         miniOrbs[s] = {
           x: orb.x + Math.cos(sAng) * sRad,
           y: orb.y + Math.sin(sAng) * (sRad * 0.82)

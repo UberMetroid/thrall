@@ -220,7 +220,7 @@ mod tests {
         assert!(h.contains("footer-dock") && h.contains("id=\"sec-chibi\""));
         assert!(h.contains("id=\"nav-arrow-up\"") && h.contains("id=\"nav-arrow-down\""));
         assert!(h.contains("id=\"footer-accent-picker\"") && h.contains("CHIBI THRALL MASCOT"));
-        assert!(h.contains("github.com/UberMetroid/thrall") && h.contains("/mascot.jpg"));
+        assert!(h.contains("data-mesh-rtts=") && h.contains("/mascot.jpg"));
         for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
             assert!(!h.contains(w));
         }
