@@ -207,6 +207,12 @@
       var rv = parseFloat(rawRtts[ri]);
       meshRtts.push(isNaN(rv) || rv <= 0 ? (ri + 1) * 14 : rv);
     }
+    var rawParents = (canvas.getAttribute('data-mini-parents') || '').split(',');
+    var miniParents = [];
+    for (var pi = 0; pi < miniCount; pi++) {
+      var pv = parseInt(rawParents[pi], 10);
+      miniParents.push(isNaN(pv) || pv < 0 ? (pi % meshCount) : (pv % meshCount));
+    }
     var mouse = { x: -2000, y: -2000, active: false, lastMove: 0 };
     var orb = { x: 0, y: 0, initialized: false };
     var meshOrbs = [], miniOrbs = [];
@@ -345,11 +351,13 @@
 
       miniOrbs.length = miniCount;
       for (var s = 0; s < miniCount; s++) {
-        var sAng = sec * (1.85 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
-        var sRad = (maxOrbitR + 42 * dpr) * (1 + 0.1 * Math.cos(sec * 1.3 + s));
+        var pIdx = miniParents[s] !== undefined ? miniParents[s] : (s % meshCount);
+        var pOrb = meshOrbs[pIdx] || orb;
+        var sAng = sec * (2.25 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
+        var sRad = (42 + (s % 3) * 14) * (1 + 0.1 * Math.cos(sec * 1.3 + s)) * dpr;
         miniOrbs[s] = {
-          x: orb.x + Math.cos(sAng) * sRad,
-          y: orb.y + Math.sin(sAng) * (sRad * 0.82)
+          x: pOrb.x + Math.cos(sAng) * sRad,
+          y: pOrb.y + Math.sin(sAng) * (sRad * 0.85)
         };
       }
 

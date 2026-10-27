@@ -56,60 +56,31 @@ fn fmt_rate(bps: u64) -> String {
     }
 }
 
-pub fn render_login_page(
-    flash_err: Option<&str>,
-    snap: &FleetSnapshot,
-    store: &MeshStore,
-) -> String {
-    let alert = flash_err
-        .filter(|m| !m.is_empty())
-        .map(|m| {
-            format!(
-                "<span class=\"badge badge-offline\">{}</span>",
-                escape_html(m)
-            )
-        })
-        .unwrap_or_default();
+#[rustfmt::skip]
+pub fn render_login_page(flash_err: Option<&str>, snap: &FleetSnapshot, store: &MeshStore) -> String {
+    let alert = flash_err.filter(|m| !m.is_empty()).map(|m| format!("<span class=\"badge badge-offline\">{}</span>", escape_html(m))).unwrap_or_default();
     let on = snap.nodes.iter().filter(|n| n.online).count();
     let tot = snap.nodes.len().max(1);
     let conns: u64 = snap.nodes.iter().map(|n| n.active_conns).sum();
-    let mini: usize = store.users.values().map(Vec::len).sum();
+    let all_devs: Vec<_> = store.users.values().flatten().collect();
+    let mini = all_devs.len();
+    let parents: String = all_devs.iter().enumerate().map(|(di, d)| snap.nodes.iter().position(|n| n.connected_ids.contains(&d.device_id)).unwrap_or(di % tot).to_string()).collect::<Vec<_>>().join(",");
     let rx = fmt_rate(snap.nodes.iter().map(|n| n.in_bps).sum());
     let tx = fmt_rate(snap.nodes.iter().map(|n| n.out_bps).sum());
     let up_h = snap.nodes.iter().map(|n| n.uptime_sec).max().unwrap_or(0) / 3600;
-    let nodes_str = format!("{on}/{tot}");
-    let up_str = format!("{up_h}h");
+    let (nodes_str, up_str) = (format!("{on}/{tot}"), format!("{up_h}h"));
     let (mut node_tickers, mut rtts) = (String::new(), String::new());
     for idx in 0..tot {
-        let n = snap.nodes.get(idx);
-        let n_num = idx + 1;
-        let (st_lbl, st_cls) = if n.map(|x| x.online).unwrap_or(false) {
-            ("ONLINE", "badge-online")
-        } else {
-            ("STANDBY", "badge-offline")
-        };
-        let n_conns = n.map(|x| x.active_conns).unwrap_or(0);
-        let n_rx = fmt_rate(n.map(|x| x.in_bps).unwrap_or(0));
-        let n_tx = fmt_rate(n.map(|x| x.out_bps).unwrap_or(0));
-        let n_up = n.map(|x| x.uptime_sec / 3600).unwrap_or(0);
-        let rtt = n
-            .map(|x| x.rtt_ms)
-            .filter(|&r| r > 0)
-            .unwrap_or((idx as u64 + 1) * 14);
-        if !rtts.is_empty() {
-            rtts.push(',');
-        }
+        let (n, n_num) = (snap.nodes.get(idx), idx + 1);
+        let (st_lbl, st_cls) = if n.map(|x| x.online).unwrap_or(false) { ("ONLINE", "badge-online") } else { ("STANDBY", "badge-offline") };
+        let (n_conns, n_up) = (n.map(|x| x.active_conns).unwrap_or(0), n.map(|x| x.uptime_sec / 3600).unwrap_or(0));
+        let (n_rx, n_tx) = (fmt_rate(n.map(|x| x.in_bps).unwrap_or(0)), fmt_rate(n.map(|x| x.out_bps).unwrap_or(0)));
+        let rtt = n.map(|x| x.rtt_ms).filter(|&r| r > 0).unwrap_or((idx as u64 + 1) * 14);
+        if !rtts.is_empty() { rtts.push(','); }
         rtts.push_str(&rtt.to_string());
-        let trk_cls = if idx % 2 == 1 {
-            "tenets-track tenets-track-rev"
-        } else {
-            "tenets-track"
-        };
+        let trk_cls = if idx % 2 == 1 { "tenets-track tenets-track-rev" } else { "tenets-track" };
         let chips_a = format!("<span class=\"tenet-chip\">&#9889; THRALL NODE {n_num:02}: {st_lbl}</span><span class=\"tenet-chip\">&#128225; PING RTT: {rtt}ms</span><span class=\"tenet-chip\">&#128279; ACTIVE BEP LINKS: {n_conns}</span><span class=\"tenet-chip\">&#128229; SPEED IN: {n_rx}</span><span class=\"tenet-chip\">&#128228; SPEED OUT: {n_tx}</span><span class=\"tenet-chip\">&#9201; NODE UPTIME: {n_up}h</span><span class=\"tenet-chip\">&#128737; TLS 1.3 BEP MESH</span><span class=\"tenet-chip\">&#128683; ZERO DOTFILE SYNC</span>");
-        let chips_b = chips_a.replace(
-            "class=\"tenet-chip\"",
-            "class=\"tenet-chip\" aria-hidden=\"true\"",
-        );
+        let chips_b = chips_a.replace("class=\"tenet-chip\"", "class=\"tenet-chip\" aria-hidden=\"true\"");
         node_tickers.push_str(&format!("<div class=\"node-ticker-card spotlight-card\"><div class=\"tui-header-bar\" style=\"margin-bottom:6px;padding-bottom:6px\"><span class=\"eco-badge\">[ THRALL MESH NODE {n_num:02} // REGIONAL BACKBONE ]</span><span class=\"badge {st_cls}\">{st_lbl} &bull; {rtt}ms RTT &bull; {n_conns} BEP LINKS</span></div><div class=\"tenets-marquee-wrap eco-marquee-viewport\" aria-label=\"Thrall Mesh Node {n_num:02} Telemetry\"><div class=\"{trk_cls}\">{chips_a}{chips_b}</div></div></div>"));
     }
     let hdr = format!("<header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><div class=\"auth-brand-row\"><img src=\"/icon.jpg\" alt=\"THRALL\" width=\"34\" height=\"34\"><div><div style=\"font-weight:800;font-size:0.95rem;letter-spacing:0.06em;color:#fff\">THRALL</div><div style=\"font-family:var(--mono);font-size:0.68rem;color:var(--muted)\">Zero-Trust Hub &amp; Spoke Mesh</div></div></div><form method=\"POST\" action=\"/login\" autocomplete=\"off\" class=\"header-login-form\">{alert}<input type=\"text\" name=\"username\" required autocomplete=\"off\" placeholder=\"User or Email\" aria-label=\"User or Email\"><input type=\"password\" name=\"password\" required autocomplete=\"off\" placeholder=\"Password\" aria-label=\"Password\"><button type=\"submit\">[ SIGN IN ]</button></form></div></header>");
@@ -119,9 +90,7 @@ pub fn render_login_page(
     let head_links = "<link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\">";
     let sec_chibi = "<section class=\"scroll-section sec-chibi\" id=\"sec-chibi\"><div class=\"chibi-section spotlight-card\"><div class=\"tui-header-bar\"><span class=\"eco-badge\">[ 04 // CHIBI THRALL MASCOT &bull; SETUP HELPER ]</span><button type=\"button\" class=\"btn-secondary\" id=\"chibi-next-btn\" style=\"padding:0.2rem 0.65rem;font-size:0.74rem\">[ NEXT TIP &rarr; ]</button></div><div class=\"chibi-card-body\"><img src=\"/mascot.jpg\" alt=\"Chibi Thrall Mascot\" class=\"chibi-hero-img\" id=\"chibi-hero-img\" style=\"cursor:pointer\" title=\"Click for another hint!\"><div class=\"chibi-card-copy\"><div id=\"chibi-tip-title\" style=\"font-weight:700;font-size:1.05rem;color:var(--phosphor);margin-bottom:0.35rem\">HINT #1 // TWO-WAY HANDSHAKE</div><p id=\"chibi-tip-body\" style=\"font-family:var(--mono);font-size:0.84rem;color:var(--text);line-height:1.6\">After signing in, go to Tab 2 (Initial Setup): add the Gateway Thrall Node ID in your local Syncthing (http://127.0.0.1:8384), then paste your 56-character Client Device ID into THRALL.</p></div></div></div></section>";
     let dock = "<nav class=\"footer-dock\" id=\"footer-dock\" aria-label=\"8-Bit Navigation and Theme Palette\"><div class=\"footer-dock-inner\"><div class=\"dock-chibi\" id=\"chibi-dock\" data-tab=\"0\"><button type=\"button\" class=\"chibi-mascot\" id=\"chibi-mascot-btn\" title=\"Click Chibi Thrall for another tip!\"><img src=\"/mascot.jpg\" alt=\"Chibi Thrall Mascot\"></button><div class=\"chibi-bubble\"><strong id=\"chibi-dock-title\">TIP 1/4:</strong> <span id=\"chibi-dock-body\">Sign in at the top bar, then visit Tab 2 (Initial Setup) to link your workstation.</span></div><button type=\"button\" id=\"chibi-dock-next\" class=\"dock-mini-btn\" title=\"Next Tip\">&rarr;</button></div><div class=\"dock-controls\"><div class=\"footer-accent-picker\" id=\"footer-accent-picker\" role=\"radiogroup\" aria-label=\"8-Bit Rainbow Palette\"><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Coral\" style=\"--swatch:#ff5555;background-color:#ff5555;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Coral\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Orange\" style=\"--swatch:#ff7700;background-color:#ff7700;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Orange\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Amber\" style=\"--swatch:#ffb000;background-color:#ffb000;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Amber\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Yellow\" style=\"--swatch:#f1fa8c;background-color:#f1fa8c;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Yellow\"></button><button type=\"button\" class=\"dock-accent-dot active\" data-accent-name=\"Emerald\" style=\"--swatch:#50fa7b;background-color:#50fa7b;\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" aria-label=\"Emerald\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Cyan\" style=\"--swatch:#00e5ff;background-color:#00e5ff;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Cyan\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Blue\" style=\"--swatch:#3b82f6;background-color:#3b82f6;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Blue\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Violet\" style=\"--swatch:#bd93f9;background-color:#bd93f9;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Violet\"></button></div><button type=\"button\" class=\"dock-arrow-btn dock-arrow-up\" id=\"nav-arrow-up\" aria-label=\"Scroll to previous section\" title=\"Previous section (Up Arrow)\"><span class=\"pixel-bracket\">[</span><span class=\"pixel-glyph\">&#9650;</span><span class=\"pixel-text\">UP</span><span class=\"pixel-bracket\">]</span></button><button type=\"button\" class=\"dock-arrow-btn dock-arrow-down\" id=\"nav-arrow-down\" aria-label=\"Scroll to next section\" title=\"Next section (Down Arrow)\"><span class=\"pixel-bracket\">[</span><span class=\"pixel-text\">DOWN</span><span class=\"pixel-glyph\">&#9660;</span><span class=\"pixel-bracket\">]</span></button></div></div></nav>";
-    format!(
-        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">{head_links}<title>THRALL</title><style>{PORTAL_CSS}</style></head><body><canvas id=\"spotlight-canvas\" class=\"spotlight-canvas\" data-mesh-nodes=\"{tot}\" data-mini-nodes=\"{mini}\" data-mesh-rtts=\"{rtts}\" aria-hidden=\"true\"></canvas>{hdr}<div class=\"middle-scroll\" id=\"middle-scroll\"><main class=\"login-stage\" id=\"intro\">{sec_thrall}{sec_ticker}{tui}{sec_chibi}</main></div>{dock}<script src=\"/login.js\"></script></body></html>"
-    )
+    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">{head_links}<title>THRALL</title><style>{PORTAL_CSS}</style></head><body><canvas id=\"spotlight-canvas\" class=\"spotlight-canvas\" data-mesh-nodes=\"{tot}\" data-mini-nodes=\"{mini}\" data-mesh-rtts=\"{rtts}\" data-mini-parents=\"{parents}\" aria-hidden=\"true\"></canvas>{hdr}<div class=\"middle-scroll\" id=\"middle-scroll\"><main class=\"login-stage\" id=\"intro\">{sec_thrall}{sec_ticker}{tui}{sec_chibi}</main></div>{dock}<script src=\"/login.js\"></script></body></html>")
 }
 
 #[rustfmt::skip]
@@ -238,5 +207,6 @@ pub fn render_dashboard_page(
         String::new()
     };
     let footer = format!("<footer class=\"footer-dock\" id=\"footer-dock\" aria-label=\"Chibi Thrall Setup Helper and Theme Palette\"><div class=\"footer-dock-inner\"><div class=\"dock-chibi\" id=\"chibi-dock\" data-tab=\"{tab}\"><button type=\"button\" class=\"chibi-mascot\" id=\"chibi-mascot-btn\" title=\"Click Chibi Thrall for another tip!\"><img src=\"/mascot.jpg\" alt=\"Chibi Thrall Mascot\"></button><div class=\"chibi-bubble\"><strong id=\"chibi-dock-title\">TIP #1:</strong> <span id=\"chibi-dock-body\">Created a new folder? Open <a href=\"http://127.0.0.1:8384\" target=\"_blank\" rel=\"noopener\">localhost:8384</a> on your workstation and click Accept!</span></div><button type=\"button\" id=\"chibi-dock-next\" class=\"dock-mini-btn\" title=\"Next Tip\">&rarr;</button></div><div class=\"dock-controls\"><div class=\"footer-accent-picker\" id=\"footer-accent-picker\" role=\"radiogroup\" aria-label=\"8-Bit Rainbow Palette\"><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Coral\" style=\"--swatch:#ff5555;background-color:#ff5555;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Coral\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Orange\" style=\"--swatch:#ff7700;background-color:#ff7700;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Orange\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Amber\" style=\"--swatch:#ffb000;background-color:#ffb000;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Amber\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Yellow\" style=\"--swatch:#f1fa8c;background-color:#f1fa8c;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Yellow\"></button><button type=\"button\" class=\"dock-accent-dot active\" data-accent-name=\"Emerald\" style=\"--swatch:#50fa7b;background-color:#50fa7b;\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" aria-label=\"Emerald\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Cyan\" style=\"--swatch:#00e5ff;background-color:#00e5ff;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Cyan\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Blue\" style=\"--swatch:#3b82f6;background-color:#3b82f6;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Blue\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Violet\" style=\"--swatch:#bd93f9;background-color:#bd93f9;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Violet\"></button></div></div></div></footer>");
-    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"><title>THRALL — Tool for Hierarchical Replication And Identity Linking ({user_esc})</title><style>{PORTAL_CSS}</style></head><body><header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><div class=\"auth-brand-row\"><img src=\"/icon.jpg\" alt=\"THRALL\" width=\"34\" height=\"34\"><div><div style=\"font-weight:800;font-size:0.95rem;letter-spacing:0.06em;color:#fff\">THRALL</div><div class=\"visually-hidden\">THRALL — Tool for Hierarchical Replication And Identity Linking</div><div style=\"font-family:var(--mono);font-size:0.68rem;color:var(--muted)\">Zero-Trust Hub &amp; Spoke Mesh</div></div>{role_badge}</div><nav class=\"nav-tabs\"><a href=\"/?tab=1\" class=\"{c1}\">1. Files</a><a href=\"/?tab=2\" class=\"{c2}\">2. Initial Setup</a><a href=\"/?tab=3\" class=\"{c3}\">3. Client Devices</a>{admin_nav}</nav><div class=\"row\"><code style=\"font-size:0.8rem;color:var(--muted)\">{user_esc}</code><form method=\"POST\" action=\"/logout\" style=\"display:inline\"><button type=\"submit\" class=\"btn-secondary\" style=\"padding:0.32rem 0.65rem;font-size:0.76rem\">Sign Out</button></form></div></div></header><div class=\"middle-scroll\" id=\"middle-scroll\"><div class=\"container\">{alerts}{pane}</div></div>{footer}<script src=\"/login.js\"></script></body></html>")
+    let tabs_bar = format!("<nav class=\"nav-tabs\"><a href=\"/?tab=1\" class=\"{c1}\">1. Files</a><a href=\"/?tab=2\" class=\"{c2}\">2. Initial Setup</a><a href=\"/?tab=3\" class=\"{c3}\">3. Client Devices</a>{admin_nav}</nav>");
+    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"><title>THRALL — Tool for Hierarchical Replication And Identity Linking ({user_esc})</title><style>{PORTAL_CSS}</style></head><body><header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><div class=\"auth-brand-row\"><img src=\"/icon.jpg\" alt=\"THRALL\" width=\"34\" height=\"34\"><div><div style=\"font-weight:800;font-size:0.95rem;letter-spacing:0.06em;color:#fff\">THRALL</div><div class=\"visually-hidden\">THRALL — Tool for Hierarchical Replication And Identity Linking</div><div style=\"font-family:var(--mono);font-size:0.68rem;color:var(--muted)\">Zero-Trust Hub &amp; Spoke Mesh</div></div></div><form method=\"POST\" action=\"/logout\" class=\"header-login-form\">{role_badge}<code style=\"font-size:0.82rem;color:var(--text)\">{user_esc}</code><button type=\"submit\" class=\"btn-secondary\">[ SIGN OUT ]</button></form></div></header><div class=\"middle-scroll\" id=\"middle-scroll\"><div class=\"container\">{tabs_bar}{alerts}{pane}</div></div>{footer}<script src=\"/login.js\"></script></body></html>")
 }

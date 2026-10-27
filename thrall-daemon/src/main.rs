@@ -61,85 +61,55 @@ fn run_healthcheck(listen_addr: &str) -> i32 {
     }
 }
 
+#[rustfmt::skip]
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut config_path =
-        env::var("THRALL_CONFIG").unwrap_or_else(|_| "/config/fleet.yaml".to_string());
-    let mut check_only = false;
-    let mut reconcile_only = false;
-
-    let mut i = 1;
+    let mut config_path = env::var("THRALL_CONFIG").unwrap_or_else(|_| "/config/fleet.yaml".to_string());
+    let (mut check_only, mut reconcile_only, mut i) = (false, false, 1);
     while i < args.len() {
         match args[i].as_str() {
-            "--config" | "-c" => {
-                if let Some(p) = args.get(i + 1) {
-                    config_path = p.clone();
-                    i += 1;
-                }
-            }
+            "--config" | "-c" => if let Some(p) = args.get(i + 1) { config_path = p.clone(); i += 1; },
             "--check" => check_only = true,
             "--reconcile-once" => reconcile_only = true,
             _ => {}
         }
         i += 1;
     }
-
-    let mut cfg = match load_or_create_fleet_config(&config_path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("[thrall] configuration failure ({config_path}): {e}");
-            process::exit(78);
-        }
-    };
-
-    if check_only {
-        process::exit(run_healthcheck(&cfg.portal.listen_addr));
-    }
-
+    let cfg = load_or_create_fleet_config(&config_path).unwrap_or_else(|e| {
+        eprintln!("[thrall] configuration failure ({config_path}): {e}");
+        process::exit(78);
+    });
+    if check_only { process::exit(run_healthcheck(&cfg.portal.listen_addr)); }
     let mut local_st = maybe_spawn_local_syncthing();
     let mut store = MeshStore::load(&cfg.portal.database_path);
-    eprintln!(
-        "[thrall] Loaded state from {} ({} users)",
-        cfg.portal.database_path,
-        store.users.len()
-    );
-
-    let mut snapshot = reconcile_fleet(&cfg, &mut store);
+    eprintln!("[thrall] Loaded state from {} ({} users)", cfg.portal.database_path, store.users.len());
+    let snapshot = reconcile_fleet(&cfg, &mut store);
     let online_count = snapshot.nodes.iter().filter(|n| n.online).count();
-    eprintln!(
-        "[thrall] Initial fleet reconciliation complete: {online_count}/{} server nodes online",
-        snapshot.nodes.len()
-    );
-
+    eprintln!("[thrall] Initial fleet reconciliation complete: {online_count}/{} server nodes online", snapshot.nodes.len());
     if reconcile_only {
-        if let Some(ref mut child) = local_st {
-            let _ = child.kill();
-        }
+        if let Some(ref mut child) = local_st { let _ = child.kill(); }
         return;
     }
-
-    let listener = match TcpListener::bind(&cfg.portal.listen_addr) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!(
-                "[thrall] Failed to bind portal on {}: {e}",
-                cfg.portal.listen_addr
-            );
-            process::exit(78);
-        }
-    };
-    eprintln!(
-        "[thrall] Portal listening on http://{}",
-        cfg.portal.listen_addr
-    );
-
+    let listener = TcpListener::bind(&cfg.portal.listen_addr).unwrap_or_else(|e| {
+        eprintln!("[thrall] Failed to bind portal on {}: {e}", cfg.portal.listen_addr);
+        process::exit(78);
+    });
+    eprintln!("[thrall] Portal listening on http://{}", cfg.portal.listen_addr);
+    let state = std::sync::Arc::new(std::sync::Mutex::new((cfg, store, snapshot)));
+    let bg_state = std::sync::Arc::clone(&state);
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(45));
+        let Some((c, mut st)) = bg_state.lock().ok().map(|g| (g.0.clone(), g.1.clone())) else { continue };
+        let snap = reconcile_fleet(&c, &mut st);
+        if let Ok(mut g) = bg_state.lock() { g.2 = snap; }
+    });
     for stream in listener.incoming().flatten() {
-        handle_http_client(stream, &mut cfg, &mut store, &mut snapshot);
+        if let Ok(mut g) = state.lock() {
+            let (ref mut c, ref mut st, ref mut sn) = *g;
+            handle_http_client(stream, c, st, sn);
+        }
     }
-
-    if let Some(ref mut child) = local_st {
-        let _ = child.kill();
-    }
+    if let Some(ref mut child) = local_st { let _ = child.kill(); }
 }
 
 #[cfg(test)]

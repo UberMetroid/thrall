@@ -96,6 +96,50 @@ pub fn handle_post_action(
         }
         return true;
     }
+    if path == "/files/create" {
+        let (br, sub, fnm) = (fval("browse"), fval("sub"), fval("filename").trim());
+        let valid_fn = !fnm.is_empty()
+            && !fnm.starts_with('.')
+            && fnm.len() <= 64
+            && fnm
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+        if let (true, Some((_, base, _))) =
+            (valid_fn, resolve_jailed_path(username, store, br, sub))
+        {
+            let _ = fs::write(base.join(fnm), fval("content").as_bytes());
+            write_redirect(
+                stream,
+                &format!("/?tab=1&browse={br}&sub={sub}&ok=File+saved"),
+                "",
+            );
+        } else {
+            write_redirect(
+                stream,
+                &format!("/?tab=1&browse={br}&sub={sub}&err=Invalid+file+name"),
+                "",
+            );
+        }
+        return true;
+    }
+    if path == "/files/delete" {
+        let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
+        if let Some((_, fp, rel_i)) = resolve_jailed_path(username, store, br, item) {
+            if !rel_i.is_empty() {
+                if fp.is_dir() {
+                    let _ = fs::remove_dir_all(&fp);
+                } else {
+                    let _ = fs::remove_file(&fp);
+                }
+            }
+        }
+        write_redirect(
+            stream,
+            &format!("/?tab=1&browse={br}&sub={sub}&ok=Item+deleted"),
+            "",
+        );
+        return true;
+    }
     if path == "/shares/toggle" {
         let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
         if let Some((_, _, clean_item)) = resolve_jailed_path(username, store, br, item) {

@@ -28,6 +28,7 @@ pub struct NodeStatus {
     pub in_bps: u64,
     pub out_bps: u64,
     pub rtt_ms: u64,
+    pub connected_ids: Vec<String>,
     pub last_error: String,
 }
 
@@ -42,34 +43,11 @@ pub struct FleetSnapshot {
     pub device_accepted: BTreeMap<(String, String), bool>,
 }
 
-pub fn provision_single_folder(
-    cfg: &FleetConfig,
-    snap: &FleetSnapshot,
-    store: &MeshStore,
-    user: Option<&str>,
-    fname: &str,
-) {
-    let online_ids: Vec<String> = snap
-        .nodes
-        .iter()
-        .filter(|n| n.online && !n.device_id.is_empty())
-        .map(|n| n.device_id.clone())
-        .collect();
-    for (srv, st) in cfg
-        .servers
-        .iter()
-        .zip(snap.nodes.iter())
-        .filter(|(_, s)| s.online)
-    {
-        let _ = reconcile_folders::sync_folder_group(
-            srv,
-            &st.api_key,
-            &online_ids,
-            store,
-            user,
-            fname,
-            false,
-        );
+#[rustfmt::skip]
+pub fn provision_single_folder(cfg: &FleetConfig, snap: &FleetSnapshot, store: &MeshStore, user: Option<&str>, fname: &str) {
+    let online_ids: Vec<String> = snap.nodes.iter().filter(|n| n.online && !n.device_id.is_empty()).map(|n| n.device_id.clone()).collect();
+    for (srv, st) in cfg.servers.iter().zip(snap.nodes.iter()).filter(|(_, s)| s.online) {
+        let _ = reconcile_folders::sync_folder_group(srv, &st.api_key, &online_ids, store, user, fname, false);
     }
 }
 
@@ -90,13 +68,10 @@ pub fn build_folder_json(fid: &str, label: &str, path: &str, device_ids: &[Strin
     format!("{{\"id\":\"{fid}\",\"label\":\"{label}\",\"filesystemType\":\"basic\",\"path\":\"{path}\",\"type\":\"sendreceive\",\"devices\":[{devs}],\"rescanIntervalS\":3600,\"fsWatcherEnabled\":true,\"fsWatcherDelayS\":10,\"ignorePerms\":true,\"autoNormalize\":true}}")
 }
 
+#[rustfmt::skip]
 fn tcp_ping_ms(wan_addr: &str, ssh_host: &str) -> u64 {
     let raw = wan_addr.strip_prefix("tcp://").unwrap_or(ssh_host);
-    let target = if raw.contains(':') {
-        raw.to_string()
-    } else {
-        format!("{raw}:22000")
-    };
+    let target = if raw.contains(':') { raw.to_string() } else { format!("{raw}:22000") };
     if let Some(addr) = target.to_socket_addrs().ok().and_then(|mut i| i.next()) {
         let t0 = Instant::now();
         if TcpStream::connect_timeout(&addr, Duration::from_millis(800)).is_ok() {
@@ -113,7 +88,7 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
     let mut st = NodeStatus {
         name: node.name.clone(), ssh_host: node.ssh_host.clone(), wan_addr: node.syncthing_wan_addr.clone(),
         online: false, disabled, device_id: String::new(), api_key: String::new(), uptime_sec: 0,
-        active_conns: 0, in_bps: 0, out_bps: 0, rtt_ms: rtt, last_error: err.to_string(),
+        active_conns: 0, in_bps: 0, out_bps: 0, rtt_ms: rtt, connected_ids: Vec::new(), last_error: err.to_string(),
     };
     if disabled { return st; }
     match discover_remote_api_key(node) {
@@ -136,6 +111,13 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
         if let Ok(c1) = ssh_syncthing_rest(node, &st.api_key, "GET", "/rest/system/connections", None) {
             let conns = c1.matches("\"connected\": true").count() + c1.matches("\"connected\":true").count();
             st.active_conns = conns as u64;
+            for blk in c1.split("\": {") {
+                if blk.contains("\"connected\": true") || blk.contains("\"connected\":true") {
+                    if let Some(id) = blk.rsplit_once('"').map(|(_, s)| s).filter(|s| s.len() >= 50) {
+                        st.connected_ids.push(id.to_string());
+                    }
+                }
+            }
             let (rx1, tx1) = totals(&c1);
             let up = st.uptime_sec.max(1);
             st.in_bps = (rx1 * 8) / up;

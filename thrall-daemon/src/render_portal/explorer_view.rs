@@ -166,9 +166,10 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
         };
         let next = escape_html(&item_rel);
         let sh_btn = render_share_cell(user, store, br, &rel, &item_rel);
+        let del_f = format!("<form method=\"POST\" action=\"/files/delete\" style=\"display:inline\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><input type=\"hidden\" name=\"item\" value=\"{next}\"><button type=\"submit\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\">Delete</button></form>");
         if is_dir {
             rows.push_str(&format!(
-                "<tr><td><a href=\"/?tab=1&amp;browse={br_esc}&amp;sub={next}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; {n_esc}/</a></td><td>Directory</td><td style=\"text-align:right\">{sh_btn} <a href=\"/?tab=1&amp;browse={br_esc}&amp;sub={next}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Open</a></td></tr>"
+                "<tr><td><a href=\"/?tab=1&amp;browse={br_esc}&amp;sub={next}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; {n_esc}/</a></td><td>Directory</td><td style=\"text-align:right\">{sh_btn} <a href=\"/?tab=1&amp;browse={br_esc}&amp;sub={next}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Open</a> {del_f}</td></tr>"
             ));
         } else {
             let sz_s = if sz >= 1024 {
@@ -177,7 +178,7 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
                 format!("{sz} B")
             };
             rows.push_str(&format!(
-                "<tr><td><a href=\"/files?browse={br_esc}&amp;sub={next}\" style=\"color:var(--text);text-decoration:none\">&#128196; {n_esc}</a></td><td><code>{sz_s}</code></td><td style=\"text-align:right\">{sh_btn} <a href=\"/files?browse={br_esc}&amp;sub={next}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Download</a></td></tr>"
+                "<tr><td><a href=\"/files?browse={br_esc}&amp;sub={next}\" style=\"color:var(--text);text-decoration:none\">&#128196; {n_esc}</a></td><td><code>{sz_s}</code></td><td style=\"text-align:right\">{sh_btn} <a href=\"/files?browse={br_esc}&amp;sub={next}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.78rem\">Download</a> {del_f}</td></tr>"
             ));
         }
     }
@@ -185,7 +186,7 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
         rows.push_str("<tr><td colspan=\"3\" style=\"color:var(--muted)\">Empty</td></tr>");
     }
     format!(
-        "<div class=\"card\"><div class=\"node-header\"><h2>Explorer</h2><div class=\"row\">{crumbs} {dir_share}</div></div><table><thead><tr><th>Name</th><th>Size</th><th style=\"text-align:right\">Share / Action</th></tr></thead><tbody>{rows}</tbody></table><form method=\"POST\" action=\"/folders/mkdir\" style=\"margin-top:0.9rem;padding-top:0.8rem;border-top:1px solid var(--border)\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div class=\"row\"><div style=\"flex:1;min-width:200px\"><input type=\"text\" name=\"dirname\" required placeholder=\"Subfolder Name\"></div><button type=\"submit\" class=\"btn-secondary\">Create Subfolder</button></div></form></div>"
+        "<div class=\"card\"><div class=\"node-header\"><h2>Explorer</h2><div class=\"row\">{crumbs} {dir_share}</div></div><table><thead><tr><th>Name</th><th>Size</th><th style=\"text-align:right\">Share / Action</th></tr></thead><tbody>{rows}</tbody></table><div class=\"row\" style=\"margin-top:0.9rem;padding-top:0.8rem;border-top:1px solid var(--border);gap:0.75rem\"><form method=\"POST\" action=\"/folders/mkdir\" class=\"row\" style=\"flex:1;min-width:260px\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div style=\"flex:1\"><input type=\"text\" name=\"dirname\" required placeholder=\"Subfolder Name\"></div><button type=\"submit\" class=\"btn-secondary\">+ Subfolder</button></form><form method=\"POST\" action=\"/files/create\" class=\"row\" style=\"flex:2;min-width:340px\"><input type=\"hidden\" name=\"browse\" value=\"{br_esc}\"><input type=\"hidden\" name=\"sub\" value=\"{rel_esc}\"><div style=\"width:170px\"><input type=\"text\" name=\"filename\" required placeholder=\"File (e.g. note.md)\"></div><div style=\"flex:1\"><input type=\"text\" name=\"content\" placeholder=\"File contents\"></div><button type=\"submit\">Save File</button></form></div></div>"
     )
 }
 
