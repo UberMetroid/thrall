@@ -102,6 +102,7 @@ pub fn render_device_badges(user: &str, scope_key: &str, store: &MeshStore, snap
 #[rustfmt::skip]
 #[allow(clippy::too_many_arguments)]
 fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str, dir_path: &Path, rel: &str, pkey: &str, depth: usize, out: &mut String) {
+    let etab = if br_scope.starts_with("shared:") { 2 } else { 1 };
     let (br_e, fbr_e, rel_e, pk_e) = (escape_html(br_scope), escape_html(form_br), escape_html(rel), escape_html(pkey));
     let (st, pad) = if pkey.is_empty() { ("", 0.5) } else { (" style=\"display:none\"", 0.5 + depth as f64 * 1.25) };
     let p_attr = if pkey.is_empty() { String::new() } else { format!(" class=\"tree-child\" data-parent=\"{pk_e}\"{st}") };
@@ -133,7 +134,7 @@ fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str,
         if is_dir {
             let ckey = format!("{br_e}:{next}");
             let tbtn = if depth < 3 { format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{ckey}\" aria-expanded=\"false\" aria-label=\"Expand {n_esc}\">+</button>") } else { String::new() };
-            out.push_str(&format!("<tr{p_attr}><td style=\"padding-left:{pad:.2}rem\">{pfx}{tbtn}<a href=\"/?tab=1&amp;browse={br_e}&amp;sub={next}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; {n_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\">{del_f}</td></tr>"));
+            out.push_str(&format!("<tr{p_attr}><td style=\"padding-left:{pad:.2}rem\">{pfx}{tbtn}<a href=\"/?tab={etab}&amp;browse={br_e}&amp;sub={next}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; {n_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\">{del_f}</td></tr>"));
             if depth < 3 { render_dir_rows(user, store, br_scope, form_br, &cpath, &item_rel, &ckey, depth + 1, out); }
         } else {
             let sz_s = if sz >= 1024 { format!("{:.1} KiB", sz as f64 / 1024.0) } else { format!("{sz} B") };
@@ -148,10 +149,25 @@ fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str,
 }
 
 #[rustfmt::skip]
-pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &str) -> String {
-    let th_f = "<thead><tr><th>Folder</th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead>";
-    if browse.is_empty() || browse == "personal" {
-        let (u_esc, mut u_rows, mut s_rows) = (escape_html(user), String::new(), String::new());
+pub fn render_file_explorer(user: &str, store: &MeshStore, tab: u8, browse: &str, sub: &str) -> String {
+    if browse.is_empty() || browse == "personal" || browse == "shared" {
+        if tab == 2 || browse == "shared" {
+            let mut s_rows = String::new();
+            for (fname, _) in store.shared_folders.iter().filter(|(_, a)| a.contains(user)) {
+                let (f_esc, br_s) = (escape_html(fname), format!("shared:{fname}"));
+                let k_esc = escape_html(&br_s);
+                let (sh_btn, sh_lnk) = render_share_cells(user, store, "", "", "", &br_s);
+                let tbtn = format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{k_esc}\" aria-expanded=\"false\" aria-label=\"Expand {f_esc}\">+</button>");
+                s_rows.push_str(&format!("<tr><td>{tbtn}<a href=\"/?tab=2&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:700\">&#127760; {f_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\"><span style=\"color:var(--muted);font-size:0.76rem\">&mdash;</span></td></tr>"));
+                let p = if fname == "Shared" { Path::new("/shared").to_path_buf() } else { Path::new("/shared").join(fname) };
+                render_dir_rows(user, store, &br_s, "", &p, "", &br_s, 1, &mut s_rows);
+            }
+            if s_rows.is_empty() {
+                s_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 shared folders assigned to your account.</td></tr>");
+            }
+            return format!("<table class=\"explorer-table\"><thead><tr><th>Folder</th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{s_rows}</tbody></table>");
+        }
+        let mut u_rows = String::new();
         for f in store.folders_for_user(user) {
             let (f_esc, br_p) = (escape_html(&f), format!("personal:{f}"));
             let k_esc = escape_html(&br_p);
@@ -165,40 +181,29 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, browse: &str, sub: &s
         if u_rows.is_empty() {
             u_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 folders accessible yet. Create a personal folder above.</td></tr>");
         }
-        for (fname, _) in store.shared_folders.iter().filter(|(_, a)| a.contains(user)) {
-            let (f_esc, br_s) = (escape_html(fname), format!("shared:{fname}"));
-            let k_esc = escape_html(&br_s);
-            let (sh_btn, sh_lnk) = render_share_cells(user, store, "", "", "", &br_s);
-            let tbtn = format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{k_esc}\" aria-expanded=\"false\" aria-label=\"Expand {f_esc}\">+</button>");
-            s_rows.push_str(&format!("<tr><td>{tbtn}<a href=\"/?tab=1&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:700\">&#127760; {f_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\"><span style=\"color:var(--muted);font-size:0.76rem\">&mdash;</span></td></tr>"));
-            let p = if fname == "Shared" { Path::new("/shared").to_path_buf() } else { Path::new("/shared").join(fname) };
-            render_dir_rows(user, store, &br_s, "", &p, "", &br_s, 1, &mut s_rows);
-        }
-        if s_rows.is_empty() {
-            s_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 shared folders assigned to your account.</td></tr>");
-        }
-        return format!("<div class=\"card\"><div class=\"node-header\"><h2>1A. User Vault ({u_esc})</h2><div class=\"row\"><button type=\"button\" class=\"btn-secondary\" style=\"padding:0.24rem 0.65rem;font-size:0.78rem\" data-modal-open=\"create-personal-folder\">+ Create Personal Folder</button><span class=\"badge badge-online\">PERSONAL VAULT</span></div></div><table class=\"explorer-table\">{th_f}<tbody>{u_rows}</tbody></table></div><div class=\"card\"><div class=\"node-header\"><h2>1B. Shared Vault</h2><span class=\"badge badge-admin\">SHARED VAULT</span></div><table class=\"explorer-table\">{th_f}<tbody>{s_rows}</tbody></table></div>");
+        return format!("<table class=\"explorer-table\"><thead><tr><th>Folder &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"create-personal-folder\">+ New Folder</button></th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{u_rows}</tbody></table>");
     }
     let Some((label, dir_path, rel)) = resolve_jailed_path(user, store, browse, sub) else { return String::new(); };
+    let etab = if browse.starts_with("shared:") { 2 } else { 1 };
     let (br_esc, lbl_esc, rel_esc) = (escape_html(browse), escape_html(&label), escape_html(&rel));
-    let mut crumbs = format!("<a href=\"/?tab=1\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">All Folders</a> / <a href=\"/?tab=1&amp;browse={br_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">&#128194; {lbl_esc}</a>");
+    let mut crumbs = format!("<a href=\"/?tab={etab}\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;border-radius:4px;text-decoration:none;font-size:0.74rem;text-transform:none\">All Folders</a> / <a href=\"/?tab={etab}&amp;browse={br_esc}\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;border-radius:4px;text-decoration:none;font-size:0.74rem;text-transform:none\">&#128194; {lbl_esc}</a>");
     let mut accum = String::new();
     for seg in rel.split('/').filter(|s| !s.is_empty()) {
         if !accum.is_empty() { accum.push('/'); }
         accum.push_str(seg);
         let (a_esc, s_esc) = (escape_html(&accum), escape_html(seg));
-        crumbs.push_str(&format!(" / <a href=\"/?tab=1&amp;browse={br_esc}&amp;sub={a_esc}\" class=\"btn-secondary\" style=\"padding:0.2rem 0.55rem;border-radius:4px;text-decoration:none;font-size:0.8rem\">{s_esc}</a>"));
+        crumbs.push_str(&format!(" / <a href=\"/?tab={etab}&amp;browse={br_esc}&amp;sub={a_esc}\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;border-radius:4px;text-decoration:none;font-size:0.74rem;text-transform:none\">{s_esc}</a>"));
     }
     let (dir_sh_btn, dir_sh_lnk) = render_share_cells(user, store, browse, browse, &rel, &rel);
     let mut rows = String::new();
     render_dir_rows(user, store, browse, browse, &dir_path, &rel, "", 0, &mut rows);
-    let act_btns = format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.5rem;font-size:0.74rem\" data-modal-open=\"mkdir\" data-browse=\"{br_esc}\" data-sub=\"{rel_esc}\" data-ret-br=\"{br_esc}\" data-label=\"{lbl_esc}\">+ Subfolder</button><button type=\"button\" style=\"padding:0.18rem 0.55rem;font-size:0.74rem\" data-modal-open=\"upload-file\" data-browse=\"{br_esc}\" data-sub=\"{rel_esc}\" data-ret-br=\"{br_esc}\" data-label=\"{lbl_esc}\">+ Upload / Create File</button>");
-    format!("<div class=\"card\"><div class=\"node-header\"><h2>1. Explorer</h2><div class=\"row\">{crumbs} {dir_sh_btn} {dir_sh_lnk} {act_btns}</div></div><table class=\"explorer-table\"><thead><tr><th>Name</th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table></div>")
+    let act_btns = format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"mkdir\" data-browse=\"{br_esc}\" data-sub=\"{rel_esc}\" data-ret-br=\"{br_esc}\" data-label=\"{lbl_esc}\">+ Subfolder</button> <button type=\"button\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"upload-file\" data-browse=\"{br_esc}\" data-sub=\"{rel_esc}\" data-ret-br=\"{br_esc}\" data-label=\"{lbl_esc}\">+ Upload / Create File</button>");
+    format!("<table class=\"explorer-table\"><thead><tr><th>{crumbs} &nbsp;{act_btns}</th><th style=\"width:110px\">{dir_sh_btn}</th><th style=\"width:200px\">{dir_sh_lnk}</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table>")
 }
 
 #[rustfmt::skip]
 pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> String {
-    if tab == 3 {
+    if tab == 4 {
         let mut sh_rows = String::new();
         for (fname, allowed) in &store.shared_folders {
             let (f_esc, is_root) = (escape_html(fname), fname == "Shared");
@@ -215,7 +220,7 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
             let fid_esc = escape_html(&fid);
             sh_rows.push_str(&format!("<div class=\"node-card\"><div class=\"node-header\"><div><strong style=\"font-size:0.95rem\">{f_esc}</strong> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">{fid_esc}</code> &bull; <code style=\"font-size:0.78rem;color:var(--muted)\">/shared{sub}</code></div>{del_btn}</div><form method=\"POST\" action=\"/admin/shared/update\" style=\"margin-top:0.55rem\"><input type=\"hidden\" name=\"folder\" value=\"{f_esc}\"><div class=\"acl-user-grid\">{checks}</div><div style=\"margin-top:0.65rem;text-align:right\"><button type=\"submit\" class=\"btn-secondary\">Apply ACL</button></div></form></div>"));
         }
-        return format!("<div class=\"card\"><h2>3. Access Control — Top-Level Shared Folders (Outside &lt;user&gt;)</h2><div class=\"grid\">{sh_rows}</div><form method=\"POST\" action=\"/admin/shared/create\" style=\"margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:240px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Top-Level Shared Folder Name (e.g. Engineering)\"></div><button type=\"submit\">Create Shared Folder</button></div></form></div>");
+        return format!("<div class=\"card\"><h2>4. Access Control — Top-Level Shared Folders (Outside &lt;user&gt;)</h2><div class=\"grid\">{sh_rows}</div><form method=\"POST\" action=\"/admin/shared/create\" style=\"margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:240px\"><input type=\"text\" name=\"folder\" required placeholder=\"New Top-Level Shared Folder Name (e.g. Engineering)\"></div><button type=\"submit\">Create Shared Folder</button></div></form></div>");
     }
     let mut srv_cards = String::new();
     for node in &snap.nodes {
@@ -241,5 +246,5 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
     if all_rows.is_empty() {
         all_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 enrolled spokes.</td></tr>");
     }
-    format!("<div class=\"card\"><div class=\"node-header\"><h2>4. Mesh Hubs</h2><form method=\"POST\" action=\"/reconcile\"><button type=\"submit\" class=\"btn-secondary\">Reconcile</button></form></div><div class=\"grid\" style=\"margin-bottom:1rem\">{srv_cards}</div><form method=\"POST\" action=\"/admin/servers/add\" style=\"margin:1rem 0;padding:0.9rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:180px\"><input type=\"text\" name=\"name\" required placeholder=\"Hub Name (e.g. hyperion)\"></div><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"host\" required placeholder=\"Tailscale IP / Host (e.g. 100.x.y.z)\"></div><button type=\"submit\">Add Mesh Hub</button></div></form><table><thead><tr><th>Principal</th><th>Spoke Name</th><th>Spoke Device ID</th><th>Scope</th></tr></thead><tbody>{all_rows}</tbody></table></div>")
+    format!("<div class=\"card\"><div class=\"node-header\"><h2>5. Mesh Hubs</h2><form method=\"POST\" action=\"/reconcile\"><button type=\"submit\" class=\"btn-secondary\">Reconcile</button></form></div><div class=\"grid\" style=\"margin-bottom:1rem\">{srv_cards}</div><form method=\"POST\" action=\"/admin/servers/add\" style=\"margin:1rem 0;padding:0.9rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)\"><div class=\"row\"><div style=\"flex:1;min-width:180px\"><input type=\"text\" name=\"name\" required placeholder=\"Hub Name (e.g. hyperion)\"></div><div style=\"flex:1;min-width:220px\"><input type=\"text\" name=\"host\" required placeholder=\"Tailscale IP / Host (e.g. 100.x.y.z)\"></div><button type=\"submit\">Add Mesh Hub</button></div></form><table><thead><tr><th>Principal</th><th>Spoke Name</th><th>Spoke Device ID</th><th>Scope</th></tr></thead><tbody>{all_rows}</tbody></table></div>")
 }

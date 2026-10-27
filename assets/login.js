@@ -935,12 +935,6 @@
           if (elRx && d.rx) elRx.textContent = '\u25B8 ' + padRight(d.rx, 16);
           var elTx = document.getElementById('tui-tx');
           if (elTx && d.tx) elTx.textContent = '\u25B8 ' + padRight(d.tx, 16);
-          var elSum = document.getElementById('footer-fleet-summary');
-          if (elSum) {
-            var hw = d.hubs_total === 1 ? 'HUB' : 'HUBS';
-            var sw = d.spokes === 1 ? 'SPOKE' : 'SPOKES';
-            elSum.textContent = d.hubs_total + ' MESH ' + hw + ' \u2022 ' + d.spokes + ' ENROLLED ' + sw;
-          }
         })
         .catch(function () {});
     }
@@ -992,13 +986,26 @@
         }
       }
       if (persist) {
-        var openBtns = document.querySelectorAll('.tree-toggle[aria-expanded="true"]');
-        var keys = [];
-        for (var k = 0; k < openBtns.length; k++) {
-          var tk = openBtns[k].getAttribute('data-target');
-          if (tk) keys.push(tk);
+        var domToggles = document.querySelectorAll('.tree-toggle[data-target]');
+        var domMap = {};
+        for (var d = 0; d < domToggles.length; d++) {
+          var dk = domToggles[d].getAttribute('data-target');
+          if (dk) domMap[dk] = domToggles[d].getAttribute('aria-expanded') === 'true';
         }
-        saveExpanded(keys);
+        var existing = loadExpanded();
+        var merged = [];
+        for (var e = 0; e < existing.length; e++) {
+          var ek = existing[e];
+          if (!(ek in domMap) && merged.indexOf(ek) === -1) {
+            merged.push(ek);
+          }
+        }
+        for (var k in domMap) {
+          if (Object.prototype.hasOwnProperty.call(domMap, k) && domMap[k] && merged.indexOf(k) === -1) {
+            merged.push(k);
+          }
+        }
+        saveExpanded(merged);
       }
     }
     var saved = loadExpanded();

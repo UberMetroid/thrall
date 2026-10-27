@@ -187,55 +187,52 @@ mod tests {
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
         assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\""));
-        assert!(
-            !h.contains("nav-arrow-up") && h.contains("MESH HUB") && h.contains("ENROLLED SPOKE")
-        );
+        assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED SPOKE") && h.contains("id=\"footer-status-msg\"") && h.contains("Sign in with your account credentials in the top bar."));
+        let h_err = render_login_page(Some("Invalid credentials"), &snap, &store);
+        assert!(h_err.contains("id=\"footer-status-msg\">Invalid credentials</span>"));
         assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
         let tj = crate::render_portal::render_telemetry_json(&snap, &store);
-        assert!(
-            tj.contains("\"hubs_total\":")
-                && tj.contains("\"spokes\":1")
-                && !tj.contains("alice")
-                && !tj.contains("dev-1")
-        );
+        assert!(tj.contains("\"hubs_total\":") && tj.contains("\"spokes\":1") && !tj.contains("alice") && !tj.contains("dev-1"));
         for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
             assert!(!h.contains(w));
         }
         assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
-        let user_html = render_dashboard_page("bob", false, &store, &snap, 3, "", "", None, None);
-        assert!(!user_html.contains("3. Access Control") && !user_html.contains("4. Mesh Hubs"));
-        assert!(user_html.contains("1. Explorer") && user_html.contains("2. Spokes &amp; Setup"));
-        assert!(user_html.contains("1A. User Vault") && user_html.contains("1B. Shared Vault"));
-        assert!(user_html.contains("&#127760; Ops/") && !user_html.contains("Shared / Ops/"));
+        let user_html = render_dashboard_page("bob", false, &store, &snap, 4, "", "", Some("Share mode updated"), None);
+        assert!(!user_html.contains("4. Access Control") && !user_html.contains("5. Mesh Hubs") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
+        assert!(user_html.contains("1. Personal") && user_html.contains("2. Common") && user_html.contains("3. Spokes &amp; Setup"));
+        assert!(user_html.contains("id=\"footer-status-msg\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
         assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-personal-folder\""));
-        assert!(user_html.contains("class=\"tree-toggle\" data-target=\"shared:Ops\""));
         assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
 
-        let empty_h =
-            render_dashboard_page("emptyuser", false, &store, &snap, 1, "personal", "", None, None);
-        assert!(empty_h.contains("0 folders accessible yet. Create a personal folder above."));
+        let common_html = render_dashboard_page("bob", false, &store, &snap, 2, "", "", None, None);
+        assert!(common_html.contains("&#127760; Ops/") && !common_html.contains("Shared / Ops/") && !common_html.contains("class=\"card\""));
+        assert!(common_html.contains("class=\"tree-toggle\" data-target=\"shared:Ops\""));
+        assert!(common_html.contains("id=\"footer-status-msg\">Shared folders across your team"));
+
+        let empty_h = render_dashboard_page("emptyuser", false, &store, &snap, 1, "personal", "", None, Some("Invalid folder name"));
+        assert!(empty_h.contains("0 folders accessible yet. Create a personal folder above.") && empty_h.contains("id=\"footer-status-msg\">Invalid folder name</span>"));
 
         let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
-        assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/"));
+        assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/") && !root_a.contains("class=\"card\""));
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\""));
         assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\""));
         assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("data-modal-open=\"mkdir\"") && root_a.contains("data-modal-open=\"upload-file\""));
-        assert!(root_a.contains(&format!(">/s/{tok}</a></td>")) && root_a.contains(">Share: OFF</button></form></td><td></td>"));
+        assert!(root_a.contains(&format!(">/s/{tok}</a></td>")) && root_a.contains("id=\"footer-status-msg\">Press + to expand a folder"));
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);
-        assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents"));
+        assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents") && !in_h.contains("class=\"card\""));
 
-        let s2 = render_dashboard_page("alice", false, &store, &snap, 2, "", "", None, None);
-        assert!(s2.contains("2A. Enrolled Spokes") && s2.contains("2B. Per-Spoke Folder"));
-        assert!(s2.contains("2C. Two-Way Hub &amp; Spoke") && s2.contains("pending-folder"));
+        let s3 = render_dashboard_page("alice", false, &store, &snap, 3, "", "", None, None);
+        assert!(s3.contains("3A. Enrolled Spokes") && s3.contains("3B. Per-Spoke Folder"));
+        assert!(s3.contains("3C. Two-Way Hub &amp; Spoke") && s3.contains("pending-folder") && s3.contains("/?tab=2&amp;browse=shared:Ops"));
 
-        let acl_html = render_dashboard_page("admin", true, &store, &snap, 3, "", "", None, None);
-        assert!(acl_html.contains("3. Access Control") && acl_html.contains("Apply ACL"));
+        let acl_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
+        assert!(acl_html.contains("4. Access Control") && acl_html.contains("Apply ACL"));
 
-        let admin_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
-        assert!(admin_html.contains("3. Access Control") && admin_html.contains("4. Mesh Hubs"));
+        let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
+        assert!(admin_html.contains("4. Access Control") && admin_html.contains("5. Mesh Hubs"));
         assert!(admin_html.contains("Add Mesh Hub") && !admin_html.contains("LDAP"));
 
         let tmp_base = std::env::temp_dir().join("thrall_test_jail");

@@ -77,26 +77,28 @@ pub fn handle_post_action(
     }
     if path == "/folders/mkdir" {
         let (br, sub, rbr) = (fval("browse"), fval("sub"), form.get("ret_br").map(String::as_str).unwrap_or(fval("browse")));
+        let etab = if rbr.starts_with("shared:") || br.starts_with("shared:") { 2 } else { 1 };
         if let (Ok(d), Some((_, base, rel))) = (sanitize_folder_name(fval("dirname")), resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::create_dir_all(base.join(&d));
             let nsub = if rel.is_empty() { d } else { format!("{rel}/{d}") };
-            let u = if rbr.is_empty() { "/?tab=1&ok=Folder+created".into() } else { format!("/?tab=1&browse={rbr}&sub={nsub}&ok=Folder+created") };
+            let u = if rbr.is_empty() { format!("/?tab={etab}&ok=Folder+created") } else { format!("/?tab={etab}&browse={rbr}&sub={nsub}&ok=Folder+created") };
             write_redirect(stream, &u, "");
         } else {
-            let u = if rbr.is_empty() { "/?tab=1&err=Invalid+subfolder+name".into() } else { format!("/?tab=1&browse={rbr}&sub={sub}&err=Invalid+subfolder+name") };
+            let u = if rbr.is_empty() { format!("/?tab={etab}&err=Invalid+subfolder+name") } else { format!("/?tab={etab}&browse={rbr}&sub={sub}&err=Invalid+subfolder+name") };
             write_redirect(stream, &u, "");
         }
         return true;
     }
     if path == "/files/create" {
         let (br, sub, fnm, rbr) = (fval("browse"), fval("sub"), fval("filename").trim(), form.get("ret_br").map(String::as_str).unwrap_or(fval("browse")));
+        let etab = if rbr.starts_with("shared:") || br.starts_with("shared:") { 2 } else { 1 };
         let valid_fn = !fnm.is_empty() && !fnm.starts_with('.') && fnm.len() <= 64 && fnm.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
         if let (true, Some((_, base, _))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::write(base.join(fnm), fval("content").as_bytes());
-            let u = if rbr.is_empty() { "/?tab=1&ok=File+saved".into() } else { format!("/?tab=1&browse={rbr}&sub={sub}&ok=File+saved") };
+            let u = if rbr.is_empty() { format!("/?tab={etab}&ok=File+saved") } else { format!("/?tab={etab}&browse={rbr}&sub={sub}&ok=File+saved") };
             write_redirect(stream, &u, "");
         } else {
-            let u = if rbr.is_empty() { "/?tab=1&err=Invalid+file+name".into() } else { format!("/?tab=1&browse={rbr}&sub={sub}&err=Invalid+file+name") };
+            let u = if rbr.is_empty() { format!("/?tab={etab}&err=Invalid+file+name") } else { format!("/?tab={etab}&browse={rbr}&sub={sub}&err=Invalid+file+name") };
             write_redirect(stream, &u, "");
         }
         return true;
@@ -104,10 +106,11 @@ pub fn handle_post_action(
     if path == "/files/delete" {
         let (br, sub, item, c) = (fval("browse"), fval("sub"), fval("item"), fval("confirm_name").trim());
         let (s_br, i_rel) = if br.is_empty() { item.split_once('/').unwrap_or((item, "")) } else { (br, item) };
+        let etab = if s_br.starts_with("shared:") || br.starts_with("shared:") { 2 } else { 1 };
         if let Some((_, fp, rel_i)) = resolve_jailed_path(username, store, s_br, i_rel) {
             let leaf = rel_i.rsplit('/').next().unwrap_or(&rel_i);
             if !c.is_empty() && c != leaf {
-                let u = if br.is_empty() { "/?tab=1&err=Confirmation+name+mismatch".to_string() } else { format!("/?tab=1&browse={br}&sub={sub}&err=Confirmation+name+mismatch") };
+                let u = if br.is_empty() { format!("/?tab={etab}&err=Confirmation+name+mismatch") } else { format!("/?tab={etab}&browse={br}&sub={sub}&err=Confirmation+name+mismatch") };
                 write_redirect(stream, &u, "");
                 return true;
             }
@@ -115,13 +118,14 @@ pub fn handle_post_action(
                 if fp.is_dir() { let _ = fs::remove_dir_all(&fp); } else { let _ = fs::remove_file(&fp); }
             }
         }
-        let u = if br.is_empty() { "/?tab=1&ok=Item+deleted".to_string() } else { format!("/?tab=1&browse={br}&sub={sub}&ok=Item+deleted") };
+        let u = if br.is_empty() { format!("/?tab={etab}&ok=Item+deleted") } else { format!("/?tab={etab}&browse={br}&sub={sub}&ok=Item+deleted") };
         write_redirect(stream, &u, "");
         return true;
     }
     if path == "/shares/toggle" {
         let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
         let (s_br, i_rel) = if br.is_empty() { item.split_once('/').unwrap_or((item, "")) } else { (br, item) };
+        let etab = if s_br.starts_with("shared:") || br.starts_with("shared:") { 2 } else { 1 };
         if let Some((_, _, clean_item)) = resolve_jailed_path(username, store, s_br, i_rel) {
             let scope = if let Some(pf) = s_br.strip_prefix("personal:").or_else(|| s_br.strip_prefix("personal/")) { format!("personal:{username}:{pf}") } else { s_br.to_string() };
             let target = if clean_item.is_empty() { scope } else { format!("{scope}/{clean_item}") };
@@ -130,7 +134,7 @@ pub fn handle_post_action(
                 store.public_shares.insert(tok, target);
             }
             let _ = store.save(&cfg.portal.database_path);
-            let u = if br.is_empty() { "/?tab=1&ok=Share+mode+updated".to_string() } else { format!("/?tab=1&browse={br}&sub={sub}&ok=Share+mode+updated") };
+            let u = if br.is_empty() { format!("/?tab={etab}&ok=Share+mode+updated") } else { format!("/?tab={etab}&browse={br}&sub={sub}&ok=Share+mode+updated") };
             write_redirect(stream, &u, "");
             return true;
         }
@@ -145,10 +149,10 @@ pub fn handle_post_action(
         match res {
             Ok(()) => {
                 *snap = reconcile_fleet(cfg, store);
-                write_redirect(stream, "/?tab=2&ok=Spoke+provisioned+across+fleet", "");
+                write_redirect(stream, "/?tab=3&ok=Spoke+provisioned+across+fleet", "");
             }
             Err(e) => {
-                let p = render_dashboard_page(username, is_admin, store, snap, 2, "", "", None, Some(&e));
+                let p = render_dashboard_page(username, is_admin, store, snap, 3, "", "", None, Some(&e));
                 write_html(stream, "400 Bad Request", &p);
             }
         }
@@ -197,7 +201,7 @@ pub fn handle_post_action(
                 }
             }
         }
-        write_redirect(stream, "/?tab=2&ok=Spoke+removed+from+fleet", "");
+        write_redirect(stream, "/?tab=3&ok=Spoke+removed+from+fleet", "");
         return true;
     }
     if is_admin {
