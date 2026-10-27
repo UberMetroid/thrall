@@ -208,10 +208,25 @@
       meshRtts.push(isNaN(rv) || rv <= 0 ? (ri + 1) * 14 : rv);
     }
     var rawBps = (canvas.getAttribute('data-mesh-bps') || '').split(',');
-    var meshBps = [];
+    var meshBps = [], totalBps = 0;
     for (var bi = 0; bi < meshCount; bi++) {
       var bv = parseFloat(rawBps[bi]);
-      meshBps.push(isNaN(bv) || bv < 0 ? 0 : bv);
+      var cleanB = isNaN(bv) || bv < 0 ? 0 : bv;
+      meshBps.push(cleanB);
+      totalBps += cleanB;
+    }
+    var rawMasses = (canvas.getAttribute('data-mesh-masses') || '').split(',');
+    var meshMasses = [];
+    for (var mi = 0; mi < meshCount; mi++) {
+      var mv = parseFloat(rawMasses[mi]);
+      meshMasses.push(isNaN(mv) || mv <= 0 ? (mi + 1) * 1024 : mv);
+    }
+    var rawBearings = (canvas.getAttribute('data-mesh-bearings') || '').split(',');
+    var meshBearings = [];
+    for (var bri = 0; bri < meshCount; bri++) {
+      var brv = parseFloat(rawBearings[bri]);
+      var deg = isNaN(brv) ? (bri * 360 / meshCount) : brv;
+      meshBearings.push((deg * Math.PI) / 180);
     }
     var rawParents = (canvas.getAttribute('data-mini-parents') || '').split(',');
     var miniParents = [];
@@ -272,9 +287,9 @@
       var heroEl = document.getElementById('wordmark-anchor');
       if (heroEl) {
         var r = heroEl.getBoundingClientRect();
-        originY = Math.round((r.top + r.height * 0.5) * dpr - (wmHeight * cellPx) * 0.5);
+        originY = Math.round((r.bottom - 10) * dpr - (wmHeight * cellPx));
       } else {
-        originY = Math.round(height * 0.12 - (wmHeight * cellPx) * 0.5);
+        originY = Math.round(height * 0.78 - (wmHeight * cellPx) * 0.5);
       }
       gridCols = Math.ceil(width / cellPx) + 1;
       gridRows = Math.ceil(height / cellPx) + 1;
@@ -323,8 +338,22 @@
     function render(t) {
       rafId = 0;
       var sec = t * 0.001;
-      var patrolX = width * (0.5 + 0.36 * Math.sin(sec * 0.68));
-      var patrolY = height * (0.34 + 0.24 * Math.sin(sec * 0.92 + 1.2));
+      var throughputBoost = Math.min(2.4, Math.log10((totalBps || 0) + 10) * 0.32);
+      var spinRate = 0.22 + throughputBoost * 0.38;
+      var baryDx = 0, baryDy = 0, weightSum = 0;
+      for (var bm = 0; bm < meshCount; bm++) {
+        var mw = Math.log10((meshMasses[bm] || 1024) + 10);
+        var bAng = meshBearings[bm] + sec * spinRate;
+        baryDx += Math.cos(bAng) * mw;
+        baryDy += Math.sin(bAng) * mw;
+        weightSum += mw;
+      }
+      if (weightSum > 0) {
+        baryDx /= weightSum;
+        baryDy /= weightSum;
+      }
+      var patrolX = width * (0.5 + 0.28 * Math.sin(sec * 0.48) + 0.12 * baryDx);
+      var patrolY = height * (0.36 + 0.20 * Math.sin(sec * 0.66 + 1.2) + 0.10 * baryDy);
       if (!orb.initialized) {
         orb.x = patrolX;
         orb.y = patrolY;
@@ -333,7 +362,6 @@
 
       var idleMs = t - mouse.lastMove;
       var cursorControlled = mouse.active && idleMs < 2400;
-      var targetControl = 0;
       var targetText = (isOverText && cursorControlled) ? 1 : 0;
       smoothControl = 0;
       smoothText += (targetText - smoothText) * 0.18;
@@ -345,13 +373,18 @@
       meshOrbs.length = meshCount;
       for (var m = 0; m < meshCount; m++) {
         var rttMs = meshRtts[m] || ((m + 1) * 14);
-        var pingDist = Math.min(360, Math.max(92, (46 + Math.sqrt(rttMs) * 16 + m * 22) * 1.5)) * dpr;
+        var nodeBps = meshBps[m] || 0;
+        var gravPull = Math.min(0.26, Math.log10(nodeBps + 1) * 0.045);
+        var pingDist = Math.min(360, Math.max(92, (46 + Math.sqrt(rttMs) * 16 + m * 22) * 1.5 * (1 - gravPull))) * dpr;
         if (pingDist > maxOrbitR) maxOrbitR = pingDist;
-        var ang = sec * (0.95 / (1 + 0.06 * Math.sqrt(rttMs))) + (m * 2 * Math.PI) / meshCount;
-        var rad = pingDist * (1 + 0.08 * Math.sin(sec * 1.45 + m * 2.1));
+        var baseBearing = meshBearings[m] !== undefined ? meshBearings[m] : ((m * 2 * Math.PI) / meshCount);
+        var nodeSpin = spinRate / (1 + 0.05 * Math.sqrt(rttMs));
+        var ang = baseBearing + sec * nodeSpin + 0.14 * Math.sin(sec * 0.9 + m * 1.7);
+        var rad = pingDist * (1 + 0.06 * Math.sin(sec * 1.35 + m * 2.1));
+        var jitter = rttMs > 45 ? Math.sin(sec * 14 + m) * 2.5 * dpr : 0;
         meshOrbs[m] = {
-          x: orb.x + Math.cos(ang) * rad,
-          y: orb.y + Math.sin(ang) * (rad * 0.78)
+          x: orb.x + Math.cos(ang) * rad + jitter,
+          y: orb.y + Math.sin(ang) * (rad * 0.78) - jitter
         };
       }
 
@@ -415,7 +448,7 @@
       var heroEl = document.getElementById('wordmark-anchor');
       if (heroEl) {
         var rect = heroEl.getBoundingClientRect();
-        originY = Math.round((rect.top + rect.height * 0.5) * dpr - (wmHeight * cellPx) * 0.5);
+        originY = Math.round((rect.bottom - 10) * dpr - (wmHeight * cellPx));
       }
 
       for (var r = 0; r < gridRows; r++) {
@@ -592,7 +625,7 @@
     var scroller = document.getElementById('middle-scroll');
     if (!upBtn && !downBtn) return;
 
-    var ids = ['sec-thrall', 'sec-ticker', 'sec-telemetry', 'sec-chibi'];
+    var ids = ['sec-thrall', 'sec-telemetry'];
     var activeIdx = 0;
     var programmatic = false;
     var progTimer = 0;

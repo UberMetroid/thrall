@@ -268,11 +268,11 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   padding: 2rem 0;
 }
 .sec-thrall {
-  min-height: calc(100vh - 180px);
+  min-height: calc(100vh - 140px);
   justify-content: space-between;
-  padding: 20px 0 24px;
+  padding: 16px 0 8px;
 }
-.sec-ticker, .sec-telemetry, .sec-chibi { min-height: calc(100vh - 180px); }
+.sec-telemetry { min-height: calc(100vh - 180px); }
 .spotlight-scroll-cue {
   display: inline-flex;
   flex-direction: column;

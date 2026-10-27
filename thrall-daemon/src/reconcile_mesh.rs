@@ -27,7 +27,9 @@ pub struct NodeStatus {
     pub active_conns: u64,
     pub in_bps: u64,
     pub out_bps: u64,
+    pub total_bytes: u64,
     pub rtt_ms: u64,
+    pub bearing_deg: u64,
     pub connected_ids: Vec<String>,
     pub last_error: String,
 }
@@ -85,10 +87,13 @@ fn tcp_ping_ms(wan_addr: &str, ssh_host: &str) -> u64 {
 pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
     let err = if disabled { "Disconnected by admin" } else { "" };
     let rtt = if disabled { 0 } else { tcp_ping_ms(&node.syncthing_wan_addr, &node.ssh_host) };
+    let mut h_hash = 0xcbf2_9ce4_8422_2325u64;
+    for b in node.ssh_host.bytes() { h_hash = (h_hash ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3); }
     let mut st = NodeStatus {
         name: node.name.clone(), ssh_host: node.ssh_host.clone(), wan_addr: node.syncthing_wan_addr.clone(),
         online: false, disabled, device_id: String::new(), api_key: String::new(), uptime_sec: 0,
-        active_conns: 0, in_bps: 0, out_bps: 0, rtt_ms: rtt, connected_ids: Vec::new(), last_error: err.to_string(),
+        active_conns: 0, in_bps: 0, out_bps: 0, total_bytes: 0, rtt_ms: rtt, bearing_deg: h_hash % 360,
+        connected_ids: Vec::new(), last_error: err.to_string(),
     };
     if disabled { return st; }
     match discover_remote_api_key(node) {
@@ -100,6 +105,7 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
             st.device_id = parse_json_string_field(&body, "myID").unwrap_or_default();
             st.uptime_sec = parse_json_u64_field(&body, "uptime").unwrap_or(0);
             st.online = !st.device_id.is_empty();
+            if let Some(id_b) = st.device_id.bytes().next() { st.bearing_deg = (st.bearing_deg + u64::from(id_b) * 7) % 360; }
         }
         Err(e) => st.last_error = e,
     }
@@ -120,6 +126,7 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
             }
             let (rx1, tx1) = totals(&c1);
             let up = st.uptime_sec.max(1);
+            st.total_bytes = rx1 + tx1;
             st.in_bps = (rx1 * 8) / up;
             st.out_bps = (tx1 * 8) / up;
         }

@@ -181,16 +181,16 @@ mod tests {
 
         let snap = FleetSnapshot::default();
         let h = render_login_page(None, &snap, &store);
-        assert!(h.contains("eco-marquee-viewport") && !h.contains("login-sub"));
+        assert!(!h.contains("login-sub") && !h.contains("sec-ticker") && !h.contains("sec-chibi"));
         assert!(h.contains("User or Email") && h.contains("HIVE MESH TELEMETRY"));
-        assert!(h.contains("THRALL MESH DIRECTOR") && h.contains("ACTIVE BEP LINKS"));
+        assert!(h.contains("THRALL MESH DIRECTOR") && h.contains("Active BEP Links"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
-        assert!(h.contains("id=\"sec-thrall\"") && h.contains("id=\"sec-ticker\""));
-        assert!(h.contains("footer-dock") && h.contains("id=\"sec-chibi\""));
+        assert!(h.contains("id=\"sec-thrall\"") && h.contains("id=\"sec-telemetry\""));
+        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\""));
         assert!(h.contains("id=\"nav-arrow-up\"") && h.contains("id=\"nav-arrow-down\""));
-        assert!(h.contains("id=\"footer-accent-picker\"") && h.contains("CHIBI THRALL MASCOT"));
-        assert!(h.contains("data-mesh-rtts=") && h.contains("/mascot.jpg"));
+        assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
+        assert!(h.contains("data-mesh-bearings="));
         for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
             assert!(!h.contains(w));
         }
