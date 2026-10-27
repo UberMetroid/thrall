@@ -1023,6 +1023,178 @@
     });
   }
 
+  function escHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function initExplorerModals() {
+    var backdrop = null;
+
+    function closeModal() {
+      if (backdrop && backdrop.parentNode) {
+        backdrop.parentNode.removeChild(backdrop);
+      }
+      backdrop = null;
+    }
+
+    function openModal(html, isDanger, onReady) {
+      closeModal();
+      backdrop = document.createElement('div');
+      backdrop.id = 'thrall-modal-backdrop';
+      backdrop.className = 'thrall-modal-backdrop';
+      var card = document.createElement('div');
+      card.className = 'thrall-modal' + (isDanger ? ' modal-danger' : '');
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-modal', 'true');
+      card.innerHTML = html;
+      backdrop.appendChild(card);
+      document.body.appendChild(backdrop);
+
+      backdrop.addEventListener('click', function (e) {
+        if (e.target === backdrop || (e.target && e.target.closest && e.target.closest('[data-modal-close]'))) {
+          closeModal();
+        }
+      });
+
+      if (typeof onReady === 'function') onReady(card);
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && backdrop) {
+        e.preventDefault();
+        closeModal();
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+
+      var delBtn = t.closest('[data-del-action]');
+      if (delBtn) {
+        e.preventDefault();
+        var action = delBtn.getAttribute('data-del-action') || '/files/delete';
+        var name = delBtn.getAttribute('data-del-name') || '';
+        var browse = delBtn.getAttribute('data-del-browse') || '';
+        var sub = delBtn.getAttribute('data-del-sub') || '';
+        var item = delBtn.getAttribute('data-del-item') || '';
+        var html =
+          '<h3>Confirm Deletion</h3>' +
+          '<p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem">Type <code style="color:var(--danger);font-weight:700">' + escHtml(name) + '</code> to confirm deleting this item:</p>' +
+          '<form method="POST" action="' + escHtml(action) + '">' +
+          '<input type="hidden" name="folder" value="' + escHtml(name) + '">' +
+          '<input type="hidden" name="browse" value="' + escHtml(browse) + '">' +
+          '<input type="hidden" name="sub" value="' + escHtml(sub) + '">' +
+          '<input type="hidden" name="item" value="' + escHtml(item) + '">' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="confirm_name" id="thrall-del-confirm-input" autocomplete="off" required placeholder="Type exact name to confirm"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit" class="btn-danger" id="thrall-del-submit-btn" disabled>Permanently Delete</button>' +
+          '</div></form>';
+        openModal(html, true, function (card) {
+          var inp = card.querySelector('#thrall-del-confirm-input');
+          var subBtn = card.querySelector('#thrall-del-submit-btn');
+          if (inp && subBtn) {
+            inp.focus();
+            inp.addEventListener('input', function () {
+              subBtn.disabled = inp.value.trim() !== name;
+            });
+          }
+        });
+        return;
+      }
+
+      var openBtn = t.closest('[data-modal-open]');
+      if (!openBtn) return;
+      e.preventDefault();
+      var kind = openBtn.getAttribute('data-modal-open');
+      var br = openBtn.getAttribute('data-browse') || '';
+      var sb = openBtn.getAttribute('data-sub') || '';
+      var rbr = openBtn.getAttribute('data-ret-br') || '';
+      var lbl = openBtn.getAttribute('data-label') || '';
+
+      if (kind === 'create-personal-folder') {
+        openModal(
+          '<h3>Create Personal Folder</h3>' +
+          '<form method="POST" action="/user/folders/create">' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" required placeholder="Folder Name (e.g. Projects)"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Create Folder</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var inp = card.querySelector('input[name="folder"]');
+            if (inp) inp.focus();
+          }
+        );
+      } else if (kind === 'mkdir') {
+        var subTitle = lbl ? ' <code style="font-size:0.78rem;color:var(--muted)">(' + escHtml(lbl) + ')</code>' : '';
+        openModal(
+          '<h3>New Subfolder' + subTitle + '</h3>' +
+          '<form method="POST" action="/folders/mkdir">' +
+          '<input type="hidden" name="browse" value="' + escHtml(br) + '">' +
+          '<input type="hidden" name="sub" value="' + escHtml(sb) + '">' +
+          '<input type="hidden" name="ret_br" value="' + escHtml(rbr) + '">' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="dirname" required placeholder="Subfolder Name"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Create Subfolder</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var inp = card.querySelector('input[name="dirname"]');
+            if (inp) inp.focus();
+          }
+        );
+      } else if (kind === 'upload-file') {
+        var upTitle = lbl ? ' <code style="font-size:0.78rem;color:var(--muted)">(' + escHtml(lbl) + ')</code>' : '';
+        openModal(
+          '<h3>Upload or Create File' + upTitle + '</h3>' +
+          '<form method="POST" action="/files/create">' +
+          '<input type="hidden" name="browse" value="' + escHtml(br) + '">' +
+          '<input type="hidden" name="sub" value="' + escHtml(sb) + '">' +
+          '<input type="hidden" name="ret_br" value="' + escHtml(rbr) + '">' +
+          '<div style="margin-bottom:0.65rem"><label class="field-label" for="thrall-file-picker">Choose Local File (optional)</label><input type="file" id="thrall-file-picker" style="font-family:var(--mono);font-size:0.78rem;color:var(--text-secondary);width:100%"></div>' +
+          '<div style="margin-bottom:0.65rem"><input type="text" name="filename" required placeholder="File name (e.g. note.md)"></div>' +
+          '<div style="margin-bottom:0.85rem"><textarea name="content" rows="4" placeholder="File contents (or pick a file above)"></textarea></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Save File</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var picker = card.querySelector('#thrall-file-picker');
+            var fnInp = card.querySelector('input[name="filename"]');
+            var txt = card.querySelector('textarea[name="content"]');
+            if (fnInp) fnInp.focus();
+            if (picker && fnInp && txt) {
+              picker.addEventListener('change', function () {
+                var f = picker.files && picker.files[0];
+                if (!f) return;
+                fnInp.value = f.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                if (typeof FileReader !== 'undefined') {
+                  var reader = new FileReader();
+                  reader.onload = function (ev) {
+                    if (ev.target && typeof ev.target.result === 'string') {
+                      txt.value = ev.target.result;
+                    }
+                  };
+                  reader.readAsText(f);
+                }
+              });
+            }
+          }
+        );
+      }
+    });
+  }
+
   function start() {
     initPalette();
     renderHeaderWordmark();
@@ -1031,6 +1203,7 @@
     initChibiHints();
     initTelemetryPolling();
     initExplorerTree();
+    initExplorerModals();
   }
 
   if (document.readyState === 'loading') {

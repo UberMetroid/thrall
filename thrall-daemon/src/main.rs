@@ -207,18 +207,20 @@ mod tests {
         assert!(user_html.contains("1. Explorer") && user_html.contains("2. Spokes &amp; Setup"));
         assert!(user_html.contains("1A. User Vault") && user_html.contains("1B. Shared Vault"));
         assert!(user_html.contains("&#127760; Ops/") && !user_html.contains("Shared / Ops/"));
-        assert!(user_html.contains("<th>Share</th><th style=\"text-align:right\">Action</th>"));
+        assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
+        assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-personal-folder\""));
         assert!(user_html.contains("class=\"tree-toggle\" data-target=\"shared:Ops\""));
         assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
 
         let empty_h =
             render_dashboard_page("emptyuser", false, &store, &snap, 1, "personal", "", None, None);
-        assert!(empty_h.contains("0 folders accessible yet. Create a personal folder below."));
+        assert!(empty_h.contains("0 folders accessible yet. Create a personal folder above."));
 
         let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
         assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/"));
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\""));
-        assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("name=\"ret_br\""));
+        assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\""));
+        assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("data-modal-open=\"mkdir\"") && root_a.contains("data-modal-open=\"upload-file\""));
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);

@@ -49,6 +49,11 @@ pub fn handle_post_action(
     }
     if path == "/user/folders/delete" {
         if let Ok(fname) = sanitize_folder_name(fval("folder")) {
+            let c = fval("confirm_name").trim();
+            if !c.is_empty() && c != fname {
+                write_redirect(stream, "/?tab=1&err=Confirmation+name+mismatch", "");
+                return true;
+            }
             store.ensure_user_folders(username).retain(|f| f != &fname);
             let _ = store.save(&cfg.portal.database_path);
             let flow = fname.to_ascii_lowercase();
@@ -97,9 +102,15 @@ pub fn handle_post_action(
         return true;
     }
     if path == "/files/delete" {
-        let (br, sub, item) = (fval("browse"), fval("sub"), fval("item"));
+        let (br, sub, item, c) = (fval("browse"), fval("sub"), fval("item"), fval("confirm_name").trim());
         let (s_br, i_rel) = if br.is_empty() { item.split_once('/').unwrap_or((item, "")) } else { (br, item) };
         if let Some((_, fp, rel_i)) = resolve_jailed_path(username, store, s_br, i_rel) {
+            let leaf = rel_i.rsplit('/').next().unwrap_or(&rel_i);
+            if !c.is_empty() && c != leaf {
+                let u = if br.is_empty() { "/?tab=1&err=Confirmation+name+mismatch".to_string() } else { format!("/?tab=1&browse={br}&sub={sub}&err=Confirmation+name+mismatch") };
+                write_redirect(stream, &u, "");
+                return true;
+            }
             if !rel_i.is_empty() {
                 if fp.is_dir() { let _ = fs::remove_dir_all(&fp); } else { let _ = fs::remove_file(&fp); }
             }
