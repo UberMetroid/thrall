@@ -431,8 +431,10 @@
 
     resize();
     render(performance.now());
+    var scroller = document.getElementById('middle-scroll');
     window.addEventListener('resize', function () { resize(); wakeRender(); }, { passive: true });
     window.addEventListener('scroll', function () { wakeRender(); }, { passive: true });
+    if (scroller) scroller.addEventListener('scroll', function () { wakeRender(); }, { passive: true });
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     window.addEventListener('pointerdown', onPointerDown, { passive: true });
     window.addEventListener('pointerup', function (e) { if (e && e.pointerType === 'touch') deactivate(); }, { passive: true });
@@ -448,12 +450,25 @@
   function initSectionNav() {
     var upBtn = document.getElementById('nav-arrow-up');
     var downBtn = document.getElementById('nav-arrow-down');
+    var scroller = document.getElementById('middle-scroll');
     if (!upBtn && !downBtn) return;
 
     var ids = ['sec-thrall', 'sec-ticker', 'sec-telemetry', 'sec-chibi'];
     var activeIdx = 0;
     var programmatic = false;
     var progTimer = 0;
+
+    function getScrollY() {
+      return scroller ? scroller.scrollTop : (window.scrollY || window.pageYOffset || 0);
+    }
+
+    function getViewportH() {
+      return scroller ? scroller.clientHeight : (window.innerHeight || document.documentElement.clientHeight || 0);
+    }
+
+    function getDocH() {
+      return scroller ? scroller.scrollHeight : (document.documentElement.scrollHeight || 0);
+    }
 
     function getSections() {
       var list = [];
@@ -466,9 +481,9 @@
 
     function computeScrollIdx(secs) {
       if (!secs.length) return 0;
-      var sy = window.scrollY || window.pageYOffset || 0;
-      var winH = window.innerHeight || document.documentElement.clientHeight || 0;
-      var docH = document.documentElement.scrollHeight || 0;
+      var sy = getScrollY();
+      var winH = getViewportH();
+      var docH = getDocH();
       if (sy <= 16) return 0;
       if (docH > winH && sy + winH >= docH - 12) return secs.length - 1;
       var best = 0;
@@ -479,9 +494,9 @@
     }
 
     function updateButtons(secs) {
-      var sy = window.scrollY || window.pageYOffset || 0;
-      var winH = window.innerHeight || document.documentElement.clientHeight || 0;
-      var docH = document.documentElement.scrollHeight || 0;
+      var sy = getScrollY();
+      var winH = getViewportH();
+      var docH = getDocH();
       var atTop = activeIdx <= 0 && (programmatic || sy <= 16);
       var atBottom = activeIdx >= secs.length - 1 || (!programmatic && docH > winH && sy + winH >= docH - 12);
       if (upBtn) {
@@ -505,20 +520,21 @@
 
     function targetScrollY(secs, idx) {
       if (idx <= 0 || !secs[idx]) return 0;
-      var sy = window.scrollY || window.pageYOffset || 0;
-      var winH = window.innerHeight || document.documentElement.clientHeight || 0;
-      var docH = document.documentElement.scrollHeight || 0;
+      var sy = getScrollY();
+      var winH = getViewportH();
+      var docH = getDocH();
       var maxScroll = Math.max(0, docH - winH);
-      var raw = Math.round(secs[idx].getBoundingClientRect().top + sy - 76);
+      var baseTop = scroller ? scroller.getBoundingClientRect().top : 76;
+      var raw = Math.round(secs[idx].getBoundingClientRect().top - baseTop + sy - 16);
       return Math.max(0, Math.min(maxScroll, raw));
     }
 
     function goTo(targetIdx, dir) {
       var secs = getSections();
       if (!secs.length) return;
-      var sy = window.scrollY || window.pageYOffset || 0;
-      var winH = window.innerHeight || document.documentElement.clientHeight || 0;
-      var docH = document.documentElement.scrollHeight || 0;
+      var sy = getScrollY();
+      var winH = getViewportH();
+      var docH = getDocH();
       var maxScroll = Math.max(0, docH - winH);
       var clamped = Math.max(0, Math.min(secs.length - 1, targetIdx));
       if (dir < 0) {
@@ -543,7 +559,11 @@
         programmatic = false;
         updateButtons(getSections());
       }, 650);
-      window.scrollTo({ top: destY, behavior: 'smooth' });
+      if (scroller) {
+        scroller.scrollTo({ top: destY, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: destY, behavior: 'smooth' });
+      }
       updateButtons(secs);
     }
 
@@ -570,6 +590,7 @@
       else goTo(activeIdx - 1, -1);
     });
 
+    if (scroller) scroller.addEventListener('scroll', syncFromScroll, { passive: true });
     window.addEventListener('scroll', syncFromScroll, { passive: true });
     window.addEventListener('resize', syncFromScroll, { passive: true });
     ['wheel', 'touchstart'].forEach(function (ev) {
