@@ -54,49 +54,19 @@ body {
   display: block;
   opacity: 0.90;
 }
-.dash-fixed-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: rgba(10, 12, 14, 0.94);
-  backdrop-filter: blur(14px);
-  border-bottom: 2px solid var(--border-accent);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65);
-  padding: 0.65rem 1.5rem 0.5rem;
-}
-.dash-header-inner {
-  max-width: 1180px;
-  margin: 0 auto;
-}
-.header-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 0.55rem;
-  margin-bottom: 0.55rem;
-  border-bottom: 1px solid var(--border);
-}
 .middle-scroll {
   position: fixed;
+  top: 56px;
+  bottom: 48px;
   left: 0;
   right: 0;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 2;
-  padding: 28px 1.5rem 36px;
+  padding: 24px 1.25rem 32px;
   scroll-behavior: smooth;
-  mask-image: linear-gradient(to bottom, transparent 0px, black 34px, black calc(100% - 34px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 34px, black calc(100% - 34px), transparent 100%);
-}
-.login-scroll {
-  top: 56px;
-  bottom: 72px;
-}
-.dash-scroll {
-  top: 108px;
-  bottom: 72px;
+  mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0px, black 28px, black calc(100% - 28px), transparent 100%);
 }
 .container { max-width: 1180px; margin: 0 auto; position: relative; z-index: 2; }
 header {
@@ -110,7 +80,7 @@ header {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   font-family: var(--mono);
 }
@@ -120,20 +90,22 @@ header {
 .badge-admin { background: rgba(189, 147, 249, 0.15); color: var(--purple); border: 1px solid rgba(189, 147, 249, 0.4); }
 .nav-tabs {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
 }
 .tab-btn {
   background: var(--panel-alt);
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.5rem 0.95rem;
-  font-size: 0.85rem;
+  border-radius: 5px;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.78rem;
+  font-family: var(--mono);
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
+  white-space: nowrap;
 }
 .tab-btn:hover { color: var(--text); background: var(--panel); }
 .tab-btn.active { background: var(--phosphor-dim); color: var(--phosphor); border-color: var(--phosphor); }
@@ -235,21 +207,24 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   top: 0;
   left: 0;
   right: 0;
+  height: 56px;
   z-index: 50;
   background: rgba(10, 12, 14, 0.94);
   backdrop-filter: blur(14px);
   border-bottom: 2px solid var(--border-accent);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65);
-  padding: 0.55rem 1.25rem;
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
 }
 .site-header-inner {
+  width: 100%;
   max-width: 1180px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 .header-login-form {
   display: flex;
@@ -584,7 +559,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   bottom: 0;
   left: 0;
   right: 0;
-  min-height: 72px;
+  height: 48px;
   background: rgba(10, 12, 14, 0.96);
   background-image: linear-gradient(rgba(18, 22, 26, 0) 50%, rgba(0, 0, 0, 0.4) 50%);
   background-size: 100% 4px;
@@ -595,7 +570,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.4rem 1.25rem;
+  padding: 0 1.25rem;
 }
 .footer-dock-inner {
   width: 100%;
@@ -604,36 +579,48 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 .dock-chibi {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
+.dock-mini-btn {
+  padding: 2px 7px;
+  font-size: 11px;
+  font-family: var(--mono);
+  background: #14181c;
+  color: var(--phosphor);
+  border: 1px solid var(--border-accent);
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dock-mini-btn:hover { background: var(--phosphor-dim); color: var(--hot); }
 .dock-controls {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.4rem;
   flex-shrink: 0;
 }
 .dock-arrow-btn {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: var(--phosphor);
   background: #14181c;
-  border: 2px solid var(--phosphor);
-  box-shadow: 2px 2px 0 0 #000, 0 0 10px var(--phosphor-dim), inset 1px 1px 0 0 rgba(255, 255, 255, 0.15);
+  border: 1.5px solid var(--phosphor);
+  box-shadow: 1px 1px 0 0 #000;
   border-radius: 0;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
+  gap: 3px;
+  padding: 3px 8px;
   text-decoration: none;
   text-transform: uppercase;
   transition: all 0.12s steps(2);
@@ -642,10 +629,10 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   background: var(--phosphor-dim);
   border-color: var(--hot);
   color: var(--hot);
-  box-shadow: 2px 2px 0 0 #000, 0 0 14px var(--phosphor-glow);
+  box-shadow: 1px 1px 0 0 #000, 0 0 10px var(--phosphor-glow);
 }
 .dock-arrow-btn.disabled, .dock-arrow-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
   border-color: var(--border-accent);
   color: var(--phosphor);
@@ -654,15 +641,15 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
 .footer-accent-picker {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 3px 7px;
   background: #0d1012;
   border: 1px solid var(--border-subtle);
   box-shadow: inset 1px 1px 0 0 #000;
 }
 .dock-accent-dot {
-  width: 16px;
-  height: 16px;
+  width: 11px;
+  height: 11px;
   border-radius: 1px;
   border: 1px solid #000;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22);
@@ -696,13 +683,13 @@ details.node-card > summary::-webkit-details-marker { display: none; }
 .chibi-card-body { display: flex; align-items: center; gap: 1rem; }
 .chibi-hero-img { width: 72px; height: 72px; border-radius: 12px; border: 1.5px solid var(--border-accent); box-shadow: 0 0 14px var(--phosphor-dim); object-fit: cover; flex-shrink: 0; }
 .chibi-mascot {
-  width: 48px;
-  height: 48px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 7px;
   border: 1.5px solid var(--border-accent);
-  box-shadow: 0 0 12px var(--phosphor-dim);
+  box-shadow: 0 0 8px var(--phosphor-dim);
   overflow: hidden;
   transition: transform 0.2s ease, border-color 0.2s ease;
   background: #080b10;
@@ -715,11 +702,14 @@ details.node-card > summary::-webkit-details-marker { display: none; }
   flex: 1;
   min-width: 0;
   font-family: var(--mono);
-  font-size: 0.76rem;
-  line-height: 1.38;
+  font-size: 0.72rem;
+  line-height: 1.25;
   color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.chibi-bubble strong { color: var(--phosphor); font-size: 0.74rem; }
+.chibi-bubble strong { color: var(--phosphor); font-size: 0.72rem; margin-right: 0.25rem; }
 .chibi-bubble a { color: var(--hot); font-weight: 700; text-decoration: underline; }
 @keyframes float-thrall { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (max-width: 640px) {

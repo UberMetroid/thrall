@@ -608,41 +608,41 @@
   function initChibiHints() {
     var tipsByTab = {
       0: [
-        { title: 'TWO-WAY ZERO-TRUST HANDSHAKE', body: 'Sign in at the top bar, then visit Tab 2 (Initial Setup): add the Gateway Thrall Node ID in your local Syncthing (http://127.0.0.1:8384) and paste your 56-character Client Device ID into THRALL.' },
-        { title: 'HUB-AND-SPOKE PRIVACY', body: 'Your workstations only connect to regional Thrall Nodes over TLS 1.3 BEP—never directly to other users\' laptops or desktops.' },
-        { title: 'EXPLICIT TOP-LEVEL VAULTS', body: 'THRALL never syncs ~/.config or hidden dotfiles. Only explicit 1A Personal Folders and 1B Shared Folders are replicated.' },
-        { title: '8-BIT PALETTE & ORB LIGHT', body: 'Move your cursor to guide the dithered spotlight orb across the mesh cards, or click the 8-bit color swatches in the bottom dock.' }
+        { title: 'HANDSHAKE', body: 'Sign in above, then go to Tab 2: add the Gateway ID in localhost:8384 and paste your 56-char ID into THRALL.' },
+        { title: 'PRIVACY', body: 'Workstations only connect to regional Thrall Nodes over TLS 1.3 BEP—never directly to other users\' devices.' },
+        { title: 'VAULTS', body: 'THRALL never syncs ~/.config or dotfiles. Only explicit 1A Personal and 1B Shared folders replicate.' },
+        { title: 'PALETTE', body: 'Move your cursor to guide the spotlight orb, or click the 8-bit color swatches on the right.' }
       ],
       1: [
-        { title: 'ACCEPT SHARES AT LOCALHOST:8384', body: 'When a folder card shows PENDING on a workstation, open http://127.0.0.1:8384 on that machine to click Accept (or enable Auto-Accept in Syncthing).' },
-        { title: '1A PERSONAL vs. 1B SHARED VAULTS', body: '1A Personal Folders (/users/<you>/<Folder>) sync only to your own enrolled workstations. 1B Shared Folders (/shared/<Folder>) are multi-user team vaults.' },
-        { title: 'PER-WORKSTATION ACCEPTANCE', body: 'Each folder card shows a badge for every workstation you enrolled (e.g. \u2713 accepted vs. \u23F3 unaccepted) so you know exactly which machine still needs to accept.' },
-        { title: 'INSTANT /s/<token> PUBLIC LINKS', body: 'In the Explorer table below, click "Share: OFF" next to any file or subfolder to toggle it ON and generate a read-only /s/<token> download link.' },
-        { title: 'NATIVE SYNCTHING FOLDER IDs', body: 'Every folder uses a deterministic 5+5 character Syncthing Folder ID (xxxxx-xxxxx) and automatically strips dotfiles and symlinks.' }
+        { title: 'ACCEPT SHARES', body: 'When a folder card says PENDING, open http://127.0.0.1:8384 on that workstation to click Accept.' },
+        { title: '1A vs. 1B', body: '1A Personal Folders sync only to your devices; 1B Shared Folders are multi-user team vaults.' },
+        { title: 'DEVICE BADGES', body: 'Each folder card shows \u2713 accepted vs. \u23F3 unaccepted per workstation so you know which machine needs to accept.' },
+        { title: 'PUBLIC LINKS', body: 'In the Explorer below, click "Share: OFF" on any file or subfolder to generate a read-only /s/<token> link.' },
+        { title: 'FOLDER IDs', body: 'Every folder uses a native 5+5 char Syncthing Folder ID (xxxxx-xxxxx) and rejects dotfiles/symlinks.' }
       ],
       2: [
-        { title: 'STEP 1 // TRUST THE GATEWAY NODE', body: 'Open http://127.0.0.1:8384 on your workstation, click + Add Remote Device, paste the Gateway Thrall Node ID from Step 1 below, and check [x] Introducer & [x] Auto Accept.' },
-        { title: 'STEP 2 // PASTE YOUR 56-CHAR ID', body: 'In your local Syncthing GUI (localhost:8384), click Actions -> Show ID, copy your 56-character Device ID, and paste it into Step 2.' },
-        { title: 'WHY CHECK INTRODUCER & AUTO-ACCEPT?', body: 'Checking [x] Introducer lets the Gateway automatically introduce you to all other regional Thrall Nodes; [x] Auto Accept mounts your 1A & 1B folders without manual prompts.' },
-        { title: 'MESSY PASTE TOLERANCE', body: 'Don\'t worry about spaces or hyphens when pasting your Device ID—THRALL strips formatting noise and verifies all four Base32 Luhn check digits automatically.' }
+        { title: 'STEP 1', body: 'Open http://127.0.0.1:8384, click + Add Remote Device, paste the Gateway ID, and check [x] Introducer & [x] Auto Accept.' },
+        { title: 'STEP 2', body: 'In localhost:8384 click Actions -> Show ID, copy your 56-character Device ID, and paste it into Step 2.' },
+        { title: 'AUTO-ACCEPT', body: '[x] Introducer peers you with all regional nodes; [x] Auto Accept mounts your 1A & 1B folders automatically.' },
+        { title: 'PASTE FORMAT', body: 'Spaces or hyphens don\'t matter when pasting your ID—THRALL normalizes and verifies all 4 Luhn check digits.' }
       ],
       3: [
-        { title: 'AUTO-DETECTED WORKSTATION NAMES', body: 'You only need to paste your 56-character Device ID! THRALL automatically learns your workstation\'s hostname from Syncthing as soon as it connects.' },
-        { title: 'MULTI-WORKSTATION SYNC', body: 'Enroll your desktop, laptop, or workstation here. Every Personal (1A) and Shared (1B) folder is automatically pushed to each enrolled device.' },
-        { title: 'CLIENT-TO-CLIENT ISOLATION', body: 'Revoking a device here immediately purges its folder grants and device peering from every regional Thrall Node in under a second.' },
-        { title: 'RE-ENROLLING A DEVICE', body: 'Pasting an already-enrolled Device ID is safe and idempotent—it simply refreshes its folder grants across the regional mesh.' }
+        { title: 'AUTO-NAMES', body: 'Just paste your 56-char Device ID—THRALL automatically learns your workstation\'s hostname when it connects.' },
+        { title: 'MULTI-DEVICE', body: 'Enroll all your workstations here; every 1A Personal and 1B Shared folder pushes to each enrolled device.' },
+        { title: 'FAST REVOKE', body: 'Clicking Revoke purges that device and its folder grants from all regional Thrall Nodes in under a second.' },
+        { title: 'RE-ENROLL', body: 'Pasting an already-enrolled Device ID is safe and refreshes its folder grants across the mesh.' }
       ],
       4: [
-        { title: 'MULTI-COLUMN TEAM ACLs', body: 'Check or uncheck users in the aligned columns for any Shared Folder and click Apply ACL to immediately grant or revoke Syncthing shares.' },
-        { title: 'CHECKMARKS MEAN ACCEPTED', body: 'A \u2713 next to a username in the ACL grid means all of that user\'s enrolled workstations have accepted and mounted the shared folder.' },
-        { title: 'TOP-LEVEL SHARED VAULTS', body: 'Shared folders live at /shared/<Folder> outside individual user home directories so team data stays cleanly separated from personal vaults.' },
-        { title: 'INSTANT REVOCATION', body: 'Unchecking a user and clicking Apply ACL immediately deletes that shared folder grant from all of their workstations across every Thrall Node.' }
+        { title: 'TEAM ACLs', body: 'Check or uncheck users in the aligned columns and click Apply ACL to grant or revoke Shared Folders.' },
+        { title: 'CHECKMARKS', body: 'A \u2713 next to a username means all of that user\'s enrolled workstations have accepted the shared folder.' },
+        { title: 'ISOLATION', body: 'Shared folders live at /shared/<Folder> outside individual user home directories.' },
+        { title: 'REVOCATION', body: 'Unchecking a user and clicking Apply ACL immediately removes that share from all of their devices.' }
       ],
       5: [
-        { title: 'REGIONAL THRALL BACKBONE', body: 'Regional Thrall Nodes peer in a full server-to-server mesh over port 22000 while serving Client Devices in a hub-and-spoke topology.' },
-        { title: 'MULTIPLEXED SSH CONTROL PLANE', body: 'THRALL manages regional nodes over persistent OpenSSH ControlMaster sockets, keeping folder creation and device revocation sub-second.' },
-        { title: 'ADD OR ISOLATE NODES', body: 'Use Disconnect on any node card to temporarily isolate a regional server from the mesh, or Reconcile to force a full fleet state refresh.' },
-        { title: 'ENROLLING A NEW THRALL NODE', body: 'Enter a node name and Tailscale/mesh IP below to add a new regional server—THRALL will discover its API key and peer it into the mesh.' }
+        { title: 'BACKBONE', body: 'Regional Thrall Nodes form a full mesh over port 22000 while serving Client Devices as hub-and-spoke.' },
+        { title: 'FAST SSH', body: 'THRALL manages regional nodes over persistent OpenSSH ControlMaster sockets for sub-second updates.' },
+        { title: 'NODE CONTROL', body: 'Click Disconnect to isolate a regional server from the mesh, or Reconcile for a full fleet refresh.' },
+        { title: 'ADD NODE', body: 'Enter a node name and Tailscale/mesh IP to peer a new regional server into the mesh.' }
       ]
     };
 
@@ -661,8 +661,6 @@
 
     var curTab = dock ? parseInt(dock.getAttribute('data-tab') || '0', 10) : 0;
     var pool = tipsByTab[curTab] || tipsByTab[0];
-    var tabNames = { 0: 'LOGIN', 1: 'TAB 1 (FILES)', 2: 'TAB 2 (SETUP)', 3: 'TAB 3 (DEVICES)', 4: 'TAB 4 (ACL)', 5: 'TAB 5 (NODES)' };
-    var tLabel = tabNames[curTab] || 'MESH';
     var idx = Math.floor(Math.random() * pool.length);
 
     function renderTip(i) {
@@ -673,8 +671,9 @@
         heroBody.textContent = t.body;
       }
       if (dockTitle && dockBody) {
-        dockTitle.textContent = '\uD83D\uDC41 CHIBI THRALL // ' + tLabel + ' TIP ' + num + ' — ' + t.title;
+        dockTitle.textContent = '[' + t.title + ' ' + num + ']';
         dockBody.textContent = t.body;
+        dockBody.title = t.body;
       }
     }
 
