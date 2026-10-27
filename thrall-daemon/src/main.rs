@@ -210,7 +210,7 @@ mod tests {
         assert_eq!(sanitize_username("Alice@Example.com").unwrap(), "alice");
 
         let snap = FleetSnapshot::default();
-        let h = render_login_page(None, &snap);
+        let h = render_login_page(None, &snap, &store);
         assert!(h.contains("eco-marquee-viewport") && !h.contains("login-sub"));
         assert!(h.contains("User or Email") && h.contains("HIVE MESH TELEMETRY"));
         assert!(h.contains("THRALL MESH DIRECTOR") && h.contains("ACTIVE BEP LINKS"));

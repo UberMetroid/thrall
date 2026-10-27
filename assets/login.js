@@ -198,8 +198,9 @@
     var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var dpr = 1, width = 0, height = 0, cellPx = 8, originX = 0, originY = 0, gridCols = 0, gridRows = 0;
     var wmWidth = THRALL_WORDMARK[0].length, wmHeight = THRALL_WORDMARK.length, wmRows = THRALL_WORDMARK;
-    var meshCount = Math.max(1, parseInt(canvas.getAttribute('data-mesh-nodes') || '3', 10) || 3);
-    var miniCount = Math.max(meshCount, parseInt(canvas.getAttribute('data-mini-nodes') || '6', 10) || 6);
+    var meshCount = Math.max(1, parseInt(canvas.getAttribute('data-mesh-nodes') || '3', 10));
+    var rawMini = parseInt(canvas.getAttribute('data-mini-nodes'), 10);
+    var miniCount = isNaN(rawMini) ? 0 : Math.max(0, rawMini);
     var mouse = { x: -2000, y: -2000, active: false, lastMove: 0 };
     var orb = { x: 0, y: 0, initialized: false };
     var meshOrbs = [], miniOrbs = [];
@@ -314,20 +315,15 @@
 
       var idleMs = t - mouse.lastMove;
       var cursorControlled = mouse.active && idleMs < 2400;
-      var targetControl = cursorControlled ? 1 : 0;
+      var targetControl = 0;
       var targetText = (isOverText && cursorControlled) ? 1 : 0;
-      smoothControl += (targetControl - smoothControl) * 0.08;
+      smoothControl = 0;
       smoothText += (targetText - smoothText) * 0.18;
 
-      var breathX = Math.cos(sec * 2.1) * 6 * dpr;
-      var breathY = Math.sin(sec * 2.7) * 6 * dpr;
-      var destX = cursorControlled ? (mouse.x + breathX) : patrolX;
-      var destY = cursorControlled ? (mouse.y + breathY) : patrolY;
-      var followRate = cursorControlled ? 0.20 : 0.045;
-      orb.x += (destX - orb.x) * followRate;
-      orb.y += (destY - orb.y) * followRate;
+      orb.x += (patrolX - orb.x) * 0.045;
+      orb.y += (patrolY - orb.y) * 0.045;
 
-      var baseOrbitR = meshCount > 1 ? ((125 - 38 * smoothControl) * dpr) : 0;
+      var baseOrbitR = meshCount > 1 ? (125 * dpr) : 0;
       meshOrbs.length = meshCount;
       for (var m = 0; m < meshCount; m++) {
         var ang = sec * 0.92 + (m * 2 * Math.PI) / meshCount;
@@ -340,14 +336,11 @@
 
       miniOrbs.length = miniCount;
       for (var s = 0; s < miniCount; s++) {
-        var pOrb = meshOrbs[s % meshCount];
-        var sDir = (s % 2 === 0) ? 1 : -1;
-        var sSpeed = 2.35 + (s % 3) * 0.55;
-        var sAng = sec * sSpeed * sDir + s * 1.37;
-        var sRad = (44 + (s % 3) * 16) * (1 - 0.25 * smoothControl) * dpr;
+        var sAng = sec * (1.85 + (s % 3) * 0.45) * ((s % 2 === 0) ? 1 : -1) + s * 2.09;
+        var sRad = (baseOrbitR + 52 * dpr) * (1 + 0.12 * Math.cos(sec * 1.3 + s));
         miniOrbs[s] = {
-          x: pOrb.x + Math.cos(sAng) * sRad,
-          y: pOrb.y + Math.sin(sAng) * sRad
+          x: orb.x + Math.cos(sAng) * sRad,
+          y: orb.y + Math.sin(sAng) * (sRad * 0.82)
         };
       }
 
@@ -681,7 +674,7 @@
         { title: 'HANDSHAKE', body: 'Sign in above, then go to Tab 2: add the Gateway ID in localhost:8384 and paste your 56-char ID into THRALL.' },
         { title: 'PRIVACY', body: 'Workstations only connect to regional Thrall Nodes over TLS 1.3 BEP—never directly to other users\' devices.' },
         { title: 'VAULTS', body: 'THRALL never syncs ~/.config or dotfiles. Only explicit 1A Personal and 1B Shared folders replicate.' },
-        { title: 'PALETTE', body: 'Move your cursor to guide the spotlight orb, or click the 8-bit color swatches on the right.' }
+        { title: 'PALETTE', body: 'Click anywhere for a shockwave ripple, or pick one of the 8-bit color swatches in the footer.' }
       ],
       1: [
         { title: 'ACCEPT SHARES', body: 'When a folder card says PENDING, open http://127.0.0.1:8384 on that workstation to click Accept.' },

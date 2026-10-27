@@ -182,11 +182,11 @@ pub fn handle_http_client(
     let fval = |k: &str| form.get(k).map(String::as_str).unwrap_or("");
 
     if method == "GET" && path == "/login" {
-        return write_html(s, "200 OK", &render_login_page(None, snap));
+        return write_html(s, "200 OK", &render_login_page(None, snap, store));
     }
     if method == "POST" && path == "/login" {
         let Ok(user) = sanitize_username(fval("username")) else {
-            let p = render_login_page(Some("Invalid user syntax"), snap);
+            let p = render_login_page(Some("Invalid user syntax"), snap, store);
             return write_html(s, "400 Bad Request", &p);
         };
         return match authenticate_ldap_user(&cfg.ldap, &user, fval("password")) {
@@ -195,7 +195,11 @@ pub fn handle_http_client(
                 let ck = format!("Set-Cookie: thrall_session={tok}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200\r\n");
                 write_redirect(s, "/", &ck)
             }
-            Err(e) => write_html(s, "401 Unauthorized", &render_login_page(Some(&e), snap)),
+            Err(e) => write_html(
+                s,
+                "401 Unauthorized",
+                &render_login_page(Some(&e), snap, store),
+            ),
         };
     }
     if method == "POST" && path == "/logout" {
@@ -204,7 +208,7 @@ pub fn handle_http_client(
     }
 
     let Some(u) = session_user else {
-        return write_html(s, "200 OK", &render_login_page(None, snap));
+        return write_html(s, "200 OK", &render_login_page(None, snap, store));
     };
     let adm = cfg.ldap.admin_users.iter().any(|x| x == &u);
 
