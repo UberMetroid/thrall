@@ -1325,8 +1325,30 @@
       bytesPerSec: 0,
       bars: initialBars
     };
+    var perfObserverAttached = false;
     var perfResourceCursor = 0;
-    if (typeof window.performance === 'object' && typeof performance.getEntriesByType === 'function') {
+    if (typeof window.PerformanceObserver === 'function') {
+      try {
+        var obs = new PerformanceObserver(function (list) {
+          var entries = list.getEntries ? list.getEntries() : [];
+          for (var i = 0; i < entries.length; i++) {
+            var en = entries[i];
+            var name = (en && en.name) || '';
+            var initType = (en && en.initiatorType) || '';
+            if (initType === 'fetch' || name.indexOf('/files/upload') !== -1 || name.indexOf('/api/telemetry') !== -1) {
+              continue;
+            }
+            var sz = (en && (en.transferSize || en.encodedBodySize || en.decodedBodySize)) || 0;
+            if (sz > 0) recordBrowserBytes(sz);
+          }
+        });
+        obs.observe({ entryTypes: ['resource'] });
+        perfObserverAttached = true;
+      } catch (e) {
+        perfObserverAttached = false;
+      }
+    }
+    if (!perfObserverAttached && typeof window.performance === 'object' && typeof performance.getEntriesByType === 'function') {
       perfResourceCursor = performance.getEntriesByType('resource').length;
     }
 
@@ -1491,12 +1513,9 @@
       uploadGraphState.bars.push(Math.max(0, Math.min(1, level)));
     }
 
-    function drawPixelGraph(pct, chunkLevel) {
+    function drawPixelGraph(pct) {
       uploadGraphState.active = true;
       uploadGraphState.pct = pct;
-      if (typeof chunkLevel === 'number' && chunkLevel > 0) {
-        pushBrowserLevel(Math.max(0.08, Math.min(1, chunkLevel)));
-      }
       renderGraphFrame();
     }
 
@@ -1518,7 +1537,7 @@
     setInterval(function () {
       if (document.hidden) return;
       var perfDelta = 0;
-      if (typeof window.performance === 'object' && typeof performance.getEntriesByType === 'function') {
+      if (!perfObserverAttached && typeof window.performance === 'object' && typeof performance.getEntriesByType === 'function') {
         var entries = performance.getEntriesByType('resource');
         if (entries.length < perfResourceCursor) {
           perfResourceCursor = 0;
@@ -1526,7 +1545,9 @@
         for (var i = perfResourceCursor; i < entries.length; i++) {
           var en = entries[i];
           var name = (en && en.name) || '';
+          var initType = (en && en.initiatorType) || '';
           var isExplicit =
+            initType === 'fetch' ||
             name.indexOf('/files/upload') !== -1 ||
             name.indexOf('/api/telemetry') !== -1;
           if (!isExplicit) {
@@ -1535,6 +1556,10 @@
           }
         }
         perfResourceCursor = entries.length;
+        if (entries.length >= 200 && typeof performance.clearResourceTimings === 'function') {
+          performance.clearResourceTimings();
+          perfResourceCursor = 0;
+        }
       }
       var bytesInTick = browserBytesInWindow + perfDelta;
       browserBytesInWindow = 0;
@@ -1594,7 +1619,7 @@
           }).then(function (r) {
             if (!r.ok) throw new Error('Upload failed');
             return r.text().then(function (respTxt) {
-              recordBrowserBytes((respTxt && respTxt.length) || 64);
+              recordBrowserBytes((respTxt && respTxt.length) || 0);
               if (onChunk) onChunk(slice.length);
               return nextChunk();
             });
@@ -1651,8 +1676,7 @@
         uploadSingleFile(br, baseSub, cur, function (chunkLen) {
           uploadedBytes += chunkLen;
           var pct = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : (fNum / valid.length) * 100;
-          var activity = 0.08 + 0.92 * Math.min(1, chunkLen / 12288);
-          drawPixelGraph(pct, activity);
+          drawPixelGraph(pct);
           showToast('UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(pct) + '%)', false, false);
         })
           .then(nextFile)
@@ -1878,8 +1902,36 @@
       if (!t || typeof t.closest !== 'function') return;
       var link = t.closest('a[href]');
       if (!link) return;
-      if (link.getAttribute('target') === '_blank' || link.hasAttribute('download')) return;
       var href = link.getAttribute('href') || '';
+      if (href.indexOf('/files?') === 0 && link.classList.contains('btn-secondary') && typeof window.URL === 'function' && typeof URL.createObjectURL === 'function') {
+        e.preventDefault();
+        recordBrowserBytes(href.length);
+        fetch(href, { credentials: 'same-origin' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('Download failed');
+            return r.blob();
+          })
+          .then(function (blob) {
+            recordBrowserBytes((blob && blob.size) || 0);
+            var u = new URL(href, window.location.origin);
+            var subParam = u.searchParams.get('sub') || 'download';
+            var parts = subParam.split('/');
+            var fname = parts[parts.length - 1] || 'download';
+            var objUrl = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = objUrl;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(objUrl); }, 2000);
+          })
+          .catch(function () {
+            window.location.href = href;
+          });
+        return;
+      }
+      if (link.getAttribute('target') === '_blank' || link.hasAttribute('download')) return;
       if (href.indexOf('/?') !== 0 && href !== '/') return;
       if (!document.querySelector('#middle-scroll .container')) return;
       e.preventDefault();
