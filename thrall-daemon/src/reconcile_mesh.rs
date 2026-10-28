@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 use crate::device_store::{sanitize_folder_name, MeshStore};
 use crate::fleet_config::{FleetConfig, ServerNodeConfig};
 use crate::ldap_bind::list_ldap_users;
-use crate::ssh_syncthing::{
-    discover_remote_api_key, parse_json_string_field, parse_json_u64_field, ssh_syncthing_rest,
+use crate::peer_client::{
+    discover_api_key, parse_json_string_field, parse_json_u64_field, syncthing_rest,
 };
 
 use crate::render_portal::reconcile_folders;
@@ -105,11 +105,11 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool, prev: Option<&Node
         connected_ids: Vec::new(), last_error: err.to_string(),
     };
     if disabled { return st; }
-    match discover_remote_api_key(node) {
+    match discover_api_key(node) {
         Ok(k) => st.api_key = k,
         Err(e) => { st.last_error = e; return st; }
     }
-    match ssh_syncthing_rest(node, &st.api_key, "GET", "/rest/system/status", None) {
+    match syncthing_rest(node, &st.api_key, "GET", "/rest/system/status", None) {
         Ok(body) => {
             st.device_id = parse_json_string_field(&body, "myID").unwrap_or_default();
             st.uptime_sec = parse_json_u64_field(&body, "uptime").unwrap_or(0);
@@ -123,7 +123,7 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool, prev: Option<&Node
             let t = b.rfind("\"total\"").map(|i| &b[i..]).unwrap_or(b);
             (parse_json_u64_field(t, "inBytesTotal").unwrap_or(0), parse_json_u64_field(t, "outBytesTotal").unwrap_or(0))
         };
-        if let Ok(c1) = ssh_syncthing_rest(node, &st.api_key, "GET", "/rest/system/connections", None) {
+        if let Ok(c1) = syncthing_rest(node, &st.api_key, "GET", "/rest/system/connections", None) {
             st.connected_ids = parse_connected_device_ids(&c1);
             st.active_conns = st.connected_ids.len() as u64;
             let (rx1, tx1) = totals(&c1);
@@ -152,7 +152,7 @@ pub fn verify_device_id_via_server(
         .zip(nodes.iter())
         .filter(|(_, s)| s.online)
     {
-        if let Ok(resp) = ssh_syncthing_rest(srv, &st.api_key, "GET", &ep, None) {
+        if let Ok(resp) = syncthing_rest(srv, &st.api_key, "GET", &ep, None) {
             if let Some(err) = parse_json_string_field(&resp, "error") {
                 return Err(format!("Syncthing rejected Device ID: {err}"));
             }
@@ -172,7 +172,7 @@ pub fn purge_device_from_fleet(cfg: &FleetConfig, nodes: &[NodeStatus], device_i
         .zip(nodes.iter())
         .filter(|(_, s)| s.online)
     {
-        let _ = ssh_syncthing_rest(srv, &st.api_key, "DELETE", &path, None);
+        let _ = syncthing_rest(srv, &st.api_key, "DELETE", &path, None);
     }
 }
 
@@ -184,7 +184,7 @@ pub fn purge_folder_from_fleet(cfg: &FleetConfig, nodes: &[NodeStatus], folder_i
         .zip(nodes.iter())
         .filter(|(_, s)| s.online)
     {
-        let _ = ssh_syncthing_rest(srv, &st.api_key, "DELETE", &path, None);
+        let _ = syncthing_rest(srv, &st.api_key, "DELETE", &path, None);
     }
 }
 

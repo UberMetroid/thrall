@@ -28,6 +28,9 @@ pub struct LdapConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerNodeConfig {
     pub name: String,
+    /// True when this peer shares the host with the daemon and is reached
+    /// directly over its REST API instead of over SSH.
+    pub local: bool,
     pub ssh_host: String,
     pub ssh_user: String,
     pub ssh_key_path: String,
@@ -120,6 +123,7 @@ pub fn parse_fleet_yaml(raw: &str) -> Result<FleetConfig, String> {
             }
             let mut srv = ServerNodeConfig {
                 name: String::new(),
+                local: false,
                 ssh_host: String::new(),
                 ssh_user: "root".to_string(),
                 ssh_key_path: "/config/id_ed25519".to_string(),
@@ -177,6 +181,7 @@ fn apply_server_field(srv: &mut ServerNodeConfig, key: &str, raw_val: &str) {
     let val = unquote(raw_val);
     match key {
         "name" => srv.name = val,
+        "local" => srv.local = val == "true" || val == "yes" || val == "1",
         "ssh_host" => srv.ssh_host = val,
         "ssh_user" => srv.ssh_user = val,
         "ssh_key_path" => srv.ssh_key_path = val,

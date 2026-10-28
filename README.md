@@ -98,7 +98,8 @@ sudo systemctl restart syncthing.service thrall.service
 | Daemon | `THRALL_CONFIG` | `/config/fleet.yaml` |
 | Daemon | `PORTAL_LISTEN_ADDR` / `PORTAL_DATABASE_PATH` / `PORTAL_SESSION_SECRET` | `0.0.0.0:8080` / `/config/mesh-mgr.db` / `change-me` |
 | Daemon | `LDAP_URL` / `LDAP_BASE_DN` / `LDAP_BIND_DN` / `LDAP_BIND_PASSWORD` / `LDAP_USER_FILTER` / `ADMIN_USERS` | see `assets/default-fleet.yaml` |
-| `fleet.yaml` | `servers[]` | per-server `name`, `ssh_host`, `ssh_user`, `ssh_key_path`, `syncthing_api_url`, `syncthing_api_key`, `syncthing_wan_addr`, `users_base_path`, `shared_base_path` |
+| `fleet.yaml` | `servers[]` | per-server `name`, `local`, `ssh_host`, `ssh_user`, `ssh_key_path`, `syncthing_api_url`, `syncthing_api_key`, `syncthing_wan_addr`, `users_base_path`, `shared_base_path` |
+| `fleet.yaml` | `servers[].local` | `true` when the peer shares the host with the daemon: THRALL then calls its REST API directly and needs no SSH access to the local machine. Set `syncthing_api_key` for it — the peer's config file is another container's private state and is never read. |
 | Quadlet | `thrall.container` | portal `:8088`, podman secret `ldap_bind_password`, 256M / 100% CPU, `AutoUpdate=local` |
 | Quadlet | `syncthing.container` | `ghcr.io/ubermetroid/thrall-syncthing`, REST API loopback-only, `STNOUPGRADE=1`, 512M, `AutoUpdate=registry` |
 

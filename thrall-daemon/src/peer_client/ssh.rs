@@ -1,19 +1,15 @@
-//! Zero-shell SSH transport for remote directory provisioning and tunneled Syncthing REST API calls.
+//! SSH transport for remote peer provisioning and tunneled Syncthing REST calls.
+//!
+//! Used for peers that THRALL does not share a host with. A peer on the same
+//! host is reached directly instead; see `direct.rs`.
 
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use super::parse::extract_xml_tag;
+use super::shell;
 use crate::fleet_config::ServerNodeConfig;
-
-mod parse;
-mod rest;
-mod shell;
-
-pub use parse::{
-    extract_xml_tag, parse_json_bool_field, parse_json_string_field, parse_json_u64_field,
-};
-pub use rest::ssh_syncthing_rest;
 
 fn split_ssh_host_port(ssh_host: &str) -> (&str, &str) {
     if let Some((h, p)) = ssh_host.rsplit_once(':') {
@@ -137,4 +133,81 @@ pub fn discover_remote_api_key(node: &ServerNodeConfig) -> Result<String, String
         }
     }
     Err(format!("[{}] Missing Syncthing <apikey>", node.name))
+}
+
+/// Build the remote command that performs one Syncthing REST call.
+pub(super) fn build_rest_command(
+    node: &ServerNodeConfig,
+    api_key: &str,
+    method: &str,
+    endpoint_path: &str,
+    with_body: bool,
+) -> Command {
+    let base = node.syncthing_api_url.trim_end_matches('/');
+    let url = format!("{base}{endpoint_path}");
+    let header_key = format!("X-API-Key:{api_key}");
+    let mut cmd = base_ssh_command(node);
+    let q_method = shell::quote(method);
+    let q_header = shell::quote(&header_key);
+    cmd.args([
+        "curl",
+        "-fsS",
+        "-X",
+        q_method.as_str(),
+        "-H",
+        q_header.as_str(),
+    ]);
+    if with_body {
+        cmd.args(["-H", "Content-Type:application/json", "--data-binary", "@-"]);
+    }
+    cmd.arg(shell::quote(&url));
+    cmd
+}
+
+/// Perform one Syncthing REST call on a remote hub over SSH.
+pub fn ssh_syncthing_rest(
+    node: &ServerNodeConfig,
+    api_key: &str,
+    method: &str,
+    endpoint_path: &str,
+    json_body: Option<&str>,
+) -> Result<String, String> {
+    let mut cmd = build_rest_command(node, api_key, method, endpoint_path, json_body.is_some());
+
+    if let Some(body) = json_body {
+        cmd.stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("[{}] ssh curl spawn failed: {e}", node.name))?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(body.as_bytes())
+                .map_err(|e| format!("[{}] stdin write failed: {e}", node.name))?;
+        }
+        let out = child
+            .wait_with_output()
+            .map_err(|e| format!("[{}] ssh curl wait failed: {e}", node.name))?;
+        if !out.status.success() {
+            return Err(format!(
+                "[{}] {method} {endpoint_path} failed: {}",
+                node.name,
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    } else {
+        let out = cmd
+            .output()
+            .map_err(|e| format!("[{}] ssh curl exec failed: {e}", node.name))?;
+        if !out.status.success() {
+            return Err(format!(
+                "[{}] {method} {endpoint_path} failed: {}",
+                node.name,
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    }
 }

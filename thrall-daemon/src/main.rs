@@ -5,10 +5,10 @@
 pub mod device_store;
 pub mod fleet_config;
 pub mod ldap_bind;
+pub mod peer_client;
 pub mod portal_server;
 pub mod reconcile_mesh;
 pub mod render_portal;
-pub mod ssh_syncthing;
 
 use std::env;
 use std::net::{TcpListener, TcpStream};

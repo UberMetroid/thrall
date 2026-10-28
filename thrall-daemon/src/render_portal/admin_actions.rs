@@ -38,6 +38,7 @@ fn new_node(name: &str, host: &str, tmpl: Option<&ServerNodeConfig>) -> ServerNo
     let sb = tmpl.map_or("/shared", |s| &s.shared_base_path).into();
     ServerNodeConfig {
         name: name.to_ascii_lowercase(),
+        local: false,
         ssh_host: sh,
         ssh_user: u,
         ssh_key_path: k,

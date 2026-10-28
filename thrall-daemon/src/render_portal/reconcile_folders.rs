@@ -4,11 +4,11 @@ use std::fs;
 
 use crate::device_store::{sanitize_device_label, syncthing_folder_id, MeshStore};
 use crate::fleet_config::ServerNodeConfig;
-use crate::reconcile_mesh::{build_device_json, build_folder_json, FleetSnapshot};
-use crate::ssh_syncthing::{
-    parse_json_string_field, parse_json_u64_field, ssh_ensure_trusted_network, ssh_mkdir_many,
-    ssh_syncthing_rest,
+use crate::peer_client::{
+    ensure_folders, ensure_trusted_network, parse_json_string_field, parse_json_u64_field,
+    syncthing_rest,
 };
+use crate::reconcile_mesh::{build_device_json, build_folder_json, FleetSnapshot};
 
 #[allow(clippy::too_many_arguments)]
 fn sync_folder(
@@ -23,15 +23,15 @@ fn sync_folder(
 ) -> u64 {
     let _ = fs::create_dir_all(format!("{cp}/.stfolder"));
     let dirs = vec![format!("{hp}/.stfolder")];
-    let _ = ssh_mkdir_many(srv, &dirs);
+    let _ = ensure_folders(srv, &dirs);
     let f_json = build_folder_json(fid, flbl, cp, devs, ro);
     let put_ep = format!("/rest/config/folders/{fid}");
     let scan_ep = format!("/rest/db/scan?folder={fid}");
     let comp_ep = format!("/rest/db/completion?folder={fid}");
-    let _ = ssh_syncthing_rest(srv, key, "PUT", &put_ep, Some(&f_json));
-    let _ = ssh_syncthing_rest(srv, key, "POST", &scan_ep, None);
+    let _ = syncthing_rest(srv, key, "PUT", &put_ep, Some(&f_json));
+    let _ = syncthing_rest(srv, key, "POST", &scan_ep, None);
     if ro {
-        let _ = ssh_syncthing_rest(
+        let _ = syncthing_rest(
             srv,
             key,
             "POST",
@@ -39,7 +39,7 @@ fn sync_folder(
             None,
         );
     }
-    let res = ssh_syncthing_rest(srv, key, "GET", &comp_ep, None);
+    let res = syncthing_rest(srv, key, "GET", &comp_ep, None);
     res.ok()
         .and_then(|c| parse_json_u64_field(&c, "completion"))
         .unwrap_or(100)
@@ -47,7 +47,7 @@ fn sync_folder(
 
 fn is_accepted(srv: &ServerNodeConfig, key: &str, fid: &str, dev_id: &str) -> bool {
     let url = format!("/rest/db/completion?folder={fid}&device={dev_id}");
-    let res = ssh_syncthing_rest(srv, key, "GET", &url, None);
+    let res = syncthing_rest(srv, key, "GET", &url, None);
     res.ok()
         .and_then(|c| parse_json_string_field(&c, "remoteState"))
         .as_deref()
@@ -88,7 +88,7 @@ pub fn sync_folder_group(srv: &ServerNodeConfig, key: &str, online_ids: &[String
             let sid = short_id(&d.device_id);
             let cfid = if user.is_some() { syncthing_folder_id(&format!("user:{u}:{flow}:{sid}")) } else { syncthing_folder_id(&format!("shared:{flow}:{sid}")) };
             if store.is_device_folder_excluded(&d.device_id, &scope_f) {
-                let _ = ssh_syncthing_rest(srv, key, "DELETE", &format!("/rest/config/folders/{cfid}"), None);
+                let _ = syncthing_rest(srv, key, "DELETE", &format!("/rest/config/folders/{cfid}"), None);
                 continue;
             }
             en_cnt += 1;
@@ -109,18 +109,18 @@ pub fn sync_folder_group(srv: &ServerNodeConfig, key: &str, online_ids: &[String
 }
 
 fn discover_device_labels(srv: &ServerNodeConfig, key: &str, store: &mut MeshStore) {
-    let _ = ssh_syncthing_rest(
+    let _ = syncthing_rest(
         srv,
         key,
         "PATCH",
         "/rest/config/options",
         Some("{\"overwriteRemoteDeviceNamesOnConnect\":true}"),
     );
-    let ev = ssh_syncthing_rest(srv, key, "GET", "/rest/events?timeout=0&limit=1000", None)
+    let ev = syncthing_rest(srv, key, "GET", "/rest/events?timeout=0&limit=1000", None)
         .unwrap_or_default();
-    let cfg = ssh_syncthing_rest(srv, key, "GET", "/rest/config/devices", None).unwrap_or_default();
-    let pend = ssh_syncthing_rest(srv, key, "GET", "/rest/cluster/pending/devices", None)
-        .unwrap_or_default();
+    let cfg = syncthing_rest(srv, key, "GET", "/rest/config/devices", None).unwrap_or_default();
+    let pend =
+        syncthing_rest(srv, key, "GET", "/rest/cluster/pending/devices", None).unwrap_or_default();
     for udevs in store.users.values_mut() {
         for d in udevs.iter_mut().filter(|d| d.label.starts_with("dev-")) {
             let mut found = None;
@@ -153,7 +153,7 @@ pub fn reconcile_server_node(
     store: &mut MeshStore,
     snap: &mut FleetSnapshot,
 ) {
-    let _ = ssh_ensure_trusted_network(srv);
+    let _ = ensure_trusted_network(srv);
     discover_device_labels(srv, key, store);
     for p in snap
         .nodes
@@ -162,13 +162,13 @@ pub fn reconcile_server_node(
     {
         let j = build_device_json(&p.device_id, &p.name, &p.wan_addr, true);
         let ep = format!("/rest/config/devices/{}", p.device_id);
-        let _ = ssh_syncthing_rest(srv, key, "PUT", &ep, Some(&j));
+        let _ = syncthing_rest(srv, key, "PUT", &ep, Some(&j));
     }
     for udevs in store.users.values() {
         for d in udevs {
             let j = build_device_json(&d.device_id, &d.label, "dynamic", false);
             let ep = format!("/rest/config/devices/{}", d.device_id);
-            let _ = ssh_syncthing_rest(srv, key, "PUT", &ep, Some(&j));
+            let _ = syncthing_rest(srv, key, "PUT", &ep, Some(&j));
         }
     }
     for fname in folder_names {
@@ -224,6 +224,6 @@ pub fn trigger_web_scan(cfg: &crate::fleet_config::FleetConfig, snap: &FleetSnap
         // Percent-encode the sub path: it is a query-string component, and it
         // must not be able to introduce a separator or a shell metacharacter.
         let ep = if rel.is_empty() { format!("/rest/db/scan?folder={mfid}") } else { format!("/rest/db/scan?folder={mfid}&sub={}", crate::render_portal::url::percent_encode(&rel)) };
-        std::thread::spawn(move || { let _ = ssh_syncthing_rest(&srv, &st, "POST", &ep, None); });
+        std::thread::spawn(move || { let _ = syncthing_rest(&srv, &st, "POST", &ep, None); });
     }
 }
