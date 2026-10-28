@@ -1410,13 +1410,24 @@
     window.thrallRenderFooterGraph = renderGraphFrame;
     renderGraphFrame();
 
+    var prevHook = window.thrallApplyLiveTelemetry;
+    var liveTelemetryBoost = 0;
+    window.thrallApplyLiveTelemetry = function (d) {
+      if (typeof prevHook === 'function') prevHook(d);
+      if (d && Array.isArray(d.bps)) {
+        var sum = 0;
+        for (var i = 0; i < d.bps.length; i++) sum += (parseFloat(d.bps[i]) || 0);
+        liveTelemetryBoost = Math.min(0.45, Math.log10(sum + 10) * 0.1);
+      }
+    };
+
     setInterval(function () {
       if (document.hidden || uploadGraphState.active) return;
       uploadGraphState.tick += 1;
       var t = uploadGraphState.tick;
-      var wave = 0.22 + 0.18 * Math.sin(t * 0.38) + 0.14 * Math.cos(t * 0.85) + ((t % 7 === 0) ? 0.22 : 0);
+      var wave = 0.22 + liveTelemetryBoost + 0.18 * Math.sin(t * 0.38) + 0.14 * Math.cos(t * 0.85) + ((t % 7 === 0) ? 0.22 : 0);
       historyBars.shift();
-      historyBars.push(Math.max(2, Math.min(15, Math.round(wave * 18))));
+      historyBars.push(Math.max(2, Math.min(16, Math.round(wave * 18))));
       renderGraphFrame();
     }, 140);
 
@@ -1473,6 +1484,7 @@
     }
 
     function startBatchUpload(br, baseSub, items) {
+      if (uploadGraphState.active) return;
       var valid = (items || []).filter(function (it) {
         var n = (it && it.file && it.file.name) || '';
         return n && n.charAt(0) !== '.';

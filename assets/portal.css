@@ -848,4 +848,8 @@ details.node-card > summary::-webkit-details-marker { display: none; }
 @media (max-width: 640px) {
   .wordmark-hero { height: 84px; }
   .chibi-mascot { width: 68px; height: 68px; }
+  .site-header, .footer-dock { padding: 0 0.5rem; }
+  .site-header-inner, .footer-dock-inner { gap: 0.35rem; }
+  .footer-toast { max-width: 150px; padding: 3px 8px; font-size: 10px; }
+  .footer-upload-graph { width: 88px; }
 }

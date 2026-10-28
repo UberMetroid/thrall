@@ -163,7 +163,8 @@ mod tests {
         assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\""));
         assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED SPOKE") && h.contains("id=\"footer-status-msg\"") && !h.contains("Sign in with your account credentials"));
         let h_err = render_login_page(Some("Invalid credentials"), &snap, &store);
-        assert!(h_err.contains("id=\"footer-status-msg\" class=\"footer-toast toast-err\">Invalid credentials</span>"));
+        let (h_err_hdr, h_err_rest) = h_err.split_once("</header>").unwrap();
+        assert!(!h_err_hdr.contains("Invalid credentials") && h_err_rest.contains("id=\"footer-status-msg\" class=\"footer-toast toast-err\">Invalid credentials</span>"));
         assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
         let tj = crate::render_portal::render_telemetry_json(&snap, &store);
         assert!(tj.contains("\"hubs_total\":") && tj.contains("\"spokes\":1") && !tj.contains("alice") && !tj.contains("dev-1"));
