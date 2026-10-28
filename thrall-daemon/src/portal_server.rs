@@ -160,7 +160,7 @@ pub fn handle_http_client(
                 "/bg-5.jpg" => 4,
                 _ => ((dur.subsec_nanos() as usize).wrapping_add(now as usize)) % THRALL_BGS.len(),
             };
-            let cc = "Cache-Control: no-store\r\n";
+            let cc = "Cache-Control: public, max-age=3600\r\n";
             return write_http(s, "200 OK", "image/jpeg", cc, THRALL_BGS[idx]);
         }
         _ => {}

@@ -176,7 +176,7 @@ mod tests {
         let (_, u_body) = user_html.split_once("<header class=\"site-header\"").unwrap();
         let (u_hdr, u_rest) = u_body.split_once("</header>").unwrap();
         let (_, u_ftr) = u_rest.split_once("<footer class=\"footer-dock\"").unwrap();
-        assert!(!u_hdr.contains("nav-tabs") && u_hdr.contains("value=\"USER // bob\"") && u_hdr.contains("value=\"ROLE // USER\"") && u_hdr.contains("[ SIGN OUT ]"));
+        assert!(!u_hdr.contains("nav-tabs") && !u_hdr.contains("<input") && !u_hdr.contains("USER //") && !u_hdr.contains("ROLE //") && u_hdr.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
         assert!(!user_html.contains(">Mesh<") && !user_html.contains(">Global Folders<") && !u_ftr.contains("footer-tab-sep") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
         assert!(u_ftr.contains(">Personal Folder</a>") && u_ftr.contains(">Shared Folders</a>") && u_ftr.contains(">Device setup</a>"));
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
@@ -217,7 +217,7 @@ mod tests {
         let (_, adm_body) = admin_html.split_once("<header class=\"site-header\"").unwrap();
         let (hdr_part, rest_part) = adm_body.split_once("</header>").unwrap();
         let (_, ftr_part) = rest_part.split_once("<footer class=\"footer-dock\"").unwrap();
-        assert!(!hdr_part.contains("nav-tabs") && hdr_part.contains("value=\"USER // admin\"") && hdr_part.contains("value=\"ROLE // ADMIN\"") && hdr_part.contains("[ SIGN OUT ]"));
+        assert!(!hdr_part.contains("nav-tabs") && !hdr_part.contains("<input") && !hdr_part.contains("USER //") && !hdr_part.contains("ROLE //") && hdr_part.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
         assert!(ftr_part.contains("footer-nav-tabs") && ftr_part.contains(">Personal Folder</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared Folders</a><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">|||</span><a href=\"/?tab=5\" class=\"tab-btn admin-tab active\">Mesh</a><a href=\"/?tab=4\" class=\"tab-btn admin-tab\">Global Folders</a>"));
         assert!(!admin_html.contains("class=\"card\"") && !admin_html.contains(">SPOKE<") && !admin_html.contains("enrolled spokes"));
         assert!(admin_html.contains("data-modal-open=\"add-mesh-hub\"") && !admin_html.contains("LDAP"));
