@@ -80,8 +80,49 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
     let containerfile = fs::read_to_string(workspace_root.join("Containerfile"))?;
     assert!(containerfile.contains("/bin/thrall"));
     assert!(!containerfile.contains("ln -s"));
-    assert!(containerfile.contains("syncthing"));
     assert!(containerfile.contains("VOLUME [\"/config\", \"/users\", \"/shared\"]"));
+
+    // The control-plane image must never bundle a Syncthing peer. Peers live in
+    // their own container (the thrall-syncthing image) and the daemon only ever
+    // talks to them over their REST API.
+    assert!(
+        !containerfile
+            .lines()
+            .filter(|l| l.trim_start().to_uppercase().starts_with("FROM "))
+            .any(|l| l.contains("syncthing")),
+        "the thrall control-plane image must not have a syncthing build stage"
+    );
+    assert!(
+        !containerfile.lines().any(|l| {
+            let t = l.trim_start().to_lowercase();
+            t.contains("install") && t.contains("syncthing")
+        }),
+        "the thrall control-plane image must not install a syncthing package"
+    );
+
+    // The control-plane daemon must never spawn or reference a local Syncthing
+    // binary either: no env-var opt-in, no binary path, no spawn helper.
+    let mut daemon_files = Vec::new();
+    collect_rs_files(workspace_root, &mut daemon_files);
+    for file in &daemon_files {
+        if file.ends_with("tests/lint.rs") {
+            continue;
+        }
+        let content = fs::read_to_string(file)?;
+        for needle in [
+            "THRALL_LOCAL_SYNCTHING",
+            "/bin/syncthing",
+            "/usr/bin/syncthing",
+            "maybe_spawn_local_syncthing",
+        ] {
+            assert!(
+                !content.contains(needle),
+                "the thrall daemon must not reference a local syncthing binary \
+                 ({needle}) in {}",
+                file.display()
+            );
+        }
+    }
 
     let quadlet = fs::read_to_string(workspace_root.join("quadlet/thrall.container"))?;
     assert!(quadlet.contains("NoNewPrivileges=true"));

@@ -96,7 +96,6 @@ sudo systemctl restart syncthing.service thrall.service
 | Image | Ports | `8080` portal (peer image adds `8384` API + `22000` tcp/udp BEP) |
 | Image | Volumes | `/config`, `/users`, `/shared` |
 | Daemon | `THRALL_CONFIG` | `/config/fleet.yaml` |
-| Daemon | `THRALL_LOCAL_SYNCTHING=1` | Spawn an in-container Syncthing peer if a `syncthing` binary exists — none is bundled; run the peer from the `thrall-syncthing` image instead |
 | Daemon | `PORTAL_LISTEN_ADDR` / `PORTAL_DATABASE_PATH` / `PORTAL_SESSION_SECRET` | `0.0.0.0:8080` / `/config/mesh-mgr.db` / `change-me` |
 | Daemon | `LDAP_URL` / `LDAP_BASE_DN` / `LDAP_BIND_DN` / `LDAP_BIND_PASSWORD` / `LDAP_USER_FILTER` / `ADMIN_USERS` | see `assets/default-fleet.yaml` |
 | `fleet.yaml` | `servers[]` | per-server `name`, `ssh_host`, `ssh_user`, `ssh_key_path`, `syncthing_api_url`, `syncthing_api_key`, `syncthing_wan_addr`, `users_base_path`, `shared_base_path` |

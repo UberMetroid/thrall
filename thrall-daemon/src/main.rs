@@ -12,34 +12,13 @@ pub mod ssh_syncthing;
 
 use std::env;
 use std::net::{TcpListener, TcpStream};
-use std::path::Path;
-use std::process::{self, Child, Command};
+use std::process;
 use std::time::Duration;
 
 use crate::device_store::MeshStore;
 use crate::fleet_config::load_or_create_fleet_config;
 use crate::portal_server::handle_http_client;
 use crate::reconcile_mesh::reconcile_fleet;
-
-fn maybe_spawn_local_syncthing() -> Option<Child> {
-    if env::var("THRALL_LOCAL_SYNCTHING").unwrap_or_default() != "1" {
-        return None;
-    }
-    let bin = ["/bin/syncthing", "/usr/bin/syncthing"]
-        .into_iter()
-        .find(|p| Path::new(p).exists())?;
-
-    Command::new(bin)
-        .args([
-            "serve",
-            "--no-browser",
-            "--no-upgrade",
-            "--home=/config/syncthing",
-            "--gui-address=127.0.0.1:8384",
-        ])
-        .spawn()
-        .ok()
-}
 
 fn run_healthcheck(listen_addr: &str) -> i32 {
     let port = listen_addr
@@ -80,14 +59,12 @@ fn main() {
         process::exit(78);
     });
     if check_only { process::exit(run_healthcheck(&cfg.portal.listen_addr)); }
-    let mut local_st = maybe_spawn_local_syncthing();
     let mut store = MeshStore::load(&cfg.portal.database_path);
     eprintln!("[thrall] Loaded state from {} ({} users)", cfg.portal.database_path, store.users.len());
     let snapshot = reconcile_fleet(&cfg, &mut store);
     let online_count = snapshot.nodes.iter().filter(|n| n.online).count();
     eprintln!("[thrall] Initial fleet reconciliation complete: {online_count}/{} hubs online", snapshot.nodes.len());
     if reconcile_only {
-        if let Some(ref mut child) = local_st { let _ = child.kill(); }
         return;
     }
     let listener = TcpListener::bind(&cfg.portal.listen_addr).unwrap_or_else(|e| {
@@ -109,7 +86,6 @@ fn main() {
             handle_http_client(stream, c, st, sn);
         }
     }
-    if let Some(ref mut child) = local_st { let _ = child.kill(); }
 }
 
 #[cfg(test)]
