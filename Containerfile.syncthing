@@ -16,7 +16,13 @@ RUN microdnf install -y syncthing curl ca-certificates tzdata \
     && microdnf remove -y --setopt=protected_packages= dnf5 libdnf5 libdnf5-cli \
     && rm -rf /var/cache/* /var/log/* /tmp/*
 
+# STHOMEDIR is what makes syncthing read /var/syncthing/config/config.xml — the
+# bind-mounted, persistent config that carries this node's device ID, API key and
+# TLS cert. Without it syncthing falls back to $HOME/.local/state/syncthing, which
+# lives in the anonymous volume below and is discarded on every recreate — the node
+# then comes up as a brand-new device that no other hub trusts.
 ENV HOME=/var/syncthing \
+    STHOMEDIR=/var/syncthing/config \
     STGUIADDRESS=0.0.0.0:8384 \
     STNOUPGRADE=1
 

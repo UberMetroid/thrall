@@ -15,6 +15,7 @@ GroupAdd=keep-groups
 # Environment
 Environment=TZ=UTC
 Environment=HOME=/var/syncthing
+Environment=STHOMEDIR=/var/syncthing/config
 Environment=STGUIADDRESS=0.0.0.0:8384
 Environment=STNOUPGRADE=1
 

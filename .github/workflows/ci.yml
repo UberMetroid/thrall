@@ -38,6 +38,81 @@ jobs:
       - name: 4. cargo build --release
         run: cargo build --release --workspace
 
+  peer-smoke:
+    name: Peer image smoke test (persistent config path)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build peer image (native arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Containerfile.syncthing
+          platforms: linux/amd64
+          load: true
+          tags: thrall-peer-smoke:latest
+          cache-from: type=gha,scope=peer
+          cache-to: type=gha,scope=peer,mode=max
+
+      # Regression guard for the v0.4.1 peer-identity loss: when STHOMEDIR was
+      # missing, syncthing ignored the bind-mounted config and read its XDG copy
+      # from the anonymous volume, so every recreate produced a brand-new device ID
+      # that no other hub trusted. The peer must keep a stable identity across
+      # container recreates, and must write its config into the persisted mount.
+      - name: Peer must reuse its persisted config across container recreates
+        run: |
+          set -euo pipefail
+          cfgdir="$RUNNER_TEMP/peer-cfg"
+          mkdir -p "$cfgdir"
+          chmod 0777 "$cfgdir"
+
+          start_peer() {
+            docker rm -f peer-smoke >/dev/null 2>&1 || true
+            docker run -d --name peer-smoke \
+              -v "$cfgdir:/var/syncthing/config" \
+              thrall-peer-smoke:latest >/dev/null
+            for _ in $(seq 1 60); do
+              if docker exec peer-smoke curl -sf http://127.0.0.1:8384/rest/noauth/health >/dev/null 2>&1; then
+                return 0
+              fi
+              sleep 2
+            done
+            echo "peer did not become healthy" >&2
+            docker logs peer-smoke >&2 || true
+            return 1
+          }
+
+          device_id() {
+            # Read from inside the container: config.xml is mode 0600 owned by the
+            # container's uid, so the host-side runner may not be able to read it.
+            docker exec peer-smoke sh -c \
+              "grep -m1 -oE '<device id=\"[^\"]+\"' /var/syncthing/config/config.xml" 2>/dev/null || true
+          }
+
+          start_peer
+          first="$(device_id)"
+          echo "run 1 device id: ${first:-<none>}"
+
+          start_peer
+          second="$(device_id)"
+          echo "run 2 device id: ${second:-<none>}"
+
+          if [ ! -f "$cfgdir/config.xml" ]; then
+            echo "FAIL: peer did not write its config into the persisted mount" >&2
+            exit 1
+          fi
+          if [ -z "$first" ] || [ -z "$second" ]; then
+            echo "FAIL: could not read the peer's device id from its config" >&2
+            exit 1
+          fi
+          if [ "$first" != "$second" ]; then
+            echo "FAIL: peer identity changed across recreate ($first -> $second)" >&2
+            exit 1
+          fi
+          echo "PASS: peer kept a stable identity across recreate"
+
   containers:
     name: Fedora-minimal OCI images (amd64 + arm64)
     needs: verify
