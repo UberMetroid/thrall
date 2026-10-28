@@ -82,6 +82,9 @@
     if (window.thrallRenderSpotlight) {
       window.thrallRenderSpotlight();
     }
+    if (window.thrallRenderFooterGraph) {
+      window.thrallRenderFooterGraph();
+    }
   }
 
   function renderHeaderWordmark() {
@@ -1269,8 +1272,34 @@
   function initUploadEngine() {
     var graphCanvas = document.getElementById('footer-upload-graph');
     var statusMsg = document.getElementById('footer-status-msg');
+    var toastTimer = 0;
     var historyBars = [];
-    for (var b = 0; b < 24; b++) historyBars.push(1);
+    for (var b = 0; b < 24; b++) {
+      historyBars.push(2 + Math.round(Math.abs(Math.sin(b * 0.45)) * 6));
+    }
+    var uploadGraphState = { active: false, pct: 0, tick: 0 };
+
+    function showToast(text, isErr, autoHide) {
+      if (!statusMsg) return;
+      if (toastTimer) {
+        clearTimeout(toastTimer);
+        toastTimer = 0;
+      }
+      statusMsg.textContent = text;
+      statusMsg.style.display = text ? 'inline-flex' : 'none';
+      statusMsg.classList.toggle('toast-err', Boolean(isErr));
+      if (autoHide && text) {
+        toastTimer = setTimeout(function () {
+          statusMsg.style.display = 'none';
+        }, 4500);
+      }
+    }
+
+    if (statusMsg && statusMsg.textContent && statusMsg.style.display !== 'none') {
+      toastTimer = setTimeout(function () {
+        statusMsg.style.display = 'none';
+      }, 4500);
+    }
 
     function cleanSeg(s, isFile) {
       var trimmed = String(s || '').replace(/^\.+/, '');
@@ -1307,17 +1336,13 @@
       return out;
     }
 
-    function drawPixelGraph(pct, chunkLevel) {
+    function renderGraphFrame() {
       if (!graphCanvas || !graphCanvas.getContext) return;
-      graphCanvas.style.display = 'inline-block';
       var ctx = graphCanvas.getContext('2d');
       if (!ctx) return;
       var w = graphCanvas.width, h = graphCanvas.height;
       ctx.fillStyle = '#06080a';
       ctx.fillRect(0, 0, w, h);
-
-      historyBars.shift();
-      historyBars.push(Math.max(2, Math.min(h - 6, Math.round(chunkLevel * (h - 6)))));
 
       var acc = window.thrallCurrentAccent || [80, 250, 123];
       var ar = acc[0], ag = acc[1], ab = acc[2];
@@ -1345,15 +1370,55 @@
 
       ctx.fillStyle = '#14191f';
       ctx.fillRect(2, h - 3, w - 4, 2);
-      var fillW = Math.round(((w - 4) * Math.max(0, Math.min(100, pct))) / 100);
-      ctx.fillStyle = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
-      ctx.fillRect(2, h - 3, fillW, 2);
-
-      ctx.font = '700 9px ui-monospace, monospace';
-      ctx.fillStyle = '#ffffff';
-      var lbl = Math.round(pct) + '%';
-      ctx.fillText(lbl, w - 28, 11);
+      if (uploadGraphState.active) {
+        var fillW = Math.round(((w - 4) * Math.max(0, Math.min(100, uploadGraphState.pct))) / 100);
+        ctx.fillStyle = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
+        ctx.fillRect(2, h - 3, fillW, 2);
+        ctx.font = '700 9px ui-monospace, monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(Math.round(uploadGraphState.pct) + '%', w - 26, 11);
+      } else {
+        var scanX = 2 + ((uploadGraphState.tick * 4) % Math.max(8, w - 18));
+        ctx.fillStyle = 'rgb(' + ar + ',' + ag + ',' + ab + ')';
+        ctx.fillRect(scanX, h - 3, 14, 2);
+        ctx.font = '700 8px ui-monospace, monospace';
+        ctx.fillStyle = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
+        ctx.fillText('LINK', w - 26, 10);
+      }
     }
+
+    function drawPixelGraph(pct, chunkLevel) {
+      uploadGraphState.active = true;
+      uploadGraphState.pct = pct;
+      historyBars.shift();
+      historyBars.push(Math.max(2, Math.min(18, Math.round(chunkLevel * 18))));
+      renderGraphFrame();
+    }
+
+    function uploadGraphStart() {
+      uploadGraphState.active = true;
+      uploadGraphState.pct = 0;
+      renderGraphFrame();
+    }
+
+    function uploadGraphStop() {
+      uploadGraphState.active = false;
+      uploadGraphState.pct = 0;
+      renderGraphFrame();
+    }
+
+    window.thrallRenderFooterGraph = renderGraphFrame;
+    renderGraphFrame();
+
+    setInterval(function () {
+      if (document.hidden || uploadGraphState.active) return;
+      uploadGraphState.tick += 1;
+      var t = uploadGraphState.tick;
+      var wave = 0.22 + 0.18 * Math.sin(t * 0.38) + 0.14 * Math.cos(t * 0.85) + ((t % 7 === 0) ? 0.22 : 0);
+      historyBars.shift();
+      historyBars.push(Math.max(2, Math.min(15, Math.round(wave * 18))));
+      renderGraphFrame();
+    }, 140);
 
     function readBlobSlice(blob) {
       if (blob && typeof blob.arrayBuffer === 'function') {
@@ -1418,7 +1483,7 @@
         if (firstRow) br = firstRow.getAttribute('data-drop-browse') || '';
       }
       if (!br) {
-        if (statusMsg) statusMsg.textContent = 'Create or select a folder before uploading files.';
+        showToast('Create or select a folder before uploading files.', true, true);
         return;
       }
 
@@ -1428,34 +1493,35 @@
       }
       var uploadedBytes = 0;
       var idx = 0;
+      uploadGraphStart();
       drawPixelGraph(2, 0.35);
 
       function nextFile() {
         if (idx >= valid.length) {
           drawPixelGraph(100, 1.0);
-          if (statusMsg) statusMsg.textContent = 'Uploaded ' + valid.length + ' file(s) — refreshing...';
-          setTimeout(function () { window.location.reload(); }, 260);
+          showToast('Uploaded ' + valid.length + ' file(s) — refreshing...', false, false);
+          setTimeout(function () {
+            uploadGraphStop();
+            window.location.reload();
+          }, 260);
           return;
         }
         var cur = valid[idx];
         var fNum = idx + 1;
         idx += 1;
         var basePct = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : ((fNum - 1) / valid.length) * 100;
-        if (statusMsg) {
-          statusMsg.textContent = 'UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(basePct) + '%)';
-        }
+        showToast('UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(basePct) + '%)', false, false);
         uploadSingleFile(br, baseSub, cur, function (chunkLen) {
           uploadedBytes += chunkLen;
           var pct = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : (fNum / valid.length) * 100;
           var activity = 0.35 + 0.65 * Math.min(1, chunkLen / 12288) * (0.65 + 0.35 * Math.random());
           drawPixelGraph(pct, activity);
-          if (statusMsg) {
-            statusMsg.textContent = 'UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(pct) + '%)';
-          }
+          showToast('UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(pct) + '%)', false, false);
         })
           .then(nextFile)
           .catch(function () {
-            if (statusMsg) statusMsg.textContent = 'Upload failed on ' + (cur.relPath || cur.file.name);
+            uploadGraphStop();
+            showToast('Upload failed on ' + (cur.relPath || cur.file.name), true, true);
           });
       }
       nextFile();
