@@ -666,7 +666,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   max-width: 1180px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.75rem;
 }
@@ -676,7 +676,11 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   align-items: center;
   gap: 0.55rem;
   min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.footer-left-slot::-webkit-scrollbar { display: none; }
 .footer-toast {
   display: inline-flex;
   align-items: center;

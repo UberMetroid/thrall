@@ -131,7 +131,7 @@ pub fn handle_admin_post_action(
             provision_single_folder(cfg, snap, store, None, &fname);
             write_redirect(
                 stream,
-                "/?tab=4&ok=Shared+folder+provisioned!+Authorized+users+should+open+http://127.0.0.1:8384+on+their+Spoke+to+accept+the+share.",
+                "/?tab=4&ok=Shared+folder+provisioned!+Authorized+users+should+open+http://127.0.0.1:8384+on+their+Device+to+accept+the+share.",
                 "",
             );
         } else {

@@ -218,11 +218,11 @@ pub fn render_admin_pane(tab: u8, store: &MeshStore, snap: &FleetSnapshot) -> St
             let u_esc = escape_html(u);
             for d in devs {
                 let (l_esc, id_esc) = (escape_html(&d.label), escape_html(&d.device_id));
-                kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span>&#128187; {l_esc} (<code>{u_esc}</code>)</td><td><span class=\"badge badge-online\">SPOKE</span></td><td><code>{id_esc}</code></td><td style=\"text-align:right\"><code>/users/{u_esc}/*</code></td></tr>"));
+                kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span>&#128187; {l_esc} (<code>{u_esc}</code>)</td><td><span class=\"badge badge-online\">DEVICE</span></td><td><code>{id_esc}</code></td><td style=\"text-align:right\"><code>/users/{u_esc}/*</code></td></tr>"));
             }
         }
         if kids.is_empty() {
-            kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td colspan=\"4\" style=\"padding-left:1.75rem;color:var(--muted);font-size:0.8rem\"><span class=\"tree-branch\">&#9492;&#9472;</span>0 enrolled spokes across fleet.</td></tr>"));
+            kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td colspan=\"4\" style=\"padding-left:1.75rem;color:var(--muted);font-size:0.8rem\"><span class=\"tree-branch\">&#9492;&#9472;</span>0 enrolled devices across fleet.</td></tr>"));
         }
         rows.push_str(&format!("<tr><td>{tbtn}<strong>{n_esc}</strong></td><td>{badge}</td><td><code>{wan_esc}</code> &bull; <code style=\"color:var(--muted)\">{info_esc}</code></td><td style=\"text-align:right\"><form method=\"POST\" action=\"/admin/servers/toggle\" style=\"display:inline\"><input type=\"hidden\" name=\"server\" value=\"{n_esc}\"><button type=\"submit\" class=\"{btn_cls}\" style=\"padding:0.18rem 0.55rem;font-size:0.74rem\">{btn_lbl}</button></form></td></tr>{kids}"));
     }
