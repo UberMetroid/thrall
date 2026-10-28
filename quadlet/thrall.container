@@ -1,10 +1,10 @@
 [Unit]
-Description=THRALL (st-mesh-mgr) Multi-Server Syncthing LDAP Control Plane (Quadlet)
-After=network-online.target syncthing.service
-Wants=network-online.target syncthing.service
+Description=THRALL Multi-Server Syncthing LDAP Control Plane (Quadlet)
+After=network-online.target
+Wants=network-online.target
 
 [Container]
-Image=localhost/thrall:v0.4.5
+Image=ghcr.io/ubermetroid/thrall:0.5.3
 ContainerName=thrall
 AutoUpdate=local
 Network=host

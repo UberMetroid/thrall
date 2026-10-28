@@ -82,9 +82,9 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
     assert!(!containerfile.contains("ln -s"));
     assert!(containerfile.contains("VOLUME [\"/config\", \"/users\", \"/shared\"]"));
 
-    // The control-plane image must never bundle a Syncthing peer. Peers live in
-    // their own container (the thrall-syncthing image) and the daemon only ever
-    // talks to them over their REST API.
+    // The control-plane image must never bundle a Syncthing peer. Peers are
+    // separate software that an operator runs on every hub, and the daemon
+    // only ever talks to them over their REST API.
     assert!(
         !containerfile
             .lines()
@@ -176,7 +176,6 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
         "AGENTS.md",
         "docs/index.html",
         "quadlet/thrall.container",
-        "quadlet/syncthing.container",
     ] {
         all_files.push(workspace_root.join(rel));
     }

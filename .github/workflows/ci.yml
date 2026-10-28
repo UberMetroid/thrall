@@ -13,7 +13,6 @@ permissions:
 env:
   # ghcr.io requires lowercase image paths (github.repository is "UberMetroid/thrall")
   IMAGE: ghcr.io/ubermetroid/thrall
-  IMAGE_PEER: ghcr.io/ubermetroid/thrall-syncthing
 
 jobs:
   verify:
@@ -38,23 +37,22 @@ jobs:
       - name: 4. cargo build --release
         run: cargo build --release --workspace
 
-  peer-smoke:
-    name: Peer image smoke test (persistent config path)
+  peer-contract:
+    name: Peer contract test (upstream Syncthing, persistent config path)
     needs: verify
     runs-on: ubuntu-latest
+    env:
+      # The peer is stock Syncthing that an operator runs themselves. THRALL
+      # ships one image: the control plane.
+      PEER_IMAGE: syncthing/syncthing:2.1.7
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build peer image (native arch)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Containerfile.syncthing
-          platforms: linux/amd64
-          load: true
-          tags: thrall-peer-smoke:latest
-          cache-from: type=gha,scope=peer
-          cache-to: type=gha,scope=peer,mode=max
+      # THRALL ships no peer image and no peer unit. Peers are stock Syncthing
+      # that the operator runs on every hub, so this job validates the
+      # deployment recipe the README documents against the upstream image.
+      - name: Fetch the upstream peer image
+        run: docker pull "$PEER_IMAGE"
 
       # Regression guard for the v0.4.1 peer-identity loss: when STHOMEDIR was
       # missing, syncthing ignored the bind-mounted config and read its XDG copy
@@ -72,7 +70,7 @@ jobs:
             docker rm -f peer-smoke >/dev/null 2>&1 || true
             docker run -d --name peer-smoke \
               -v "$cfgdir:/var/syncthing/config" \
-              thrall-peer-smoke:latest >/dev/null
+              "$PEER_IMAGE" >/dev/null
             for _ in $(seq 1 60); do
               if docker exec peer-smoke curl -sf http://127.0.0.1:8384/rest/noauth/health >/dev/null 2>&1; then
                 return 0
@@ -138,15 +136,6 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
-      - uses: docker/metadata-action@v5
-        id: meta-peer
-        with:
-          images: ${{ env.IMAGE_PEER }}
-          tags: |
-            type=raw,value=main,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-
       - name: Build & push thrall (control plane)
         uses: docker/build-push-action@v6
         with:
@@ -158,15 +147,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=thrall
           cache-to: type=gha,scope=thrall,mode=max
-
-      - name: Build & push thrall-syncthing (peer node)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Containerfile.syncthing
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta-peer.outputs.tags }}
-          labels: ${{ steps.meta-peer.outputs.labels }}
-          cache-from: type=gha,scope=peer
-          cache-to: type=gha,scope=peer,mode=max

@@ -1,5 +1,5 @@
 //! Syncthing 56-character Device ID normalization and Base32 Luhn mod 32 check-digit verifier,
-//! plus `/config/mesh-mgr.db` persistence and path-jailed web file explorer resolution.
+//! plus `/config/roster.db` persistence and path-jailed web file explorer resolution.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -197,7 +197,7 @@ impl MeshStore {
     }
 
     pub fn serialize(&self) -> String {
-        let mut out = String::from("# THRALL mesh-mgr.db v2\n");
+        let mut out = String::from("# THRALL roster.db v2\n");
         for (user, devices) in &self.users {
             for dev in devices { out.push_str(&format!("{user}\t{}\t{}\n", dev.device_id, dev.label)); }
         }

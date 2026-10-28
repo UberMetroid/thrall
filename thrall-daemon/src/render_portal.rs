@@ -1,4 +1,4 @@
-//! Dark-mode HTML/SVG UI renderer & Web File Explorer for THRALL (`st-mesh-mgr`).
+//! Dark-mode HTML/SVG UI renderer & Web File Explorer for THRALL.
 
 use crate::device_store::{syncthing_folder_id, MeshStore};
 use crate::fleet_config::FleetConfig;

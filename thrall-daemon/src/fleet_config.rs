@@ -84,7 +84,7 @@ pub fn parse_fleet_yaml(raw: &str) -> Result<FleetConfig, String> {
     let mut cfg = FleetConfig {
         portal: PortalConfig {
             listen_addr: "0.0.0.0:8080".to_string(),
-            database_path: "/config/mesh-mgr.db".to_string(),
+            database_path: "/config/roster.db".to_string(),
             session_secret: String::new(),
         },
         ldap: LdapConfig {

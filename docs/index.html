@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THRALL v0.5.2 — Tool for Hierarchical Replication And Identity Linking</title>
-  <meta name="description" content="Zero-dependency static Rust multi-server Syncthing control plane, 5-tab boxless web explorer, XDG & custom folder orchestrator, and 8-bit telemetry dock.">
+  <title>THRALL — Turn your LDAP directory into a file-sync fleet</title>
+  <meta name="description" content="THRALL binds your LDAP directory to a fleet of Syncthing hubs. Staff sign in with the work account they already have and their folders are already there. Zero external crates, no unsafe code, no shell, no SSH.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <style>
     :root {
@@ -30,7 +30,7 @@
       line-height: 1.6;
       padding: 2rem 1.25rem 4rem;
     }
-    .wrap { max-width: 1120px; margin: 0 auto; }
+    .wrap { max-width: 1080px; margin: 0 auto; }
     .hero {
       text-align: center;
       padding: 2.8rem 1.5rem;
@@ -42,7 +42,8 @@
     }
     .hero h1 { font-size: 2.6rem; letter-spacing: 0.16em; margin-top: 0.6rem; text-shadow: 0 0 24px rgba(63, 185, 80, 0.45); }
     .subtitle { font-family: var(--mono); color: var(--accent); font-size: 0.92rem; letter-spacing: 0.08em; text-transform: uppercase; margin: 0.4rem 0 1rem; }
-    .hero p { max-width: 780px; margin: 0 auto 1.4rem; color: var(--muted); font-size: 1.02rem; }
+    .hero p { max-width: 760px; margin: 0 auto 1.4rem; color: var(--muted); font-size: 1.05rem; }
+    .hero p strong { color: var(--text); }
     .badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.3rem; }
     .badge { font-family: var(--mono); font-size: 0.75rem; padding: 0.25rem 0.7rem; border-radius: 999px; border: 1px solid rgba(63, 185, 80, 0.45); background: rgba(63, 185, 80, 0.12); color: var(--accent); }
     .badge.blue { border-color: rgba(88, 166, 255, 0.45); background: rgba(88, 166, 255, 0.12); color: var(--blue); }
@@ -71,14 +72,27 @@
       font-family: var(--mono);
       font-size: 0.78rem;
     }
-    .ticker-track { display: inline-block; animation: scroll 26s linear infinite; }
+    .ticker-track { display: inline-block; animation: scroll 30s linear infinite; }
     .chip { display: inline-block; margin: 0 0.5rem; padding: 0.18rem 0.7rem; border-radius: 4px; background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.35); }
     @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.15rem; margin-bottom: 1.75rem; }
+    section { margin-bottom: 1.75rem; }
+    .section-head { margin-bottom: 0.9rem; }
+    .section-head h2 { font-family: var(--mono); font-size: 1.15rem; color: var(--accent); margin-bottom: 0.25rem; }
+    .section-head p { color: var(--muted); font-size: 0.95rem; max-width: 780px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.15rem; }
     .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1.35rem; }
-    .card h2 { font-size: 1.1rem; margin-bottom: 0.65rem; color: var(--accent); font-family: var(--mono); }
-    .card p, .card li { font-size: 0.92rem; color: var(--text); }
+    .card h3 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text); font-family: var(--mono); }
+    .card h3 .step { color: var(--accent); margin-right: 0.4rem; }
+    .card p, .card li { font-size: 0.93rem; color: var(--muted); }
+    .card p.lead { color: var(--text); }
     .card ul { padding-left: 1.2rem; margin-top: 0.4rem; }
+    .card li { margin-bottom: 0.3rem; }
+    .card code, .section-head code { font-family: var(--mono); font-size: 0.85em; color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { font-family: var(--mono); color: var(--accent); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    td:first-child { color: var(--text); width: 34%; }
+    td:last-child { color: var(--muted); font-family: var(--mono); font-size: 0.82rem; }
     pre {
       background: #05070b;
       border: 1px solid var(--border);
@@ -90,9 +104,12 @@
       color: #7ee787;
       margin: 0.75rem 0;
     }
+    .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+    .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.15rem; }
+    .stat .n { font-family: var(--mono); font-size: 1.45rem; color: var(--accent); line-height: 1.2; }
+    .stat .l { color: var(--muted); font-size: 0.84rem; margin-top: 0.2rem; }
     footer { text-align: center; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
     footer a { color: var(--accent); text-decoration: none; }
-    @keyframes float-thrall { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
   </style>
 </head>
 <body>
@@ -102,93 +119,98 @@
       <h1>THRALL</h1>
       <div class="subtitle">Tool for Hierarchical Replication And Identity Linking</div>
       <div class="badges">
-        <span class="badge">v0.5.2 Release</span>
-        <span class="badge">Zero External Crates (std only)</span>
-        <span class="badge blue">54px Symmetric Dock &amp; 8-Bit Flow Graph</span>
-        <span class="badge purple">5 Boxless SPA Explorer Tabs</span>
-        <span class="badge">Apache-2.0 License</span>
+        <span class="badge">Zero External Crates</span>
+        <span class="badge blue">#![forbid(unsafe_code)]</span>
+        <span class="badge purple">No Shell &bull; No SSH &bull; No Peer Image</span>
+        <span class="badge">Every Claim Gated by CI</span>
+        <span class="badge">Apache-2.0</span>
       </div>
       <p>
-        <strong>THRALL</strong> (<code>st-mesh-mgr</code>) is a hardened, zero-dependency static Rust control plane and self-service web portal that binds an organization's identity directory to a distributed multi-server Syncthing fleet—with zero dotfile pollution, split Standard XDG &amp; Custom folder workflows, customizable local sync paths, and two-way Zero-Trust handshakes.
+        <strong>THRALL turns your LDAP directory into a file-sync fleet.</strong>
+        Staff sign in with the work account they already have, and their folders are already there &mdash; on every machine they own.
+        Team folders are granted and revoked from one screen.
       </p>
       <div class="btn-row">
-        <a class="btn" href="https://github.com/UberMetroid/thrall">View on GitHub &rarr;</a>
-        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.5.2">v0.5.2 Release Notes</a>
-        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a>
+        <a class="btn" href="https://github.com/UberMetroid/thrall#getting-started">Get it running &rarr;</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall">Source on GitHub</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases">Releases</a>
       </div>
     </section>
 
-    <div class="ticker" aria-label="THRALL Architecture Tenets">
+    <div class="ticker" aria-label="Guarantees">
       <div class="ticker-track">
-        <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
-        <span class="chip">&#129504; ONE CONTROL PLANE &bull; PEER CONTAINER ON EVERY HUB</span>
-        <span class="chip">&#128274; NO SSH CLIENT &bull; AUTHENTICATED PEER APIs</span>
-        <span class="chip">&#127912; 54PX HEADER &amp; FOOTER DOCK + 8-BIT RAINBOW PALETTE</span>
-        <span class="chip">&#128202; REAL-TIME BROWSER &harr; MESH 8-BIT DATA FLOW GRAPH</span>
-        <span class="chip">&#128193; + STANDARD FOLDER (XDG) &amp; + CUSTOM FOLDER MODALS</span>
-        <span class="chip">&#128279; EXPANDABLE +/- TREES &amp; DRAG-AND-DROP DIR UPLOADS</span>
-        <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
-        <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
-        <span class="chip">&#129504; ONE CONTROL PLANE &bull; PEER CONTAINER ON EVERY HUB</span>
-        <span class="chip">&#128274; NO SSH CLIENT &bull; AUTHENTICATED PEER APIs</span>
-        <span class="chip">&#127912; 54PX HEADER &amp; FOOTER DOCK + 8-BIT RAINBOW PALETTE</span>
-        <span class="chip">&#128202; REAL-TIME BROWSER &harr; MESH 8-BIT DATA FLOW GRAPH</span>
-        <span class="chip">&#128193; + STANDARD FOLDER (XDG) &amp; + CUSTOM FOLDER MODALS</span>
-        <span class="chip">&#128279; EXPANDABLE +/- TREES &amp; DRAG-AND-DROP DIR UPLOADS</span>
-        <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
+        <span class="chip">ZERO EXTERNAL CRATES (STD ONLY)</span>
+        <span class="chip">#![forbid(unsafe_code)]</span>
+        <span class="chip">NO SHELL INVOCATIONS</span>
+        <span class="chip">NO SSH CLIENT IN THE IMAGE</span>
+        <span class="chip">NO PEER IMAGE PUBLISHED</span>
+        <span class="chip">ONE CONTROL PLANE &bull; PEER PER HUB</span>
+        <span class="chip">KEYED SHARE TOKENS</span>
+        <span class="chip">FAIL-CLOSED SESSION SECRET</span>
+        <span class="chip">PER-PEER API KEYS</span>
+        <span class="chip">ZERO EXTERNAL CRATES (STD ONLY)</span>
+        <span class="chip">#![forbid(unsafe_code)]</span>
+        <span class="chip">NO SHELL INVOCATIONS</span>
+        <span class="chip">NO SSH CLIENT IN THE IMAGE</span>
+        <span class="chip">NO PEER IMAGE PUBLISHED</span>
+        <span class="chip">ONE CONTROL PLANE &bull; PEER PER HUB</span>
+        <span class="chip">KEYED SHARE TOKENS</span>
+        <span class="chip">FAIL-CLOSED SESSION SECRET</span>
+        <span class="chip">PER-PEER API KEYS</span>
       </div>
     </div>
 
-    <div class="grid">
-      <div class="card">
-        <h2>[01] 5 Boxless SPA Tabs &amp; Split XDG / Custom Folders</h2>
-        <p>Navigated from the 54px Footer Dock (<code>Personal folders | Shared folders || Device setup || Global folders || Mesh setup</code>) with zero-flash SPA transitions:</p>
-        <ul>
-          <li><strong><code>+ Standard Folder</code></strong>: Pick-and-choose from the 8 standard Linux XDG folders (<code>Desktop</code>, <code>Documents</code>, <code>Downloads</code>, <code>Music</code>, <code>Pictures</code>, <code>Videos</code>, <code>Public</code>, <code>Templates</code>) and sync to <code>~/&lt;Folder&gt;</code> or <code>~/Thrall/&lt;Folder&gt;</code>.</li>
-          <li><strong><code>+ Custom Folder</code></strong>: Dedicated modal for creating custom top-level folders synced to <code>~/Thrall/&lt;Folder&gt;</code>.</li>
-          <li><strong><code>Global folders</code></strong>: Admin ACL matrix for <code>/shared/&lt;Folder&gt;</code> with a pulsing <code>Save Access *</code> unsaved-changes indicator.</li>
-        </ul>
+    <section>
+      <div class="section-head">
+        <h2>The problem it removes</h2>
+        <p>Handing a team a synced share usually means installing a sync client on every laptop, sharing each folder by hand, and un-sharing everything by hand when someone leaves. Your directory already knows who works here and who no longer does &mdash; THRALL reads that and does the work for you.</p>
       </div>
+    </section>
 
-      <div class="card">
-        <h2>[02] Device Setup &amp; Custom Local Sync Paths</h2>
-        <p>Clients never expose their REST API. Instead, workstations pair in <strong><code>Device setup</code></strong>:</p>
-        <ul>
-          <li><strong>Step 1 (Device &rarr; Gateway)</strong>: Add the THRALL Gateway Hub Device ID in local Syncthing with <code>[x] Introducer</code> and <code>[x] Auto Accept</code> enabled.</li>
-          <li><strong>Step 2 (Gateway &rarr; Device)</strong>: Paste the 56-character Device ID into THRALL. THRALL verifies all 4 Base32 Luhn mod 32 check digits, auto-assigns <code>dev-1-&lt;short_id&gt;</code>, and tracks per-device folder acceptance.</li>
-          <li><strong>Custom Local Paths</strong>: Override any personal or shared folder's workstation sync path (<code>~/Desktop</code> vs <code>~/Thrall/&lt;Folder&gt;</code>).</li>
-        </ul>
+    <section>
+      <div class="section-head">
+        <h2>What the person using it actually does</h2>
+        <p>No account to create, no separate password, no sync client on the hub to babysit.</p>
       </div>
-
-      <div class="card">
-        <h2>[03] Chunked Uploads, Inline Trees &amp; 8-Bit Dock</h2>
-        <p>Built-in dark-mode file explorer with strict ancestor symlink-escape and dotfile protection:</p>
-        <ul>
-          <li>Expandable <code>+</code> / <code>&minus;</code> inline directory trees across folders, devices, ACLs, and mesh hubs.</li>
-          <li>Chunked binary file and recursive drag-and-drop directory uploads (<code>POST /files/upload</code>) with live progress in the <code>#footer-upload-graph</code> canvas.</li>
-          <li>GitHub-style type-to-confirm deletion modals and instant read-only capability links (<code>/s/&lt;token&gt;</code>).</li>
-        </ul>
+      <div class="grid">
+        <div class="card">
+          <h3><span class="step">01</span>Signs in with their work account</h3>
+          <p class="lead">The portal binds directly to your LDAP or Active Directory server over RFC 4511.</p>
+          <p>Authentication is the directory's job. THRALL never stores a user password.</p>
+        </div>
+        <div class="card">
+          <h3><span class="step">02</span>Finds their folders already there</h3>
+          <p class="lead">Standard folders and any custom folder are provisioned on the hub and bound to their devices.</p>
+          <p>Desktop, Documents, Music, Pictures, Videos &mdash; or a folder you named yourself.</p>
+        </div>
+        <div class="card">
+          <h3><span class="step">03</span>Gets access from one screen</h3>
+          <p class="lead">An admin ticks a person against a team folder. It reaches every device that person owns within seconds.</p>
+          <p>Untick it and access is revoked everywhere &mdash; including the devices you cannot reach.</p>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="card">
-      <h2>[04] Fleet Topology: One Control Plane, a Peer on Every Hub</h2>
-      <p>THRALL is a <strong>control plane</strong>, never a peer &mdash; it never bundles, installs, or spawns Syncthing. The control-plane image and the peer image are separate, and a CI lint gate fails the build if the control plane ever regains a Syncthing stage, package, or binary.</p>
+    <section>
+      <div class="section-head">
+        <h2>How a fleet is laid out</h2>
+        <p>THRALL is the <strong>control plane</strong>, never a peer. It never bundles, installs, or spawns Syncthing. The peer &mdash; the thing that actually stores and replicates bytes &mdash; is stock Syncthing that you run on every hub that holds data.</p>
+      </div>
+      <div class="card">
 <pre>
     +----------------------------------------------+
     |         Control-plane host  (ONE per fleet)  |
     |                                              |
     |         [ thrall container ]                 |
     |           - RFC 4511 LDAP bind               |
-    |           - 5-tab self-service portal        |
-    |           - roster / topology / ACLs in      |
-    |             /config/mesh-mgr.db              |
+    |           - self-service web portal          |
+    |           - roster / folder topology / ACLs  |
     |           - reconciler: calls each peer's    |
     |             authenticated REST API           |
     |           - no SSH client, no SSH access     |
     +--------+---------------+---------------+-----+
              |               |               |
-           REST            REST            REST
+         REST API        REST API        REST API
         (loopback)       (tailnet)       (tailnet)
              |               |               |
              v               v               v
@@ -198,35 +220,77 @@
       |  container]|  |  container]|  |  container]|
       +------------+  +------------+  +------------+
 </pre>
-      <p><strong>Do not install THRALL on every hub.</strong> The roster is a single-writer whole-file store with no lock, no version counter, and no merge; every control plane reconciles <em>every</em> hub listed in <code>fleet.yaml</code>; and portal identity &mdash; session secret, LDAP bind, portal surface &mdash; is per-instance. <code>N</code> control planes therefore mean <code>N &times; N</code> reconciliation writes racing into the same peers, plus <code>N</code> portals and <code>N</code> credential sets to defend. That is a duplicated brain, not redundancy. For failover, use a <strong>warm standby</strong>: a second control plane holding a standby copy of <code>mesh-mgr.db</code>, promoted deliberately and never reconciling concurrently with the primary.</p>
-      <p>Every peer is reached over <strong>its own REST API</strong>, authenticated with <strong>that peer's API key</strong>. A peer that shares the host with the daemon (<code>local: true</code>) is reached over the loopback interface; every other peer publishes the same API on a reachable address, such as its address on a private overlay network. The peer creates its own folder paths when the folder configuration is applied, so the daemon never touches a peer's filesystem.</p>
-      <p>The control-plane image ships <strong>no SSH client</strong>. There is no <code>ssh</code> binary in it, no SSH key in the fleet configuration, and no fleet-wide credential that can reach every hub at once &mdash; a per-peer API key is scoped to one peer's REST surface. A remote peer whose <code>syncthing_api_url</code> points at loopback is refused at discovery time rather than silently landing on the local peer.</p>
-      <p>Every commit passes the 4-step Rust Verification Ladder and the 16–256 line Page Rule gate:</p>
-<pre>
-cargo test --workspace --all-targets
-cargo clippy --workspace --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic
-cargo fmt --all -- --check
-cargo build --release --workspace
-</pre>
-    </div>
+        <p><strong>One control plane per fleet, not one per hub.</strong> The roster is a single-writer store with no lock and no merge, and every control plane reconciles <em>every</em> hub listed in <code>fleet.yaml</code>. Running one per hub would mean <code>N &times; N</code> reconciliation writes racing into the same peers &mdash; a duplicated brain, not redundancy. For failover, run a warm standby: a second control plane holding a standby copy of the roster, promoted deliberately, never reconciling concurrently with the primary.</p>
+        <p>Every peer is reached over <strong>its own REST API</strong>, authenticated with <strong>that peer's API key</strong>. A peer sharing the host with the daemon is reached over loopback; every other peer publishes the same API on a reachable address. The peer creates its own folder paths, so the daemon never touches a peer's filesystem. There is no SSH anywhere in the path &mdash; not in the image, not in the configuration, and no fleet-wide credential that can reach every hub at once.</p>
+        <p><strong>The peer is stock Syncthing that you run yourself.</strong> This project publishes no peer image and ships no peer unit: a peer is separate software, and THRALL only ever speaks to it over REST.</p>
+      </div>
+    </section>
 
-    <div class="card">
-      <h2>[05] Fedora-Minimal Container &amp; Quadlet Deployment</h2>
-      <p>Fedora-native supply chain: a hardened <code>fedora-minimal:44</code> OCI image built from signed Fedora packages only &mdash; no Alpine/BusyBox, no Guix daemon, no package manager, no SSH client, and no Syncthing binary in the control-plane runtime image. Bundles the zero-dependency <code>thrall</code> controller and <code>curl</code> for the authenticated peer REST API transport &mdash; nothing else.</p>
-<pre>
-# Build locally (or: sudo podman pull ghcr.io/ubermetroid/thrall:latest)
-sudo podman build -t localhost/thrall:latest -f Containerfile .
-sudo podman build -t localhost/thrall-syncthing:latest -f Containerfile.syncthing .
+    <section>
+      <div class="section-head">
+        <h2>Why you can trust it with a directory server</h2>
+        <p>THRALL holds an LDAP bind password and the access rules for every user's files. These are the claims we make &mdash; and the test that fails the build if a claim stops being true.</p>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Claim</th><th>How it is enforced</th></tr></thead>
+          <tbody>
+            <tr><td>Zero external crates &mdash; the standard library only</td><td>tests/page_rules.rs fails the build if [dependencies] is ever non-empty</td></tr>
+            <tr><td>No unsafe code</td><td>#![forbid(unsafe_code)] at the crate root; the compiler rejects it</td></tr>
+            <tr><td>No shell, ever</td><td>tests/lint.rs fails if any code path spawns sh, bash or zsh -c</td></tr>
+            <tr><td>No SSH client in the image</td><td>tests/lint.rs fails if the Containerfile installs one, or the daemon references ssh</td></tr>
+            <tr><td>No Syncthing in the control plane</td><td>tests/lint.rs fails if the image gains a Syncthing stage, package or binary</td></tr>
+            <tr><td>No peer image is published</td><td>tests/no_peer_artifacts.rs fails if a peer image, a peer unit or a peer publish step reappears</td></tr>
+            <tr><td>The session secret fails closed</td><td>the daemon refuses the shipped placeholder and any secret under 16 characters, and generates one from /dev/urandom if empty</td></tr>
+            <tr><td>Share links cannot be forged</td><td>a keyed 128-bit MAC over the server secret, not a hash of the path</td></tr>
+            <tr><td>Peer credentials are scoped per peer</td><td>each peer has its own API key; a remote peer pointed at loopback is refused at discovery</td></tr>
+            <tr><td>Credential files are owner-only</td><td>every write creates the file 0600 and renames it into place</td></tr>
+            <tr><td>The daemon never panics on bad input</td><td>clippy denies unwrap, expect and panic outside test code</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-# Deploy the systemd Quadlet services
-sudo cp quadlet/syncthing.container quadlet/thrall.container /etc/containers/systemd/
-sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart syncthing.service thrall.service
+    <section>
+      <div class="section-head">
+        <h2>What it costs to run</h2>
+      </div>
+      <div class="stat-row">
+        <div class="stat"><div class="n">1</div><div class="l">static binary. No runtime services, no database server, no message queue, no cache.</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">external crates. Nothing to audit but this repository.</div></div>
+        <div class="stat"><div class="n">256 MB</div><div class="l">memory ceiling on the control plane, single process.</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">package managers in the runtime image. Nothing to patch but the base image.</div></div>
+        <div class="stat"><div class="n">0</div><div class="l">peer images published. The peer is stock Syncthing that you run yourself.</div></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Get it running</h2>
+        <p>One image, one unit, one configuration file. The peer is stock Syncthing that you run yourself &mdash; this project publishes no peer image.</p>
+      </div>
+      <div class="card">
+<pre>
+# 1. The image (the peer is stock Syncthing, which this project does not ship)
+sudo podman pull ghcr.io/ubermetroid/thrall:0.5.3
+
+# 2. The directory bind password is a container secret, never a file
+printf '%s' '&lt;bind password&gt;' | sudo podman secret create ldap_bind_password -
+
+# 3. Deploy
+sudo cp quadlet/thrall.container /etc/containers/systemd/
+sudo systemctl daemon-reload
+sudo systemctl enable --now thrall.service
 </pre>
-      <p>The Syncthing peer node runs from the matching minimal <code>thrall-syncthing</code> image, replacing the Alpine-based <code>docker.io/syncthing/syncthing</code>. The <code>thrall</code> image itself bundles no Syncthing: the daemon only talks to peer nodes over their REST API. Configure via <code>fleet.yaml</code> or environment overrides: <code>PORTAL_LISTEN_ADDR</code>, <code>PORTAL_DATABASE_PATH</code>, <code>PORTAL_SESSION_SECRET</code>, <code>LDAP_URL</code>, <code>LDAP_BASE_DN</code>, <code>LDAP_BIND_DN</code>, <code>LDAP_BIND_PASSWORD</code>, <code>LDAP_USER_FILTER</code>, <code>ADMIN_USERS</code>. <code>PORTAL_SESSION_SECRET</code> is generated from <code>/dev/urandom</code> and persisted on first boot when left empty; the shipped placeholder and any secret shorter than 16 characters are refused at startup, so the daemon will never run on a publicly known session secret. Full container configuration reference in the <a href="https://github.com/UberMetroid/thrall#container-build--systemd-quadlet-deployment">README</a>, and the full fleet topology in the <a href="https://github.com/UberMetroid/thrall#fleet-topology-one-control-plane-a-peer-on-every-hub">README topology section</a>.</p>
-    </div>
+        <p>Then point it at your directory, run a peer on every hub that stores files, and list those hubs in <code>fleet.yaml</code>. The <a href="https://github.com/UberMetroid/thrall#getting-started">README walks through it step by step</a>, including how to run a peer and give each one its own API key.</p>
+      </div>
+    </section>
 
     <footer>
-      THRALL v0.5.2 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a>
+      THRALL v0.5.3 &bull; <a href="https://github.com/UberMetroid/thrall">Source</a> &bull;
+      <a href="https://github.com/UberMetroid/thrall/releases">Releases</a> &bull;
+      <a href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a> &bull;
+      <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a>
     </footer>
   </div>
 </body>

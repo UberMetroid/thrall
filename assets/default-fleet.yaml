@@ -5,7 +5,7 @@
 
 portal:
   listen_addr: "0.0.0.0:8080"
-  database_path: "/config/mesh-mgr.db"
+  database_path: "/config/roster.db"
   # Leave empty: the daemon generates a random secret and persists it here on first
   # boot. The daemon refuses to start while this still holds the shipped placeholder.
   session_secret: ""

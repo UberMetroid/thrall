@@ -1,9 +1,11 @@
 # Multi-stage hardened Fedora-minimal Podman Containerfile for THRALL
-# Bundles:
-#   - /bin/thrall: Zero-dependency Rust LDAP + Syncthing mesh controller (stripped, glibc)
+# Ships:
+#   - /bin/thrall: Zero-dependency Rust LDAP control plane (stripped, glibc)
 #   - curl: the transport for the authenticated peer REST APIs
-# The Syncthing peer node is NOT bundled here: it runs from the dedicated
-# thrall-syncthing image (Containerfile.syncthing) via quadlet/syncthing.container.
+# THRALL is a control plane only. It does not bundle, install, or spawn a
+# Syncthing peer, and this project publishes no peer image: a peer is stock
+# Syncthing that the operator runs on every hub, and THRALL reaches each one
+# over that peer's own authenticated REST API.
 # No SSH client is installed: THRALL reaches every peer over its REST API and
 # has no use for one.
 # Fedora-native supply chain: signed packages from Fedora repos only - no Alpine/BusyBox, no Guix.

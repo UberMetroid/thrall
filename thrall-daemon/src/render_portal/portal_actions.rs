@@ -1,4 +1,4 @@
-//! Authenticated POST form handlers for THRALL (`st-mesh-mgr`) portal.
+//! Authenticated POST form handlers for THRALL portal.
 
 use std::collections::BTreeMap;
 use std::fs::{self, OpenOptions};

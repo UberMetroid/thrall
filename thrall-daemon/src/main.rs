@@ -1,4 +1,4 @@
-//! THRALL (`st-mesh-mgr`) — Multi-Server Syncthing LDAP Control Plane & Self-Service Portal.
+//! THRALL — Multi-Server Syncthing LDAP Control Plane & Self-Service Portal.
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
