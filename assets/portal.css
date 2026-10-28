@@ -838,6 +838,24 @@ details.node-card > summary::-webkit-details-marker { display: none; }
 .folder-pill { background: #090c10; border: 1px solid var(--border); border-radius: 4px; padding: 0.35rem 0.55rem; font-family: var(--mono); font-size: 0.78rem; color: var(--text); }
 .user-chip { display: flex; align-items: center; gap: 0.45rem; background: #090c10; border: 1px solid var(--border); border-radius: 4px; padding: 0.35rem 0.65rem; font-size: 0.82rem; font-family: var(--mono); cursor: pointer; width: 100%; }
 .user-chip input { accent-color: var(--phosphor); cursor: pointer; }
+.acl-save-btn { white-space: nowrap; flex-shrink: 0; }
+.acl-save-btn.dirty-pulse {
+  background: var(--warn);
+  color: #050709;
+  border-color: #ffe066;
+  box-shadow: 0 0 18px rgba(255, 176, 0, 0.72), 0 0 4px #ffe066;
+  animation: acl-dirty-pulse 1.15s infinite ease-in-out;
+}
+.acl-save-btn.dirty-pulse:hover {
+  background: #ffd447;
+  color: #050709;
+  border-color: #fff;
+  box-shadow: 0 0 24px rgba(255, 212, 71, 0.92);
+}
+@keyframes acl-dirty-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 14px rgba(255, 176, 0, 0.65), 0 0 4px #ffe066; }
+  50% { transform: scale(1.06); box-shadow: 0 0 24px rgba(255, 212, 71, 0.95), 0 0 8px #fff; }
+}
 .chibi-section { width: 100%; padding: 1.1rem 1.25rem; }
 .chibi-card-body { display: flex; align-items: center; gap: 1rem; }
 .chibi-hero-img { width: 72px; height: 72px; border-radius: 12px; border: 1.5px solid var(--border-accent); box-shadow: 0 0 14px var(--phosphor-dim); object-fit: cover; flex-shrink: 0; }

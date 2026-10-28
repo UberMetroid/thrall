@@ -169,7 +169,7 @@ mod tests {
         assert!(!h.contains("login-sub") && !h.contains("sec-ticker") && !h.contains("sec-chibi"));
         assert!(h.contains("User or Email") && !h.contains("THRALL MESH DIRECTOR"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
-        assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
+        assert!(h.contains("site-header") && h.contains("[ SIGN IN ]") && !h.contains("/icon.jpg"));
         assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\""));
         assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED SPOKE") && h.contains("id=\"footer-status-msg\"") && !h.contains("Sign in with your account credentials"));
         let h_err = render_login_page(Some("Invalid credentials"), &snap, &store);
@@ -186,7 +186,7 @@ mod tests {
         let (_, u_body) = user_html.split_once("<header class=\"site-header\"").unwrap();
         let (u_hdr, u_rest) = u_body.split_once("</header>").unwrap();
         let (_, u_ftr) = u_rest.split_once("<footer class=\"footer-dock\"").unwrap();
-        assert!(!u_hdr.contains("nav-tabs") && !u_hdr.contains("<input") && !u_hdr.contains("USER //") && !u_hdr.contains("ROLE //") && u_hdr.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
+        assert!(!u_hdr.contains("nav-tabs") && !u_hdr.contains("/icon.jpg") && !u_hdr.contains("<input") && !u_hdr.contains("USER //") && !u_hdr.contains("ROLE //") && u_hdr.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
         assert!(!user_html.contains(">Mesh setup<") && !user_html.contains(">Global folders<") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
         assert!(u_ftr.contains(">Personal folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a></nav>"));
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
@@ -221,7 +221,7 @@ mod tests {
         assert!(s3_bob.contains("NO DEVICES") && s3_bob.contains("~/Thrall/Ops") && !s3_bob.contains(">Open</a>"));
 
         let acl_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
-        assert!(acl_html.contains("class=\"explorer-table\"") && acl_html.contains("data-modal-open=\"create-shared-folder\"") && acl_html.contains("Apply ACL") && !acl_html.contains("class=\"card\""));
+        assert!(acl_html.contains("class=\"explorer-table\"") && acl_html.contains("data-modal-open=\"create-shared-folder\"") && acl_html.contains("acl-save-btn") && acl_html.contains("Save Access") && !acl_html.contains("Apply ACL") && !acl_html.contains("class=\"card\""));
 
         let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
         let (_, adm_body) = admin_html.split_once("<header class=\"site-header\"").unwrap();

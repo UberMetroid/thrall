@@ -160,12 +160,41 @@
     }, true);
   }
 
+  var bgIdx = 1;
+  try {
+    var prevBg = parseInt(sessionStorage.getItem('thrall_bg_idx') || '0', 10);
+    if (prevBg >= 1 && prevBg <= 5) {
+      bgIdx = ((prevBg - 1 + 1 + Math.floor(Math.random() * 4)) % 5) + 1;
+    } else {
+      bgIdx = 1 + Math.floor(Math.random() * 5);
+    }
+    sessionStorage.setItem('thrall_bg_idx', String(bgIdx));
+  } catch (e) {
+    bgIdx = 1 + Math.floor(Math.random() * 5);
+  }
+  window.thrallBgIdx = bgIdx;
+  if (document.body) {
+    document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
+  }
+
   // Bayer 8x8 dither + Smooth Perlin-style noise plasma + THRALL wordmark canvas
   function initCanvas() {
+    if (document.body) {
+      document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
+    }
     var canvas = document.getElementById('spotlight-canvas');
     if (!canvas) return;
     var ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
+
+    var bgImg = new Image();
+    var bgReady = false;
+    bgImg.onload = function () {
+      bgReady = true;
+      wakeRender();
+      if (reducedMotion) render(performance.now());
+    };
+    bgImg.src = '/bg-' + bgIdx + '.jpg';
 
     var BAYER = [
       0, 32, 8, 40, 2, 34, 10, 42,
@@ -433,6 +462,16 @@
 
       ctx.fillStyle = '#06080a';
       ctx.fillRect(0, 0, width, height);
+      if (bgReady && bgImg.naturalWidth > 0 && bgImg.naturalHeight > 0) {
+        var imgScale = Math.max(width / bgImg.naturalWidth, height / bgImg.naturalHeight);
+        var dw = bgImg.naturalWidth * imgScale;
+        var dh = bgImg.naturalHeight * imgScale;
+        var dxBg = (width - dw) * 0.5;
+        ctx.save();
+        ctx.globalAlpha = 0.14;
+        ctx.drawImage(bgImg, dxBg, 0, dw, dh);
+        ctx.restore();
+      }
 
       var textDim = smoothText;
       var reachScale = 1 - 0.58 * textDim;
@@ -854,10 +893,10 @@
         { title: 'RE-ENROLL', body: 'Pasting an already-enrolled Device ID is safe and refreshes its folder grants across the mesh.' }
       ],
       4: [
-        { title: 'TEAM ACLs', body: 'Check or uncheck users in the aligned columns and click Apply ACL to grant or revoke Shared Folders.' },
+        { title: 'TEAM ACCESS', body: 'Check or uncheck users in the aligned columns and click Save Access to grant or revoke Shared Folders.' },
         { title: 'CHECKMARKS', body: 'A \u2713 next to a username means all of that user\'s enrolled workstations have accepted the shared folder.' },
         { title: 'ISOLATION', body: 'Shared folders live at /shared/<Folder> outside individual user home directories.' },
-        { title: 'REVOCATION', body: 'Unchecking a user and clicking Apply ACL immediately removes that share from all of their devices.' }
+        { title: 'REVOCATION', body: 'Unchecking a user and clicking Save Access immediately removes that share from all of their devices.' }
       ],
       5: [
         { title: 'BACKBONE', body: 'Regional Thrall Nodes form a full mesh over port 22000 while serving Client Devices as hub-and-spoke.' },
@@ -1071,6 +1110,35 @@
       e.preventDefault();
       var isExp = btn.getAttribute('aria-expanded') === 'true';
       setBranchExpanded(btn, !isExp, true);
+    });
+    document.addEventListener('change', function (e) {
+      var t = e.target;
+      if (!t || !t.matches || !t.matches('form[action="/admin/shared/update"] input[type="checkbox"]')) return;
+      var form = t.closest('form[action="/admin/shared/update"]');
+      if (!form) return;
+      var boxes = form.querySelectorAll('input[type="checkbox"]');
+      var isDirty = false;
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked !== boxes[i].defaultChecked) {
+          isDirty = true;
+          break;
+        }
+      }
+      var saveBtn = form.querySelector('.acl-save-btn');
+      if (saveBtn) {
+        var defLbl = saveBtn.getAttribute('data-default-label') || 'Save Access';
+        saveBtn.classList.toggle('dirty-pulse', isDirty);
+        saveBtn.classList.toggle('btn-secondary', !isDirty);
+        saveBtn.textContent = isDirty ? '\u26A0 Save Changes *' : defLbl;
+      }
+      var anyFormDirty = Boolean(document.querySelector('.acl-save-btn.dirty-pulse'));
+      if (window.thrallShowToast) {
+        if (anyFormDirty) {
+          window.thrallShowToast('Unsaved access changes \u2014 click Save Changes * to apply', false, false);
+        } else {
+          window.thrallShowToast('', false, false);
+        }
+      }
     });
   }
 
