@@ -11,6 +11,8 @@ pub use crate::render_portal::share_jail::{
 };
 
 const BASE32_ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+#[rustfmt::skip]
+pub const XDG_FOLDERS: [&str; 8] = ["Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos", "Public", "Templates"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UserDevice {
@@ -25,6 +27,7 @@ pub struct MeshStore {
     pub shared_folders: BTreeMap<String, BTreeSet<String>>,
     pub disabled_servers: BTreeSet<String>,
     pub public_shares: BTreeMap<String, String>,
+    pub folder_paths: BTreeMap<(String, String), String>,
 }
 
 fn luhn_base32_check_char(chunk13: &[u8]) -> Option<u8> {
@@ -103,11 +106,27 @@ pub fn sanitize_device_label(label: &str) -> Result<String, String> {
         .ok_or_else(|| "Empty label".to_string())
 }
 
+#[rustfmt::skip]
+pub fn sanitize_local_path(raw: &str) -> Result<String, String> {
+    let t = raw.trim().replace('\\', "/");
+    let ok = !t.is_empty() && t.len() <= 128 && !t.contains("..") && t.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '~' | '/' | ':' | '.' | '-' | '_' | ' '));
+    ok.then_some(t).ok_or_else(|| "Invalid local path".to_string())
+}
+
+#[rustfmt::skip]
+pub fn default_local_path(scope_folder: &str) -> String {
+    let name = scope_folder.split_once(':').map_or(scope_folder, |(_, f)| f);
+    if scope_folder.starts_with("personal:") && XDG_FOLDERS.iter().any(|x| x.eq_ignore_ascii_case(name)) {
+        format!("~/{name}")
+    } else {
+        format!("~/Thrall/{name}")
+    }
+}
+
+#[rustfmt::skip]
 impl MeshStore {
     pub fn load(path: &str) -> Self {
-        fs::read_to_string(path)
-            .map(|c| Self::parse(&c))
-            .unwrap_or_default()
+        fs::read_to_string(path).map(|c| Self::parse(&c)).unwrap_or_default()
     }
 
     pub fn folders_for_user(&self, user: &str) -> Vec<String> {
@@ -118,46 +137,40 @@ impl MeshStore {
         self.user_folders.entry(user.to_string()).or_default()
     }
 
+    pub fn local_path_for(&self, user: &str, scope_folder: &str) -> String {
+        self.folder_paths.get(&(user.to_string(), scope_folder.to_string())).cloned().unwrap_or_else(|| default_local_path(scope_folder))
+    }
+
     pub fn parse(content: &str) -> Self {
         let mut store = Self::default();
-        for l in content
-            .lines()
-            .map(str::trim)
-            .filter(|l| !l.is_empty() && !l.starts_with('#'))
-        {
+        for l in content.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
             if let Some((f, csv)) = l.strip_prefix("@share\t").and_then(|r| r.split_once('\t')) {
                 if let Ok(fname) = sanitize_folder_name(f) {
                     let set = store.shared_folders.entry(fname).or_default();
-                    for u in csv.split(',').filter_map(|x| sanitize_username(x).ok()) {
-                        set.insert(u);
-                    }
+                    for u in csv.split(',').filter_map(|x| sanitize_username(x).ok()) { set.insert(u); }
                 }
             } else if let Some(rest) = l.strip_prefix("@user_folders\t") {
                 let (u, csv) = rest.split_once('\t').unwrap_or((rest, ""));
                 if let Ok(uname) = sanitize_username(u) {
                     if uname != "root" {
-                        let f = csv
-                            .split(',')
-                            .filter_map(|x| sanitize_folder_name(x).ok())
-                            .collect();
+                        let f = csv.split(',').filter_map(|x| sanitize_folder_name(x).ok()).collect();
                         store.user_folders.insert(uname, f);
                     }
                 }
+            } else if let Some(rest) = l.strip_prefix("@folder_path\t") {
+                let p: Vec<&str> = rest.splitn(3, '\t').collect();
+                if let (Some(&u), Some(&sf), Some(&lp)) = (p.first(), p.get(1), p.get(2)) {
+                    if let (Ok(un), Ok(cp)) = (sanitize_username(u), sanitize_local_path(lp)) {
+                        store.folder_paths.insert((un, sf.to_string()), cp);
+                    }
+                }
             } else if let Some(srv) = l.strip_prefix("@disabled_server\t") {
-                if !srv.trim().is_empty() {
-                    store.disabled_servers.insert(srv.trim().to_string());
-                }
-            } else if let Some((tok, tgt)) =
-                l.strip_prefix("@link\t").and_then(|r| r.split_once('\t'))
-            {
-                if !tok.is_empty() && !tgt.is_empty() {
-                    store.public_shares.insert(tok.to_string(), tgt.to_string());
-                }
+                if !srv.trim().is_empty() { store.disabled_servers.insert(srv.trim().to_string()); }
+            } else if let Some((tok, tgt)) = l.strip_prefix("@link\t").and_then(|r| r.split_once('\t')) {
+                if !tok.is_empty() && !tgt.is_empty() { store.public_shares.insert(tok.to_string(), tgt.to_string()); }
             } else {
                 let p: Vec<&str> = l.splitn(3, '\t').collect();
-                if p.len() >= 2 {
-                    let _ = store.upsert_device(p[0], p[1], p.get(2).copied().unwrap_or(""));
-                }
+                if p.len() >= 2 { let _ = store.upsert_device(p[0], p[1], p.get(2).copied().unwrap_or("")); }
             }
         }
         store
@@ -166,30 +179,25 @@ impl MeshStore {
     pub fn serialize(&self) -> String {
         let mut out = String::from("# THRALL mesh-mgr.db v2\n");
         for (user, devices) in &self.users {
-            for dev in devices {
-                out.push_str(&format!("{user}\t{}\t{}\n", dev.device_id, dev.label));
-            }
+            for dev in devices { out.push_str(&format!("{user}\t{}\t{}\n", dev.device_id, dev.label)); }
         }
         for (user, folders) in &self.user_folders {
             out.push_str(&format!("@user_folders\t{user}\t{}\n", folders.join(",")));
+        }
+        for ((user, sf), lp) in &self.folder_paths {
+            out.push_str(&format!("@folder_path\t{user}\t{sf}\t{lp}\n"));
         }
         for (folder, users) in &self.shared_folders {
             let joined: Vec<&str> = users.iter().map(String::as_str).collect();
             out.push_str(&format!("@share\t{folder}\t{}\n", joined.join(",")));
         }
-        for srv in &self.disabled_servers {
-            out.push_str(&format!("@disabled_server\t{srv}\n"));
-        }
-        for (tok, tgt) in &self.public_shares {
-            out.push_str(&format!("@link\t{tok}\t{tgt}\n"));
-        }
+        for srv in &self.disabled_servers { out.push_str(&format!("@disabled_server\t{srv}\n")); }
+        for (tok, tgt) in &self.public_shares { out.push_str(&format!("@link\t{tok}\t{tgt}\n")); }
         out
     }
 
     pub fn save(&self, path: &str) -> Result<(), String> {
-        if let Some(parent) = Path::new(path).parent() {
-            let _ = fs::create_dir_all(parent);
-        }
+        if let Some(parent) = Path::new(path).parent() { let _ = fs::create_dir_all(parent); }
         let tmp = format!("{path}.tmp");
         fs::write(&tmp, self.serialize()).map_err(|e| e.to_string())?;
         fs::rename(&tmp, path).map_err(|e| e.to_string())
@@ -200,23 +208,13 @@ impl MeshStore {
         let id = normalize_and_verify_device_id(dev_id)?;
         let _ = self.ensure_user_folders(&u);
         let list = self.users.entry(u).or_default();
-        let idx = list
-            .iter()
-            .filter_map(|d| d.label.split('-').nth(1)?.parse::<usize>().ok())
-            .max()
-            .unwrap_or(list.len())
-            + 1;
+        let idx = list.iter().filter_map(|d| d.label.split('-').nth(1)?.parse::<usize>().ok()).max().unwrap_or(list.len()) + 1;
         let short = id.split('-').next().unwrap_or("dev").to_ascii_lowercase();
         let lbl = sanitize_device_label(label).unwrap_or_else(|_| format!("dev-{idx}-{short}"));
         if let Some(existing) = list.iter_mut().find(|d| d.device_id == id) {
-            if !label.trim().is_empty() {
-                existing.label = lbl;
-            }
+            if !label.trim().is_empty() { existing.label = lbl; }
         } else {
-            list.push(UserDevice {
-                device_id: id,
-                label: lbl,
-            });
+            list.push(UserDevice { device_id: id, label: lbl });
         }
         Ok(())
     }
@@ -224,9 +222,7 @@ impl MeshStore {
     pub fn remove_device(&mut self, username: &str, device_id: &str) -> Result<bool, String> {
         let user = sanitize_username(username)?;
         let norm_id = normalize_and_verify_device_id(device_id)?;
-        let Some(list) = self.users.get_mut(&user) else {
-            return Ok(false);
-        };
+        let Some(list) = self.users.get_mut(&user) else { return Ok(false) };
         let before = list.len();
         list.retain(|d| d.device_id != norm_id);
         Ok(list.len() != before)

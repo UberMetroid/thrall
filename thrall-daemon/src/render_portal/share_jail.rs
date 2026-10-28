@@ -53,7 +53,14 @@ pub fn parse_form_multi(body: &str, key: &str) -> BTreeSet<String> {
     body.split('&')
         .filter_map(|p| p.split_once('='))
         .filter(|(k, _)| url_decode(k.trim()) == key)
-        .filter_map(|(_, v)| sanitize_username(&url_decode(v)).ok())
+        .filter_map(|(_, v)| {
+            let d = url_decode(v);
+            if key == "users" {
+                sanitize_username(&d).ok()
+            } else {
+                sanitize_folder_name(&d).ok()
+            }
+        })
         .collect()
 }
 

@@ -140,8 +140,10 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, tab: u8, browse: &str
             }
             return format!("<table class=\"explorer-table\"><thead><tr><th>Folder</th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{s_rows}</tbody></table>");
         }
+        let u_list = store.folders_for_user(user);
+        let ex_esc = escape_html(&u_list.join(","));
         let mut u_rows = String::new();
-        for f in store.folders_for_user(user) {
+        for f in u_list {
             let (f_esc, br_p) = (escape_html(&f), format!("personal:{f}"));
             let k_esc = escape_html(&br_p);
             let (sh_btn, sh_lnk) = render_share_cells(user, store, "", "", "", &br_p);
@@ -154,7 +156,7 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, tab: u8, browse: &str
         if u_rows.is_empty() {
             u_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 folders accessible yet. Create a personal folder above.</td></tr>");
         }
-        return format!("<table class=\"explorer-table\"><thead><tr><th>Folder &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"create-personal-folder\">+ New Folder</button></th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{u_rows}</tbody></table>");
+        return format!("<table class=\"explorer-table\"><thead><tr><th>Folder &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"create-personal-folder\" data-existing=\"{ex_esc}\">+ New Folder</button></th><th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{u_rows}</tbody></table>");
     }
     let Some((label, dir_path, rel)) = resolve_jailed_path(user, store, browse, sub) else { return String::new(); };
     let etab = if browse.starts_with("shared:") { 2 } else { 1 };

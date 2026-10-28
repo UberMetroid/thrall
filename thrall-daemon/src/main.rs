@@ -138,9 +138,19 @@ mod tests {
         assert_eq!(store.users["alice"][0].label, "dev-1-aaaaaaa");
         assert!(store.folders_for_user("alice").is_empty());
         store.ensure_user_folders("alice").push("Documents".into());
+        store.ensure_user_folders("alice").push("Projects".into());
+        assert_eq!(store.local_path_for("alice", "personal:Documents"), "~/Documents");
+        assert_eq!(store.local_path_for("alice", "personal:Projects"), "~/Thrall/Projects");
+        assert_eq!(store.local_path_for("alice", "shared:Ops"), "~/Thrall/Ops");
+        assert!(crate::device_store::sanitize_local_path("../etc/passwd").is_err() && crate::device_store::sanitize_local_path("").is_err());
+        assert_eq!(crate::device_store::sanitize_local_path("C:\\Users\\Alice\\Desktop").unwrap(), "C:/Users/Alice/Desktop");
+        let xdg_multi = crate::portal_server::parse_form_multi("xdg=Desktop&xdg=Documents&xdg=..%2Fbad&folder=Custom", "xdg");
+        assert!(xdg_multi.contains("Desktop") && xdg_multi.contains("Documents") && xdg_multi.len() == 2);
+        store.folder_paths.insert(("alice".into(), "personal:Documents".into()), "~/Thrall/Documents".into());
         store.user_folders.insert("emptyuser".into(), Vec::new());
         let roundtrip = MeshStore::parse(&store.serialize());
         assert!(roundtrip.folders_for_user("emptyuser").is_empty());
+        assert_eq!(roundtrip.local_path_for("alice", "personal:Documents"), "~/Thrall/Documents");
         assert!(resolve_jailed_path("emptyuser", &roundtrip, "personal", "").is_none());
         store.shared_folders.entry("Ops".into()).or_default().insert("alice".into());
         store.shared_folders.entry("Ops".into()).or_default().insert("bob".into());
@@ -177,8 +187,8 @@ mod tests {
         let (u_hdr, u_rest) = u_body.split_once("</header>").unwrap();
         let (_, u_ftr) = u_rest.split_once("<footer class=\"footer-dock\"").unwrap();
         assert!(!u_hdr.contains("nav-tabs") && !u_hdr.contains("<input") && !u_hdr.contains("USER //") && !u_hdr.contains("ROLE //") && u_hdr.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
-        assert!(!user_html.contains(">Mesh<") && !user_html.contains(">Global Folders<") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
-        assert!(u_ftr.contains(">Personal Folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared Folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">|||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a></nav>"));
+        assert!(!user_html.contains(">Mesh setup<") && !user_html.contains(">Global folders<") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
+        assert!(u_ftr.contains(">Personal folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a></nav>"));
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
         assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-personal-folder\""));
@@ -193,7 +203,7 @@ mod tests {
         assert!(empty_h.contains("0 folders accessible yet. Create a personal folder above.") && empty_h.contains("id=\"footer-status-msg\" class=\"footer-toast toast-err\">Invalid folder name</span>"));
 
         let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
-        assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/") && !root_a.contains("class=\"card\""));
+        assert!(root_a.contains("&#128193; Documents/") && root_a.contains("data-existing=\"Documents,Projects\"") && !root_a.contains("class=\"card\""));
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\"") && root_a.contains("data-drop-browse=\"personal:Documents\""));
         assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\"") && root_a.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\""));
         assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("data-modal-open=\"mkdir\"") && root_a.contains("data-modal-open=\"upload-file\""));
@@ -206,9 +216,9 @@ mod tests {
 
         let s3 = render_dashboard_page("alice", false, &store, &snap, 3, "", "", None, None);
         assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\">+ Add Device</button>") && !s3.contains("class=\"card\""));
-        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=2&amp;browse=shared:Ops") && !s3.contains(">Open</a>"));
+        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=2&amp;browse=shared:Ops") && s3.contains("data-modal-open=\"set-folder-path\"") && s3.contains("~/Thrall/Documents") && !s3.contains("~/THRALL"));
         let s3_bob = render_dashboard_page("bob", false, &store, &snap, 3, "", "", None, None);
-        assert!(s3_bob.contains("NO DEVICES") && !s3_bob.contains(">Open</a>"));
+        assert!(s3_bob.contains("NO DEVICES") && s3_bob.contains("~/Thrall/Ops") && !s3_bob.contains(">Open</a>"));
 
         let acl_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
         assert!(acl_html.contains("class=\"explorer-table\"") && acl_html.contains("data-modal-open=\"create-shared-folder\"") && acl_html.contains("Apply ACL") && !acl_html.contains("class=\"card\""));
@@ -218,7 +228,7 @@ mod tests {
         let (hdr_part, rest_part) = adm_body.split_once("</header>").unwrap();
         let (_, ftr_part) = rest_part.split_once("<footer class=\"footer-dock\"").unwrap();
         assert!(!hdr_part.contains("nav-tabs") && !hdr_part.contains("<input") && !hdr_part.contains("USER //") && !hdr_part.contains("ROLE //") && hdr_part.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
-        assert!(ftr_part.contains("footer-nav-tabs") && ftr_part.contains(">Personal Folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared Folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">|||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">|||</span><a href=\"/?tab=5\" class=\"tab-btn admin-tab active\">Mesh</a><a href=\"/?tab=4\" class=\"tab-btn admin-tab\">Global Folders</a>"));
+        assert!(ftr_part.contains("footer-nav-tabs") && ftr_part.contains(">Personal folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=4\" class=\"tab-btn admin-tab\">Global folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=5\" class=\"tab-btn admin-tab active\">Mesh setup</a></nav>"));
         assert!(!admin_html.contains("class=\"card\"") && !admin_html.contains(">SPOKE<") && !admin_html.contains("enrolled spokes"));
         assert!(admin_html.contains("data-modal-open=\"add-mesh-hub\"") && !admin_html.contains("LDAP"));
 

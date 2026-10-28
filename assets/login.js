@@ -1179,17 +1179,72 @@
       var lbl = openBtn.getAttribute('data-label') || '';
 
       if (kind === 'create-personal-folder') {
+        var existingRaw = (openBtn.getAttribute('data-existing') || '').split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
+        var xdgAll = ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Public', 'Templates'];
+        var xdgCommon = ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos'];
+        var xdgHtml = '';
+        for (var xi = 0; xi < xdgAll.length; xi++) {
+          var xf = xdgAll[xi];
+          var hasIt = existingRaw.indexOf(xf.toLowerCase()) !== -1;
+          var preChk = hasIt || xdgCommon.indexOf(xf) !== -1;
+          if (hasIt) {
+            xdgHtml += '<label class="user-chip" style="opacity:0.65;cursor:default"><input type="checkbox" checked disabled>' + escHtml(xf) + ' <span style="color:var(--phosphor);font-size:0.7rem">&#10003; active</span></label>';
+          } else {
+            xdgHtml += '<label class="user-chip"><input type="checkbox" name="xdg" value="' + escHtml(xf) + '"' + (preChk ? ' checked' : '') + '>' + escHtml(xf) + '</label>';
+          }
+        }
         openModal(
-          '<h3>Create Personal Folder</h3>' +
+          '<h3>Create Personal Folders</h3>' +
           '<form method="POST" action="/user/folders/create">' +
-          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" required placeholder="Folder Name (e.g. Projects)"></div>' +
+          '<div style="font-size:0.78rem;font-weight:700;color:var(--phosphor);font-family:var(--mono);margin-bottom:0.4rem">1. STANDARD XDG FOLDERS (PICK &amp; CHOOSE)</div>' +
+          '<div class="acl-user-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0.6rem">' + xdgHtml + '</div>' +
+          '<div style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.75rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">' +
+          '<span>Sync selected XDG to:</span>' +
+          '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="xdg_root" value="home" checked> <code>~/&lt;Folder&gt;</code></label>' +
+          '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="xdg_root" value="thrall"> <code>~/Thrall/&lt;Folder&gt;</code></label>' +
+          '</div>' +
+          '<div style="font-size:0.78rem;font-weight:700;color:var(--phosphor);font-family:var(--mono);margin-bottom:0.4rem;border-top:1px solid var(--border);padding-top:0.65rem">2. CUSTOM PERSONAL FOLDER (OPTIONAL)</div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" placeholder="Or enter a custom folder name (e.g. Projects)"></div>' +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
-          '<button type="submit">Create Folder</button>' +
+          '<button type="submit">Sync Selected / Create</button>' +
           '</div></form>',
           false,
           function (card) {
             var inp = card.querySelector('input[name="folder"]');
+            if (inp) inp.focus();
+          }
+        );
+      } else if (kind === 'set-folder-path') {
+        var fScope = openBtn.getAttribute('data-folder') || '';
+        var curPath = openBtn.getAttribute('data-path') || '';
+        var fShort = fScope.indexOf(':') !== -1 ? fScope.split(':')[1] : fScope;
+        var optDirect = '~/' + fShort;
+        var optThrall = '~/Thrall/' + fShort;
+        openModal(
+          '<h3>Local Sync Path <code style="font-size:0.8rem;color:var(--phosphor)">(' + escHtml(fShort) + ')</code></h3>' +
+          '<p style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:0.65rem">Choose where this folder syncs on your workstation (Linux, macOS, or Windows):</p>' +
+          '<form method="POST" action="/user/folders/path">' +
+          '<input type="hidden" name="folder" value="' + escHtml(fScope) + '">' +
+          '<div class="row" style="gap:0.45rem;margin-bottom:0.6rem">' +
+          '<button type="button" class="btn-secondary" style="padding:0.22rem 0.55rem;font-size:0.74rem;text-transform:none" data-preset-path="' + escHtml(optDirect) + '">Use ' + escHtml(optDirect) + '</button>' +
+          '<button type="button" class="btn-secondary" style="padding:0.22rem 0.55rem;font-size:0.74rem;text-transform:none" data-preset-path="' + escHtml(optThrall) + '">Use ' + escHtml(optThrall) + '</button>' +
+          '</div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="local_path" id="thrall-local-path-input" required value="' + escHtml(curPath) + '" placeholder="e.g. ~/Desktop or ~/Thrall/' + escHtml(fShort) + '"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Save Path</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var inp = card.querySelector('#thrall-local-path-input');
+            var presets = card.querySelectorAll('[data-preset-path]');
+            for (var pi = 0; pi < presets.length; pi++) {
+              presets[pi].addEventListener('click', function (ev) {
+                var p = ev.currentTarget.getAttribute('data-preset-path');
+                if (inp && p) inp.value = p;
+              });
+            }
             if (inp) inp.focus();
           }
         );

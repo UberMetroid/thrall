@@ -7,10 +7,10 @@ use std::net::TcpStream;
 
 use crate::device_store::{
     compute_share_token, normalize_and_verify_device_id, resolve_jailed_path, sanitize_folder_name,
-    syncthing_folder_id, MeshStore,
+    sanitize_local_path, syncthing_folder_id, MeshStore,
 };
 use crate::fleet_config::FleetConfig;
-use crate::portal_server::{write_html, write_http, write_redirect};
+use crate::portal_server::{parse_form_multi, write_html, write_http, write_redirect};
 use crate::reconcile_mesh::{
     provision_single_folder, purge_device_from_fleet, purge_folder_from_fleet, reconcile_fleet,
     verify_device_id_via_server, FleetSnapshot,
@@ -33,19 +33,49 @@ pub fn handle_post_action(
     snap: &mut FleetSnapshot,
 ) -> bool {
     let fval = |k: &str| form.get(k).map(String::as_str).unwrap_or("");
-    if path == "/user/folders/create" {
-        if let Ok(fname) = sanitize_folder_name(fval("folder")) {
-            let list = store.ensure_user_folders(username);
-            if !list.iter().any(|f| f.eq_ignore_ascii_case(&fname)) {
-                list.push(fname.clone());
+    if path == "/user/folders/create" || path == "/user/folders/create-xdg" {
+        let xdg_list = parse_form_multi(body, "xdg");
+        let custom = sanitize_folder_name(fval("folder")).ok();
+        let mut to_create: Vec<String> = xdg_list.iter().cloned().collect();
+        if let Some(c) = custom.as_ref().filter(|c| !to_create.iter().any(|x| x.eq_ignore_ascii_case(c))) {
+            to_create.push(c.clone());
+        }
+        if !to_create.is_empty() {
+            let xdg_thrall = fval("xdg_root") == "thrall";
+            for fname in &to_create {
+                let list = store.ensure_user_folders(username);
+                if !list.iter().any(|f| f.eq_ignore_ascii_case(fname)) { list.push(fname.clone()); }
+                if xdg_list.contains(fname) {
+                    let sf = format!("personal:{fname}");
+                    if xdg_thrall { store.folder_paths.insert((username.to_string(), sf), format!("~/Thrall/{fname}")); }
+                    else { store.folder_paths.remove(&(username.to_string(), sf)); }
+                }
+                let _ = fs::create_dir_all(format!("/users/{username}/{fname}/.stfolder"));
             }
-            let _ = fs::create_dir_all(format!("/users/{username}/{fname}/.stfolder"));
+            if let (Some(c), Ok(lp)) = (custom.as_ref(), sanitize_local_path(fval("local_path"))) {
+                store.folder_paths.insert((username.to_string(), format!("personal:{c}")), lp);
+            }
             let _ = store.save(&cfg.portal.database_path);
-            provision_single_folder(cfg, snap, store, Some(username), &fname);
-            let u = format!("/?tab=1&browse=personal:{fname}&ok=Personal+folder+created!+Open+http://127.0.0.1:8384+on+your+Device+to+accept+the+new+share.");
+            for fname in &to_create { provision_single_folder(cfg, snap, store, Some(username), fname); }
+            let u = if to_create.len() == 1 {
+                format!("/?tab=1&browse=personal:{}&ok=Personal+folder+created!+Open+http://127.0.0.1:8384+on+your+Device+to+accept+the+new+share.", to_create[0])
+            } else { format!("/?tab=1&ok=Provisioned+{}+personal+folders!", to_create.len()) };
             write_redirect(stream, &u, "");
         } else {
             write_redirect(stream, "/?tab=1&err=Invalid+folder+name", "");
+        }
+        return true;
+    }
+    if path == "/user/folders/path" {
+        let sf = fval("folder").trim();
+        let valid_sf = sf.strip_prefix("personal:").is_some_and(|pf| store.folders_for_user(username).iter().any(|x| x == pf))
+            || sf.strip_prefix("shared:").is_some_and(|sh| store.shared_folders.get(sh).is_some_and(|a| a.contains(username)));
+        if let (true, Ok(lp)) = (valid_sf, sanitize_local_path(fval("local_path"))) {
+            store.folder_paths.insert((username.to_string(), sf.to_string()), lp);
+            let _ = store.save(&cfg.portal.database_path);
+            write_redirect(stream, "/?tab=3&ok=Local+sync+path+updated", "");
+        } else {
+            write_redirect(stream, "/?tab=3&err=Invalid+folder+or+local+path", "");
         }
         return true;
     }
@@ -57,9 +87,9 @@ pub fn handle_post_action(
                 return true;
             }
             store.ensure_user_folders(username).retain(|f| f != &fname);
+            store.folder_paths.remove(&(username.to_string(), format!("personal:{fname}")));
             let _ = store.save(&cfg.portal.database_path);
-            let flow = fname.to_ascii_lowercase();
-            let base = format!("user-{username}-{flow}");
+            let (flow, base) = (fname.to_ascii_lowercase(), format!("user-{username}-{}", fname.to_ascii_lowercase()));
             for id in [base.clone(), format!("{base}-mesh"), syncthing_folder_id(&format!("user:{username}:{flow}:mesh"))] {
                 purge_folder_from_fleet(cfg, &snap.nodes, &id);
             }
@@ -145,9 +175,7 @@ pub fn handle_post_action(
             let scope = if let Some(pf) = s_br.strip_prefix("personal:").or_else(|| s_br.strip_prefix("personal/")) { format!("personal:{username}:{pf}") } else { s_br.to_string() };
             let target = if clean_item.is_empty() { scope } else { format!("{scope}/{clean_item}") };
             let tok = compute_share_token(&target);
-            if store.public_shares.remove(&tok).is_none() {
-                store.public_shares.insert(tok, target);
-            }
+            if store.public_shares.remove(&tok).is_none() { store.public_shares.insert(tok, target); }
             let _ = store.save(&cfg.portal.database_path);
             let u = if br.is_empty() { format!("/?tab={etab}&ok=Share+mode+updated") } else { format!("/?tab={etab}&browse={br}&sub={sub}&ok=Share+mode+updated") };
             write_redirect(stream, &u, "");
@@ -181,19 +209,13 @@ pub fn handle_post_action(
                 let sid = short_id(&norm_id);
                 for fname in store.shared_folders.keys() {
                     let flow = fname.to_ascii_lowercase();
-                    for cfid in [
-                        format!("shared-{flow}-{sid}"),
-                        syncthing_folder_id(&format!("shared:{flow}:{sid}")),
-                    ] {
+                    for cfid in [format!("shared-{flow}-{sid}"), syncthing_folder_id(&format!("shared:{flow}:{sid}"))] {
                         purge_folder_from_fleet(cfg, &snap.nodes, &cfid);
                     }
                 }
                 for f in store.folders_for_user(username) {
                     let flow = f.to_ascii_lowercase();
-                    for cfid in [
-                        format!("user-{username}-{flow}-{sid}"),
-                        syncthing_folder_id(&format!("user:{username}:{flow}:{sid}")),
-                    ] {
+                    for cfid in [format!("user-{username}-{flow}-{sid}"), syncthing_folder_id(&format!("user:{username}:{flow}:{sid}"))] {
                         purge_folder_from_fleet(cfg, &snap.nodes, &cfid);
                     }
                 }
@@ -201,19 +223,12 @@ pub fn handle_post_action(
                 let devs = store.users.get(username).map_or(0, Vec::len);
                 for f in store.folders_for_user(username) {
                     let k = format!("{username}:{f}");
-                    snap.device_accepted
-                        .remove(&(format!("user:{k}"), norm_id.clone()));
-                    if devs == 0 {
-                        snap.user_accepted.remove(&k);
-                    }
+                    snap.device_accepted.remove(&(format!("user:{k}"), norm_id.clone()));
+                    if devs == 0 { snap.user_accepted.remove(&k); }
                 }
                 for fname in store.shared_folders.keys() {
-                    snap.device_accepted
-                        .remove(&(format!("shared:{fname}"), norm_id.clone()));
-                    if devs == 0 {
-                        snap.shared_user_accepted
-                            .remove(&(fname.clone(), username.to_string()));
-                    }
+                    snap.device_accepted.remove(&(format!("shared:{fname}"), norm_id.clone()));
+                    if devs == 0 { snap.shared_user_accepted.remove(&(fname.clone(), username.to_string())); }
                 }
             }
         }
