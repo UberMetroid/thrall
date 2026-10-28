@@ -79,6 +79,17 @@ pub fn ensure_session_secret(cfg: &mut FleetConfig, path: &str) -> Result<(), St
     persist_secret(path, &generated)
 }
 
+/// Generate a fresh session secret and persist it to the config file.
+///
+/// Every session cookie is signed with the secret, so rotating it signs every
+/// browser out at once, including the administrator performing the rotation.
+/// The operator comments in the file are preserved.
+pub fn rotate_session_secret(cfg: &mut FleetConfig, path: &str) -> Result<(), String> {
+    let generated = generate_secret()?;
+    cfg.portal.session_secret = generated.clone();
+    persist_secret(path, &generated)
+}
+
 /// Generate a 256-bit random secret, hex-encoded.
 fn generate_secret() -> Result<String, String> {
     let mut buf = [0u8; 32];

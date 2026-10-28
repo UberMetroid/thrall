@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+pub mod admin_console;
+pub mod audit;
 pub mod device_store;
 pub mod fleet_config;
 pub mod ldap_bind;
@@ -18,7 +20,8 @@ use std::time::Duration;
 use crate::device_store::MeshStore;
 use crate::fleet_config::load_or_create_fleet_config;
 use crate::portal_server::handle_http_client;
-use crate::reconcile_mesh::reconcile_fleet;
+use crate::reconcile_mesh::ticker::{self, SharedState};
+use crate::reconcile_mesh::{poll_fleet, reconcile_fleet};
 
 fn run_healthcheck(listen_addr: &str) -> i32 {
     let port = listen_addr
@@ -43,7 +46,7 @@ fn run_healthcheck(listen_addr: &str) -> i32 {
 #[rustfmt::skip]
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut config_path = env::var("THRALL_CONFIG").unwrap_or_else(|_| "/config/fleet.yaml".to_string());
+    let mut config_path = env::var("THRALL_CONFIG").unwrap_or_else(|_| crate::fleet_config::CONFIG_PATH.to_string());
     let (mut check_only, mut reconcile_only, mut i) = (false, false, 1);
     while i < args.len() {
         match args[i].as_str() {
@@ -61,7 +64,12 @@ fn main() {
     if check_only { process::exit(run_healthcheck(&cfg.portal.listen_addr)); }
     let mut store = MeshStore::load(&cfg.portal.database_path);
     eprintln!("[thrall] Loaded state from {} ({} users)", cfg.portal.database_path, store.users.len());
-    let snapshot = reconcile_fleet(&cfg, &mut store);
+    let snapshot = if store.settings.maintenance {
+        eprintln!("[thrall] Maintenance mode is on: starting without a fleet reconcile");
+        poll_fleet(&cfg, &mut store)
+    } else {
+        reconcile_fleet(&cfg, &mut store)
+    };
     let online_count = snapshot.nodes.iter().filter(|n| n.online).count();
     eprintln!("[thrall] Initial fleet reconciliation complete: {online_count}/{} hubs online", snapshot.nodes.len());
     if reconcile_only {
@@ -72,14 +80,8 @@ fn main() {
         process::exit(78);
     });
     eprintln!("[thrall] Portal listening on http://{}", cfg.portal.listen_addr);
-    let state = std::sync::Arc::new(std::sync::Mutex::new((cfg, store, snapshot)));
-    let bg_state = std::sync::Arc::clone(&state);
-    std::thread::spawn(move || loop {
-        std::thread::sleep(Duration::from_secs(45));
-        let Some((c, mut st)) = bg_state.lock().ok().map(|g| (g.0.clone(), g.1.clone())) else { continue };
-        let snap = reconcile_fleet(&c, &mut st);
-        if let Ok(mut g) = bg_state.lock() { g.2 = snap; }
-    });
+    let state = SharedState::new(std::sync::Mutex::new((cfg, store, snapshot)));
+    ticker::spawn(std::sync::Arc::clone(&state));
     for stream in listener.incoming().flatten() {
         if let Ok(mut g) = state.lock() {
             let (ref mut c, ref mut st, ref mut sn) = *g;

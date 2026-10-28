@@ -14,6 +14,8 @@ use crate::peer_client::{
 
 use crate::render_portal::reconcile_folders;
 
+pub mod ticker;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeStatus {
     pub name: String,
@@ -203,6 +205,21 @@ fn discover_shared_folder_names(store: &mut MeshStore) -> Vec<String> {
 
 #[rustfmt::skip]
 pub fn reconcile_fleet(cfg: &FleetConfig, store: &mut MeshStore) -> FleetSnapshot {
+    reconcile_fleet_inner(cfg, store, true)
+}
+
+/// Poll the fleet without changing anything on the peers.
+///
+/// This is what the ticker runs while maintenance mode is on: the fleet view
+/// stays live, but no folder topology, access rule, or device change is
+/// pushed to any peer.
+#[rustfmt::skip]
+pub fn poll_fleet(cfg: &FleetConfig, store: &mut MeshStore) -> FleetSnapshot {
+    reconcile_fleet_inner(cfg, store, false)
+}
+
+#[rustfmt::skip]
+fn reconcile_fleet_inner(cfg: &FleetConfig, store: &mut MeshStore, push: bool) -> FleetSnapshot {
     static PREV_NODES: std::sync::Mutex<Vec<NodeStatus>> = std::sync::Mutex::new(Vec::new());
     let prev_list = PREV_NODES.lock().ok().map(|g| g.clone()).unwrap_or_default();
     let mut snap = FleetSnapshot { ldap_users: list_ldap_users(&cfg.ldap), ..FleetSnapshot::default() };
@@ -218,10 +235,12 @@ pub fn reconcile_fleet(cfg: &FleetConfig, store: &mut MeshStore) -> FleetSnapsho
         snap.nodes.push(discover_node(srv, dis, prev));
     }
     if let Ok(mut g) = PREV_NODES.lock() { *g = snap.nodes.clone(); }
-    let online_ids: Vec<String> = snap.nodes.iter().filter(|n| n.online && !n.device_id.is_empty()).map(|n| n.device_id.clone()).collect();
-    let active_srvs: Vec<_> = cfg.servers.iter().zip(snap.nodes.iter()).filter(|(_, s)| s.online).map(|(srv, s)| (srv, s.api_key.clone())).collect();
-    for (srv, key) in active_srvs {
-        reconcile_folders::reconcile_server_node(srv, &key, &online_ids, &folder_names, store, &mut snap);
+    if push {
+        let online_ids: Vec<String> = snap.nodes.iter().filter(|n| n.online && !n.device_id.is_empty()).map(|n| n.device_id.clone()).collect();
+        let active_srvs: Vec<_> = cfg.servers.iter().zip(snap.nodes.iter()).filter(|(_, s)| s.online).map(|(srv, s)| (srv, s.api_key.clone())).collect();
+        for (srv, key) in active_srvs {
+            reconcile_folders::reconcile_server_node(srv, &key, &online_ids, &folder_names, store, &mut snap);
+        }
     }
     let _ = store.save(&cfg.portal.database_path);
     snap

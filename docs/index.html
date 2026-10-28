@@ -245,6 +245,7 @@
             <tr><td>Share links cannot be forged</td><td>a keyed 128-bit MAC over the server secret, not a hash of the path</td></tr>
             <tr><td>Peer credentials are scoped per peer</td><td>each peer has its own API key; a remote peer pointed at loopback is refused at discovery</td></tr>
             <tr><td>Credential files are owner-only</td><td>every write creates the file 0600 and renames it into place</td></tr>
+            <tr><td>Administrative actions are recorded</td><td>every admin action lands in an owner-only audit log beside the roster, with actor, action and outcome</td></tr>
             <tr><td>The daemon never panics on bad input</td><td>clippy denies unwrap, expect and panic outside test code</td></tr>
           </tbody>
         </table>
@@ -272,7 +273,7 @@
       <div class="card">
 <pre>
 # 1. The image (the peer is stock Syncthing, which this project does not ship)
-sudo podman pull ghcr.io/ubermetroid/thrall:0.5.3
+sudo podman pull ghcr.io/ubermetroid/thrall:0.5.4
 
 # 2. The directory bind password is a container secret, never a file
 printf '%s' '&lt;bind password&gt;' | sudo podman secret create ldap_bind_password -
@@ -287,7 +288,7 @@ sudo systemctl enable --now thrall.service
     </section>
 
     <footer>
-      THRALL v0.5.3 &bull; <a href="https://github.com/UberMetroid/thrall">Source</a> &bull;
+      THRALL v0.5.4 &bull; <a href="https://github.com/UberMetroid/thrall">Source</a> &bull;
       <a href="https://github.com/UberMetroid/thrall/releases">Releases</a> &bull;
       <a href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a> &bull;
       <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a>

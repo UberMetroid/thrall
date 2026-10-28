@@ -48,8 +48,13 @@ pub fn handle_admin_post_action(
     snap: &mut FleetSnapshot,
 ) -> bool {
     let fval = |k: &str| form.get(k).map(String::as_str).unwrap_or("");
+    let audit_path = crate::audit::path_for(&cfg.portal.database_path);
+    if crate::admin_console::actions::handle_admin_console_post(stream, path, body, form, username, cfg, store, snap) {
+        return true;
+    }
     if path == "/reconcile" {
         *snap = reconcile_fleet(cfg, store);
+        crate::audit::record_at(&audit_path, username, "fleet.reconcile", "all hubs", "ok");
         write_redirect(stream, "/?tab=admin&ok=Fleet+mesh+reconciled", "");
         return true;
     }
@@ -64,16 +69,23 @@ pub fn handle_admin_post_action(
             let mut adms: Vec<String> = fval("admin_users").split(',').filter_map(|x| sanitize_username(x).ok()).collect();
             if !adms.iter().any(|a| a == username) { adms.push(username.to_string()); }
             cfg.ldap.admin_users = adms;
-            let _ = save_fleet_config("/config/fleet.yaml", cfg);
+            let _ = save_fleet_config(crate::fleet_config::CONFIG_PATH, cfg);
         }
         snap.ldap_users = list_ldap_users(&cfg.ldap);
         for u in store.users.keys() {
             if u != "root" && !snap.ldap_users.contains(u) { snap.ldap_users.push(u.clone()); }
         }
         snap.ldap_users.sort();
+        let act = if path == "/admin/ldap/update" { "ldap.update" } else { "ldap.test" };
         match validate_ldap_connection(&cfg.ldap) {
-            Ok(cnt) => write_redirect(stream, &format!("/?tab=admin&ok=LDAP+verified+({cnt}+entries+discovered)"), ""),
-            Err(e) => write_redirect(stream, &format!("/?tab=admin&err=LDAP+connection+failed:+{}", e.replace(' ', "+")), ""),
+            Ok(cnt) => {
+                crate::audit::record_at(&audit_path, username, act, "ldap directory", "ok");
+                write_redirect(stream, &format!("/?tab=admin&ok=LDAP+verified+({cnt}+entries+discovered)"), "")
+            }
+            Err(e) => {
+                crate::audit::record_at(&audit_path, username, act, "ldap directory", "failed");
+                write_redirect(stream, &format!("/?tab=admin&err=LDAP+connection+failed:+{}", e.replace(' ', "+")), "")
+            }
         }
         return true;
     }
@@ -100,9 +112,11 @@ pub fn handle_admin_post_action(
                 let _ = fs::remove_dir_all(format!("/shared/{fname}"));
             }
             snap.shared_completion.remove(&fname);
+            crate::audit::record_at(&audit_path, username, "shared.delete", &fname, "ok");
             write_redirect(stream, "/?tab=admin&ok=Shared+folder+deleted", "");
             return true;
         }
+        crate::audit::record_at(&audit_path, username, "shared.delete", "invalid folder name", "denied");
         write_redirect(stream, "/?tab=admin&err=Cannot+delete+shared+folder", "");
         return true;
     }
@@ -132,8 +146,10 @@ pub fn handle_admin_post_action(
             store.shared_folders.insert(fname.clone(), u);
             let _ = store.save(&cfg.portal.database_path);
             provision_single_folder(cfg, snap, store, None, &fname);
+            crate::audit::record_at(&audit_path, username, "shared.acl", &fname, "ok");
             write_redirect(stream, "/?tab=admin&ok=Shared+folder+provisioned!+Authorized+users+should+open+http://127.0.0.1:8384+on+their+Device+to+accept+the+share.", "");
         } else {
+            crate::audit::record_at(&audit_path, username, "shared.acl", "invalid folder name", "denied");
             write_redirect(stream, "/?tab=admin&err=Invalid+shared+folder+name", "");
         }
         return true;
@@ -148,12 +164,14 @@ pub fn handle_admin_post_action(
             if url_ok && key_ok && !cfg.servers.iter().any(|s| s.name == nlow) {
                 let node = new_node(&nlow, api_url, api_key);
                 cfg.servers.push(node);
-                let _ = save_fleet_config("/config/fleet.yaml", cfg);
+                let _ = save_fleet_config(crate::fleet_config::CONFIG_PATH, cfg);
                 *snap = reconcile_fleet(cfg, store);
+                crate::audit::record_at(&audit_path, username, "hub.add", &nlow, "ok");
                 write_redirect(stream, "/?tab=admin&ok=Mesh+Hub+added+to+fleet", "");
                 return true;
             }
         }
+        crate::audit::record_at(&audit_path, username, "hub.add", "invalid name, url or key", "denied");
         write_redirect(stream, "/?tab=admin&err=Invalid+Mesh+Hub+name,+API+URL+or+API+key", "");
         return true;
     }
@@ -167,6 +185,7 @@ pub fn handle_admin_post_action(
         }
         let _ = store.save(&cfg.portal.database_path);
         *snap = reconcile_fleet(cfg, store);
+        crate::audit::record_at(&audit_path, username, "hub.toggle", srv, "ok");
         write_redirect(stream, "/?tab=admin&ok=Server+mesh+connection+updated", "");
         return true;
     }

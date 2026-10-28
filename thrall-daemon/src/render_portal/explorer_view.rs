@@ -239,5 +239,8 @@ pub fn render_admin_pane(cfg: & crate::fleet_config::FleetConfig, store: &MeshSt
         rows.push_str(&format!("<tr class=\"tree-child\" data-parent=\"admin:mesh\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span>{tbtn}<strong>{n_esc}</strong></td><td><code>{wan_esc}</code> &bull; <code style=\"color:var(--muted)\">{info_esc}</code></td><td>{badge}</td><td style=\"text-align:right\"><form method=\"POST\" action=\"/admin/servers/toggle\" style=\"display:inline\"><input type=\"hidden\" name=\"server\" value=\"{n_esc}\"><button type=\"submit\" class=\"{btn_cls}\" style=\"padding:0.18rem 0.55rem;font-size:0.74rem\">{btn_lbl}</button></form></td></tr>{kids}"));
     }
     rows.push_str(&crate::render_portal::about_ldap::render_ldap_admin_rows(cfg, store, snap));
+    rows.push_str(&crate::admin_console::appearance::render_section(&store.settings));
+    let entries = crate::audit::recent(&crate::audit::path_for(&cfg.portal.database_path), 20);
+    rows.push_str(&crate::admin_console::operations::render_section(&store.settings, cfg, &entries, crate::audit::now()));
     format!("<table class=\"explorer-table\"><thead><tr><th>Admin Section</th><th>Configuration / Endpoint</th><th style=\"width:170px\">Status</th><th style=\"width:210px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table>")
 }

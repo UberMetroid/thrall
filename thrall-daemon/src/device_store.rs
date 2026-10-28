@@ -1,5 +1,10 @@
-//! Syncthing 56-character Device ID normalization and Base32 Luhn mod 32 check-digit verifier,
-//! plus `/config/roster.db` persistence and path-jailed web file explorer resolution.
+//! The roster store: users, folders, devices, shares, and portal settings.
+//!
+//! Persistence lives in `/config/roster.db`, a flat tab-separated file that the
+//! daemon owns end to end. The device ID verifier lives on its own page in
+//! `device_store/device_id.rs`.
+
+mod device_id;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -9,8 +14,10 @@ pub use crate::render_portal::share_jail::{
     compute_share_token, resolve_jailed_path, resolve_share_target, sanitize_rel_subpath,
     syncthing_folder_id,
 };
+pub use device_id::normalize_and_verify_device_id;
 
-const BASE32_ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+use crate::admin_console::settings::PortalSettings;
+
 #[rustfmt::skip]
 pub const XDG_FOLDERS: [&str; 8] = ["Desktop", "Documents", "Downloads", "Music", "Pictures", "Videos", "Public", "Templates"];
 
@@ -30,47 +37,7 @@ pub struct MeshStore {
     pub folder_paths: BTreeMap<(String, String), String>,
     pub shared_readonly: BTreeSet<(String, String)>,
     pub device_excluded_folders: BTreeSet<(String, String)>,
-}
-
-fn luhn_base32_check_char(chunk13: &[u8]) -> Option<u8> {
-    if chunk13.len() != 13 {
-        return None;
-    }
-    let (mut factor, mut sum) = (1u32, 0u32);
-    for &b in chunk13 {
-        let v = BASE32_ALPHABET.iter().position(|&c| c == b)? as u32;
-        let addend = factor * v;
-        factor = if factor == 2 { 1 } else { 2 };
-        sum += (addend / 32) + (addend % 32);
-    }
-    BASE32_ALPHABET
-        .get(((32 - (sum % 32)) % 32) as usize)
-        .copied()
-}
-
-pub fn normalize_and_verify_device_id(raw: &str) -> Result<String, String> {
-    let cleaned: Vec<u8> = raw
-        .bytes()
-        .map(|b| b.to_ascii_uppercase())
-        .filter(|b| b.is_ascii_alphanumeric())
-        .collect();
-    if cleaned.len() < 56 {
-        return Err("Device ID must contain 56 Base32 chars".to_string());
-    }
-    for win in cleaned.windows(56) {
-        let valid = (0..4).all(|g| {
-            let grp = &win[g * 14..(g + 1) * 14];
-            luhn_base32_check_char(&grp[0..13]) == Some(grp[13])
-        });
-        if valid {
-            let grouped: Vec<String> = win
-                .chunks(7)
-                .map(|c| String::from_utf8_lossy(c).into())
-                .collect();
-            return Ok(grouped.join("-"));
-        }
-    }
-    Err("Invalid Syncthing Device ID or Luhn check digit".to_string())
+    pub settings: PortalSettings,
 }
 
 pub fn sanitize_username(username: &str) -> Result<String, String> {
@@ -186,6 +153,8 @@ impl MeshStore {
                 }
             } else if let Some(srv) = l.strip_prefix("@disabled_server\t") {
                 if !srv.trim().is_empty() { store.disabled_servers.insert(srv.trim().to_string()); }
+            } else if let Some(rest) = l.strip_prefix("@ui\t") {
+                if let Some((k, v)) = rest.split_once('\t') { store.settings.apply_record(k, v); }
             } else if let Some((tok, tgt)) = l.strip_prefix("@link\t").and_then(|r| r.split_once('\t')) {
                 if !tok.is_empty() && !tgt.is_empty() { store.public_shares.insert(tok.to_string(), tgt.to_string()); }
             } else {
@@ -215,6 +184,7 @@ impl MeshStore {
         for (did, sf) in &self.device_excluded_folders { out.push_str(&format!("@dev_excl\t{did}\t{sf}\n")); }
         for srv in &self.disabled_servers { out.push_str(&format!("@disabled_server\t{srv}\n")); }
         for (tok, tgt) in &self.public_shares { out.push_str(&format!("@link\t{tok}\t{tgt}\n")); }
+        for (k, v) in self.settings.records() { out.push_str(&format!("@ui\t{k}\t{v}\n")); }
         out
     }
 

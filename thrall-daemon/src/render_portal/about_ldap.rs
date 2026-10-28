@@ -1,31 +1,52 @@
 //! About view (`/?tab=about`), 8-Bit Footer Dock, and Admin LDAP rows.
 
+use crate::admin_console::palette::ACCENTS;
+use crate::admin_console::settings::PortalSettings;
 use crate::device_store::MeshStore;
 use crate::fleet_config::FleetConfig;
 use crate::reconcile_mesh::FleetSnapshot;
 use crate::render_portal::escape_html;
 
+/// The eight accent swatches shown in the footer picker.
+fn accent_picker(settings: &PortalSettings) -> String {
+    let mut out = String::from(
+        "<div class=\"footer-accent-picker\" id=\"footer-accent-picker\" role=\"radiogroup\" aria-label=\"8-Bit Rainbow Palette\">",
+    );
+    for a in ACCENTS.iter() {
+        let active = a.name.eq_ignore_ascii_case(&settings.accent);
+        out.push_str(&format!(
+            "<button type=\"button\" class=\"dock-accent-dot{cls}\" data-accent-name=\"{name}\" style=\"--swatch:{hex};background-color:{hex};\" role=\"radio\" aria-checked=\"{checked}\" tabindex=\"{tab}\" aria-label=\"{name}\"></button>",
+            cls = if active { " active" } else { "" },
+            name = a.name,
+            hex = a.hex,
+            checked = active,
+            tab = if active { "0" } else { "-1" },
+        ));
+    }
+    out.push_str("</div>");
+    out
+}
+
 #[rustfmt::skip]
-pub fn render_footer_dock(status_html: &str) -> String {
-    format!(
-        "<footer class=\"footer-dock\" id=\"footer-dock\" aria-label=\"Theme Palette\"><div class=\"footer-dock-inner\"><div class=\"footer-left-slot\">\
-         <canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\" aria-label=\"Browser &lt;-&gt; Mesh Data Flow\"></canvas>\
-         <canvas id=\"footer-hubs-eq\" class=\"footer-pixel-widget\" width=\"84\" height=\"24\" title=\"Regional Hub Signal &amp; Ping (RTT)\" aria-label=\"Regional Hub Signal &amp; Ping (RTT)\"></canvas>\
-         <canvas id=\"footer-mesh-graph\" class=\"footer-pixel-widget\" width=\"116\" height=\"24\" title=\"Mesh Hub Replication Traffic (BEP)\" aria-label=\"Mesh Hub Replication Traffic (BEP)\"></canvas>\
-         <canvas id=\"footer-vault-gauge\" class=\"footer-pixel-widget\" width=\"92\" height=\"24\" title=\"Mesh Vault Mass &amp; Active Links\" aria-label=\"Mesh Vault Mass &amp; Active Links\"></canvas>\
-         <canvas id=\"footer-uptime-clock\" class=\"footer-pixel-widget\" width=\"76\" height=\"24\" title=\"Mesh Uptime\" aria-label=\"Mesh Uptime\"></canvas>\
-         {status_html}</div><div></div><div class=\"dock-controls\">\
-         <div class=\"footer-accent-picker\" id=\"footer-accent-picker\" role=\"radiogroup\" aria-label=\"8-Bit Rainbow Palette\">\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Coral\" style=\"--swatch:#ff5555;background-color:#ff5555;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Coral\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Orange\" style=\"--swatch:#ff7700;background-color:#ff7700;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Orange\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Amber\" style=\"--swatch:#ffb000;background-color:#ffb000;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Amber\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Yellow\" style=\"--swatch:#f1fa8c;background-color:#f1fa8c;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Yellow\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot active\" data-accent-name=\"Emerald\" style=\"--swatch:#50fa7b;background-color:#50fa7b;\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" aria-label=\"Emerald\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Cyan\" style=\"--swatch:#00e5ff;background-color:#00e5ff;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Cyan\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Blue\" style=\"--swatch:#3b82f6;background-color:#3b82f6;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Blue\"></button>\
-         <button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Violet\" style=\"--swatch:#bd93f9;background-color:#bd93f9;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Violet\"></button>\
-         </div></div></div></footer>"
-    )
+pub fn render_footer_dock(status_html: &str, settings: &PortalSettings) -> String {
+    let mut widgets = String::new();
+    if settings.footer_upload {
+        widgets.push_str("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\" aria-label=\"Browser &lt;-&gt; Mesh Data Flow\"></canvas>");
+    }
+    if settings.footer_hubs {
+        widgets.push_str("<canvas id=\"footer-hubs-eq\" class=\"footer-pixel-widget\" width=\"84\" height=\"24\" title=\"Regional Hub Signal &amp; Ping (RTT)\" aria-label=\"Regional Hub Signal &amp; Ping (RTT)\"></canvas>");
+    }
+    if settings.footer_mesh {
+        widgets.push_str("<canvas id=\"footer-mesh-graph\" class=\"footer-pixel-widget\" width=\"116\" height=\"24\" title=\"Mesh Hub Replication Traffic (BEP)\" aria-label=\"Mesh Hub Replication Traffic (BEP)\"></canvas>");
+    }
+    if settings.footer_vault {
+        widgets.push_str("<canvas id=\"footer-vault-gauge\" class=\"footer-pixel-widget\" width=\"92\" height=\"24\" title=\"Mesh Vault Mass &amp; Active Links\" aria-label=\"Mesh Vault Mass &amp; Active Links\"></canvas>");
+    }
+    if settings.footer_clock {
+        widgets.push_str("<canvas id=\"footer-uptime-clock\" class=\"footer-pixel-widget\" width=\"76\" height=\"24\" title=\"Mesh Uptime\" aria-label=\"Mesh Uptime\"></canvas>");
+    }
+    let picker = if settings.palette { accent_picker(settings) } else { String::new() };
+    format!("<footer class=\"footer-dock\" id=\"footer-dock\" aria-label=\"Theme Palette\"><div class=\"footer-dock-inner\"><div class=\"footer-left-slot\">{widgets}{status_html}</div><div></div><div class=\"dock-controls\">{picker}</div></div></footer>")
 }
 
 #[rustfmt::skip]

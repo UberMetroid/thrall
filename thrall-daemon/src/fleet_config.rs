@@ -47,6 +47,9 @@ pub struct FleetConfig {
 
 pub const DEFAULT_FLEET_YAML: &str = include_str!("../../assets/default-fleet.yaml");
 
+/// Where the daemon keeps its configuration file.
+pub const CONFIG_PATH: &str = "/config/fleet.yaml";
+
 fn unquote(val: &str) -> String {
     let trimmed = val.trim();
     let without_comment = if trimmed.starts_with('"') || trimmed.starts_with('\'') {

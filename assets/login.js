@@ -43,16 +43,25 @@
     rows: THRALL_WORDMARK
   };
 
-  function applyAccent(a) {
+  // Administrator-set appearance, delivered as body data attributes because the
+  // portal's Content-Security-Policy forbids inline script.
+  function uiAttr(name) {
+    if (!document.body) return '';
+    return document.body.getAttribute('data-' + name) || '';
+  }
+
+  function applyAccent(a, persist) {
     if (!a) return;
     var r = a.rgb[0], g = a.rgb[1], b = a.rgb[2];
     var hr = a.hotRgb[0], hg = a.hotRgb[1], hb = a.hotRgb[2];
     window.thrallCurrentAccent = a.rgb;
     window.thrallCurrentAccentName = a.name;
 
-    try {
-      localStorage.setItem('thrall_accent', a.name.toLowerCase());
-    } catch (e) {}
+    if (persist !== false) {
+      try {
+        localStorage.setItem('thrall_accent', a.name.toLowerCase());
+      } catch (e) {}
+    }
 
     var root = document.documentElement;
     root.style.setProperty('--phosphor', a.hex);
@@ -118,10 +127,16 @@
   window.thrallRenderHeaderWordmark = renderHeaderWordmark;
 
   function initPalette() {
-    var saved = 'emerald';
-    try {
-      saved = localStorage.getItem('thrall_accent') || 'emerald';
-    } catch (e) {}
+    // A locked palette is the administrator's theme for everyone: the stored
+    // browser choice is ignored and never written.
+    var locked = uiAttr('palette') === '0';
+    var fallback = (uiAttr('accent-default') || 'emerald').toLowerCase();
+    var saved = fallback;
+    if (!locked) {
+      try {
+        saved = (localStorage.getItem('thrall_accent') || fallback).toLowerCase();
+      } catch (e) {}
+    }
     var initial = null;
     for (var i = 0; i < ACCENTS.length; i++) {
       if (ACCENTS[i].name.toLowerCase() === saved.toLowerCase()) {
@@ -129,7 +144,7 @@
         break;
       }
     }
-    applyAccent(initial || ACCENTS[4]);
+    applyAccent(initial || ACCENTS[4], !locked);
 
     document.addEventListener('click', function (e) {
       var target = e.target;
@@ -163,28 +178,42 @@
     }, true);
   }
 
-  var bgIdx = 1;
-  try {
-    var prevBg = parseInt(sessionStorage.getItem('thrall_bg_idx') || '0', 10);
-    if (prevBg >= 1 && prevBg <= 5) {
-      bgIdx = ((prevBg - 1 + 1 + Math.floor(Math.random() * 4)) % 5) + 1;
-    } else {
+  // Background image: the administrator picks the mode per surface. "off"
+  // removes the image entirely, "pin" fixes one image, "random" keeps the
+  // per-visit rotation.
+  var bgMode = uiAttr('bg') || 'random';
+  var bgPinned = parseInt(uiAttr('bg-index') || '1', 10);
+  var bgIdx = 0;
+  if (bgMode === 'pin') {
+    bgIdx = ((Math.max(1, Math.min(5, bgPinned)) - 1) % 5) + 1;
+  } else if (bgMode !== 'off') {
+    try {
+      var prevBg = parseInt(sessionStorage.getItem('thrall_bg_idx') || '0', 10);
+      if (prevBg >= 1 && prevBg <= 5) {
+        bgIdx = ((prevBg - 1 + 1 + Math.floor(Math.random() * 4)) % 5) + 1;
+      } else {
+        bgIdx = 1 + Math.floor(Math.random() * 5);
+      }
+      sessionStorage.setItem('thrall_bg_idx', String(bgIdx));
+    } catch (e) {
       bgIdx = 1 + Math.floor(Math.random() * 5);
     }
-    sessionStorage.setItem('thrall_bg_idx', String(bgIdx));
-  } catch (e) {
-    bgIdx = 1 + Math.floor(Math.random() * 5);
   }
   window.thrallBgIdx = bgIdx;
-  if (document.body) {
-    document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
+
+  function applyBackground(idx) {
+    if (!document.body) return;
+    if (!idx) {
+      document.body.style.backgroundImage = '';
+      return;
+    }
+    document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + idx + ".jpg')";
   }
+  applyBackground(bgIdx);
 
   // Bayer 8x8 dither + Smooth Perlin-style noise plasma + THRALL wordmark canvas
   function initCanvas() {
-    if (document.body) {
-      document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
-    }
+    applyBackground(bgIdx);
     var canvas = document.getElementById('spotlight-canvas');
     var bgImg = new Image();
     var bgReady = false;
@@ -195,9 +224,7 @@
       try {
         sessionStorage.setItem('thrall_bg_idx', String(n));
       } catch (e) {}
-      if (document.body) {
-        document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + n + ".jpg')";
-      }
+      applyBackground(n);
       bgReady = false;
       bgImg.src = '/bg-' + n + '.jpg';
       if (window.thrallRenderSpotlight) window.thrallRenderSpotlight();
@@ -275,6 +302,7 @@
     window.ThrallIsOverText = isOverTextElement;
 
     var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (uiAttr('reduce-motion') === '1') reducedMotion = true;
     var dpr = 1, width = 0, height = 0, cellPx = 8, originX = 0, originY = 0, gridCols = 0, gridRows = 0;
     var wmWidth = THRALL_WORDMARK[0].length, wmHeight = THRALL_WORDMARK.length, wmRows = THRALL_WORDMARK;
     // The stage draws online hubs only. `slots` maps each drawn slot to its roster

@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=ghcr.io/ubermetroid/thrall:0.5.3
+Image=ghcr.io/ubermetroid/thrall:0.5.4
 ContainerName=thrall
 AutoUpdate=local
 Network=host

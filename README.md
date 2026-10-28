@@ -5,7 +5,7 @@
 **THRALL turns your LDAP directory into a file-sync fleet.** Staff sign in with the work account they already have, and their folders are already there — on every machine they own. Team folders are granted and revoked from one screen.
 
 [![CI](https://github.com/UberMetroid/thrall/actions/workflows/ci.yml/badge.svg)](https://github.com/UberMetroid/thrall/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v0.5.3-50fa7b?style=flat-square)](https://github.com/UberMetroid/thrall/releases/tag/v0.5.3)
+[![Release](https://img.shields.io/badge/release-v0.5.4-50fa7b?style=flat-square)](https://github.com/UberMetroid/thrall/releases/tag/v0.5.4)
 [![License](https://img.shields.io/badge/license-Apache--2.0-58a6ff?style=flat-square)](LICENSE)
 [![Zero dependencies](https://img.shields.io/badge/dependencies-zero%20(std%20only)-3fb950?style=flat-square)](https://github.com/UberMetroid/thrall/blob/main/AGENTS.md)
 [![No unsafe](https://img.shields.io/badge/unsafe-forbidden-f85149?style=flat-square)](https://github.com/UberMetroid/thrall/blob/main/AGENTS.md)
@@ -103,6 +103,28 @@ THRALL holds an LDAP bind password and the access rules for every user's files. 
 | Peer credentials are scoped per peer | each peer has its own API key; a remote peer pointed at loopback is refused at discovery |
 | Credential files are owner-only | every write creates the file `0600` and renames it into place |
 | The daemon never panics on bad input | clippy denies `unwrap`, `expect`, and `panic` outside test code |
+| Administrative actions are recorded | `audit.log` beside the roster records who changed what, when, and the outcome |
+
+## What an administrator controls
+
+The Admin tab is the whole control surface. Beyond the fleet itself it has two halves.
+
+**Portal Appearance** — how the portal looks, for everyone:
+
+- **Footer data boxes.** Five live readouts in the footer dock: data flow, hub signal and ping, replication traffic, vault mass, and uptime. Turn the whole strip on or off, or any box on its own.
+- **Theme.** The eight-bit accent palette, the colour a new browser gets, and a monochrome mode that drops the phosphor glow. Hiding the picker *locks* the theme — the administrator's colour then wins over a browser's saved choice.
+- **Background.** The sign-in page and the dashboard each get their own background: off, a random image per visit, or one pinned image.
+- **Motion.** A fleet-wide reduce-motion switch, on top of each visitor's own system preference.
+
+**Operations** — how the daemon behaves:
+
+- **Maintenance mode.** Pauses the reconciler. Peers are still polled so the fleet view stays live, but no folder topology, access rule, or device change is pushed while you work on them.
+- **Reconciliation interval.** 15 to 3600 seconds, default 45.
+- **Peer API key rotation.** Replace a peer's credential without hand-editing `fleet.yaml`. The key is validated and the fleet reconciled immediately, so a wrong key shows up at once.
+- **Session secret rotation.** Signs every browser out, including the administrator performing it.
+- **Audit log.** Every administrative action is appended to `audit.log` beside the roster — who, what, when, and the outcome — owner-only, trimmed to the last 500 records.
+
+Appearance and posture live in the roster as `@ui` records, so they travel with the state the daemon owns and come back on a restart.
 
 ## What it costs to run
 
@@ -126,13 +148,13 @@ THRALL holds an LDAP bind password and the access rules for every user's files. 
 ### 1. Get the image
 
 ```bash
-sudo podman pull ghcr.io/ubermetroid/thrall:0.5.3
+sudo podman pull ghcr.io/ubermetroid/thrall:0.5.4
 ```
 
 Or build it from this repository:
 
 ```bash
-sudo podman build -t localhost/thrall:0.5.3 -f Containerfile .
+sudo podman build -t localhost/thrall:0.5.4 -f Containerfile .
 ```
 
 If you build locally, point the unit's `Image=` line at your local tag. This is the only image this project publishes.
@@ -295,7 +317,9 @@ thrall --reconcile-once    # reconcile the fleet once and exit
 
 ## Operating it
 
-- **Reconciling.** The control plane reconciles every hub on a timer and on demand from the Admin tab. Reconciliation pushes the folder topology and access rules to each peer; it never copies files.
+- **Reconciling.** The control plane reconciles every hub on a timer and on demand from the Admin tab. Reconciliation pushes the folder topology and access rules to each peer; it never copies files. The interval is administrator-configurable, and **maintenance mode** pauses the reconciler so a hub's state stays frozen while you work on it.
+- **Appearance.** The Admin tab's **Portal Appearance** section sets the footer readouts, the accent colour, the backgrounds, and motion for every browser. See [What an administrator controls](#what-an-administrator-controls).
+- **Audit trail.** Every administrative action lands in `audit.log` beside the roster, owner-only, with the actor, the action, the target, and the outcome.
 - **Adding a hub.** The Admin tab's **Add Mesh Hub** form takes a name, the peer's API URL, and its API key. The form validates both before writing. The peer-to-peer address is derived from the API host unless you set it in `fleet.yaml`.
 - **Isolating a hub.** Disconnect marks a hub as disabled: reconciliation skips it, it is shown as disconnected, and its device is withdrawn from the mesh. Its entry in `fleet.yaml` is kept, so reconnecting is one click.
 - **Share links.** A share link is a keyed MAC over the server secret and the target path. It grants access to that path and nothing else, and it cannot be forged without the secret.
@@ -321,6 +345,11 @@ thrall/
 └── thrall-daemon/
     ├── Cargo.toml             # Zero external dependencies (Apache-2.0)
     ├── src/                   # Modular pages, strictly <= 256 lines each
+    │   ├── admin_console/     # Admin-tab appearance and operational controls
+    │   ├── audit/             # Append-only administrative audit log
+    │   ├── fleet_config/      # fleet.yaml parsing, emitting, and secrets
+    │   ├── peer_client/       # Peer REST transport
+    │   └── render_portal/     # Portal HTML rendering
     └── tests/                 # Page Rule, lint, and security regression gates
 ```
 
