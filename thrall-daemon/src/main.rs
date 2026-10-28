@@ -148,8 +148,8 @@ mod tests {
         assert!(xdg_multi.contains("Desktop") && xdg_multi.contains("Documents") && xdg_multi.len() == 2);
         store.folder_paths.insert(("alice".into(), "personal:Documents".into()), "~/Thrall/Documents".into());
         store.user_folders.insert("emptyuser".into(), Vec::new());
-        let roundtrip = MeshStore::parse(&store.serialize());
-        assert!(roundtrip.folders_for_user("emptyuser").is_empty());
+        let roundtrip = MeshStore::parse(&format!("{}\n@folder_path\talice\tbad_scope:..\t~/Bad\n", store.serialize()));
+        assert!(roundtrip.folders_for_user("emptyuser").is_empty() && !roundtrip.folder_paths.contains_key(&("alice".into(), "bad_scope:..".into())));
         assert_eq!(roundtrip.local_path_for("alice", "personal:Documents"), "~/Thrall/Documents");
         assert!(resolve_jailed_path("emptyuser", &roundtrip, "personal", "").is_none());
         store.shared_folders.entry("Ops".into()).or_default().insert("alice".into());

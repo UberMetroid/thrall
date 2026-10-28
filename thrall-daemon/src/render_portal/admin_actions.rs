@@ -71,6 +71,8 @@ pub fn handle_admin_post_action(
                 return true;
             }
             store.shared_folders.remove(&fname);
+            let sf_key = format!("shared:{fname}");
+            store.folder_paths.retain(|(_, sf), _| sf != &sf_key);
             let _ = store.save(&cfg.portal.database_path);
             let flow = fname.to_ascii_lowercase();
             for id in [

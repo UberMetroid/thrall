@@ -160,7 +160,8 @@ impl MeshStore {
             } else if let Some(rest) = l.strip_prefix("@folder_path\t") {
                 let p: Vec<&str> = rest.splitn(3, '\t').collect();
                 if let (Some(&u), Some(&sf), Some(&lp)) = (p.first(), p.get(1), p.get(2)) {
-                    if let (Ok(un), Ok(cp)) = (sanitize_username(u), sanitize_local_path(lp)) {
+                    let ok_sf = sf.strip_prefix("personal:").or_else(|| sf.strip_prefix("shared:")).is_some_and(|f| sanitize_folder_name(f).is_ok());
+                    if let (true, Ok(un), Ok(cp)) = (ok_sf, sanitize_username(u), sanitize_local_path(lp)) {
                         store.folder_paths.insert((un, sf.to_string()), cp);
                     }
                 }

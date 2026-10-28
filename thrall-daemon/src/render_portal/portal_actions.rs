@@ -61,6 +61,8 @@ pub fn handle_post_action(
                 format!("/?tab=1&browse=personal:{}&ok=Personal+folder+created!+Open+http://127.0.0.1:8384+on+your+Device+to+accept+the+new+share.", to_create[0])
             } else { format!("/?tab=1&ok=Provisioned+{}+personal+folders!", to_create.len()) };
             write_redirect(stream, &u, "");
+        } else if fval("folder").trim().is_empty() {
+            write_redirect(stream, "/?tab=1&err=Select+at+least+one+XDG+folder+or+enter+a+custom+folder+name", "");
         } else {
             write_redirect(stream, "/?tab=1&err=Invalid+folder+name", "");
         }
