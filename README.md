@@ -85,16 +85,18 @@ To publish a peer's API on the tailnet without touching its container, serve it 
 sudo tailscale serve --bg --http=8384 http://127.0.0.1:8384
 ```
 
-Then point the fleet entry at it:
+Tailscale Serve routes by hostname, so the fleet entry must use the peer's MagicDNS name rather than its raw address:
 
 ```yaml
 servers:
   - name: "hub-b"
     local: false
-    syncthing_api_url: "http://100.64.0.20:8384"
+    syncthing_api_url: "http://hub-b:8384"
     syncthing_api_key: "<the peer's API key>"
     syncthing_wan_addr: "tcp://100.64.0.20:22000"
 ```
+
+The Block Exchange Protocol address keeps using the raw address: port 22000 is published by the peer itself and does not pass through Serve.
 
 A remote peer whose `syncthing_api_url` points at loopback is refused at discovery time rather than silently landing on the local peer.
 
