@@ -173,8 +173,12 @@ mod tests {
         }
         assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
         let user_html = render_dashboard_page("bob", false, &store, &snap, 4, "", "", Some("Share mode updated"), None);
-        assert!(!user_html.contains(">Access<") && !user_html.contains(">Hubs<") && !user_html.contains("footer-admin-tabs") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
-        assert!(user_html.contains(">Personal</a>") && user_html.contains(">Shared</a>") && user_html.contains(">Spokes</a>"));
+        let (_, u_body) = user_html.split_once("<header class=\"site-header\"").unwrap();
+        let (u_hdr, u_rest) = u_body.split_once("</header>").unwrap();
+        let (_, u_ftr) = u_rest.split_once("<footer class=\"footer-dock\"").unwrap();
+        assert!(!u_hdr.contains("nav-tabs") && u_hdr.contains("value=\"USER // bob\"") && u_hdr.contains("value=\"ROLE // USER\"") && u_hdr.contains("[ SIGN OUT ]"));
+        assert!(!user_html.contains(">Mesh<") && !user_html.contains(">Global Folders<") && !u_ftr.contains("footer-tab-sep") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
+        assert!(u_ftr.contains(">Personal Folder</a>") && u_ftr.contains(">Shared Folders</a>") && u_ftr.contains(">Device setup</a>"));
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
         assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-personal-folder\""));
@@ -201,18 +205,21 @@ mod tests {
         assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents") && !in_h.contains("class=\"card\""));
 
         let s3 = render_dashboard_page("alice", false, &store, &snap, 3, "", "", None, None);
-        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\"") && !s3.contains("class=\"card\""));
-        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=2&amp;browse=shared:Ops"));
+        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\">+ Add Device</button>") && !s3.contains("class=\"card\""));
+        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=2&amp;browse=shared:Ops") && !s3.contains(">Open</a>"));
+        let s3_bob = render_dashboard_page("bob", false, &store, &snap, 3, "", "", None, None);
+        assert!(s3_bob.contains("NO DEVICES") && !s3_bob.contains(">Open</a>"));
 
         let acl_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
         assert!(acl_html.contains("class=\"explorer-table\"") && acl_html.contains("data-modal-open=\"create-shared-folder\"") && acl_html.contains("Apply ACL") && !acl_html.contains("class=\"card\""));
 
         let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
-        let (hdr_part, rest_part) = admin_html.split_once("</header>").unwrap();
+        let (_, adm_body) = admin_html.split_once("<header class=\"site-header\"").unwrap();
+        let (hdr_part, rest_part) = adm_body.split_once("</header>").unwrap();
         let (_, ftr_part) = rest_part.split_once("<footer class=\"footer-dock\"").unwrap();
-        assert!(hdr_part.contains(">Personal</a>") && hdr_part.contains(">Shared</a>") && hdr_part.contains(">Spokes</a>"));
-        assert!(!hdr_part.contains(">Access</a>") && !hdr_part.contains(">Hubs</a>"));
-        assert!(ftr_part.contains("footer-admin-tabs") && ftr_part.contains(">Access</a>") && ftr_part.contains(">Hubs</a>") && !admin_html.contains("class=\"card\""));
+        assert!(!hdr_part.contains("nav-tabs") && hdr_part.contains("value=\"USER // admin\"") && hdr_part.contains("value=\"ROLE // ADMIN\"") && hdr_part.contains("[ SIGN OUT ]"));
+        assert!(ftr_part.contains("footer-nav-tabs") && ftr_part.contains(">Personal Folder</a>") && ftr_part.contains(">Shared Folders</a>") && ftr_part.contains(">Device setup</a>"));
+        assert!(ftr_part.contains("footer-tab-sep") && ftr_part.contains(">Mesh</a>") && ftr_part.contains(">Global Folders</a>") && !admin_html.contains("class=\"card\""));
         assert!(admin_html.contains("data-modal-open=\"add-mesh-hub\"") && !admin_html.contains("LDAP"));
 
         let tmp_base = std::env::temp_dir().join("thrall_test_jail");

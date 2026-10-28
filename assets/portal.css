@@ -111,6 +111,15 @@ header {
 .tab-btn:hover { color: var(--text); background: var(--panel); }
 .tab-btn.active { background: var(--phosphor-dim); color: var(--phosphor); border-color: var(--phosphor); }
 .tab-btn.admin-tab.active { background: rgba(189, 147, 249, 0.2); color: var(--purple); border-color: var(--purple); }
+.footer-tab-sep {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--phosphor);
+  letter-spacing: 0.08em;
+  margin: 0 0.2rem;
+  user-select: none;
+}
 .card {
   background: var(--panel);
   backdrop-filter: blur(10px);
@@ -288,7 +297,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .header-login-form input[type="text"],
 .header-login-form input[type="password"] {
@@ -296,7 +305,16 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   padding: 0.42rem 0.65rem;
   font-size: 0.82rem;
 }
+.header-login-form input[readonly] {
+  color: var(--hot);
+  border-color: var(--border-accent);
+  cursor: default;
+  user-select: none;
+  pointer-events: none;
+}
 .header-login-form button {
+  min-width: 116px;
+  text-align: center;
   padding: 0.44rem 0.85rem;
   font-size: 0.8rem;
   white-space: nowrap;

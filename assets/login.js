@@ -1187,17 +1187,17 @@
         var tmpl = document.getElementById('tmpl-enroll-spoke');
         var gwHtml = tmpl ? tmpl.innerHTML : '';
         openModal(
-          '<h3>Enroll Spoke (Two-Way Handshake)</h3>' +
+          '<h3>Add Device (Two-Way Handshake)</h3>' +
           '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem">' +
-          '<strong>Step 1 (On Your Spoke):</strong> Open <code>http://127.0.0.1:8384</code> &rarr; <strong>+ Add Remote Device</strong>, paste this Gateway Hub ID, and check <code>[x] Introducer</code> &amp; <code>[x] Auto Accept</code>:' +
+          '<strong>Step 1 (On Your Device):</strong> Open <code>http://127.0.0.1:8384</code> &rarr; <strong>+ Add Remote Device</strong>, paste this Gateway Hub ID, and check <code>[x] Introducer</code> &amp; <code>[x] Auto Accept</code>:' +
           gwHtml +
           '</div>' +
           '<form method="POST" action="/devices/add">' +
-          '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.45rem"><strong>Step 2 (In This Portal):</strong> Paste your Spoke\'s 56-character ID (from <em>Actions &rarr; Show ID</em>):</div>' +
-          '<div style="margin-bottom:0.85rem"><input type="text" name="device_id" required placeholder="Paste 56-Char Syncthing Spoke Device ID"></div>' +
+          '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.45rem"><strong>Step 2 (In This Portal):</strong> Paste your Device\'s 56-character ID (from <em>Actions &rarr; Show ID</em>):</div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="device_id" required placeholder="Paste 56-Char Syncthing Device ID"></div>' +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
-          '<button type="submit">Authorize Spoke</button>' +
+          '<button type="submit">Add Device</button>' +
           '</div></form>',
           false,
           function (card) {
