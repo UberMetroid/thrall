@@ -85,7 +85,7 @@ fn main() {
     eprintln!("[thrall] Loaded state from {} ({} users)", cfg.portal.database_path, store.users.len());
     let snapshot = reconcile_fleet(&cfg, &mut store);
     let online_count = snapshot.nodes.iter().filter(|n| n.online).count();
-    eprintln!("[thrall] Initial fleet reconciliation complete: {online_count}/{} server nodes online", snapshot.nodes.len());
+    eprintln!("[thrall] Initial fleet reconciliation complete: {online_count}/{} hubs online", snapshot.nodes.len());
     if reconcile_only {
         if let Some(ref mut child) = local_st { let _ = child.kill(); }
         return;
@@ -178,8 +178,8 @@ mod tests {
         assert!(h.contains("User or Email") && !h.contains("THRALL MESH DIRECTOR"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]") && h.contains("/icon.jpg") && h.contains("data-modal-open=\"about-thrall\""));
-        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("id=\"footer-upload-graph\"") && h.contains("id=\"footer-thrall-sprite\"") && h.contains("id=\"footer-hubs-eq\"") && h.contains("id=\"footer-mesh-graph\"") && h.contains("id=\"footer-vault-gauge\"") && h.contains("id=\"footer-uptime-clock\"") && h.contains("id=\"footer-bg-btn\"") && h.contains("id=\"footer-warp-btn\""));
-        assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED SPOKE") && h.contains("id=\"footer-status-msg\"") && !h.contains("Sign in with your account credentials"));
+        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("id=\"footer-upload-graph\"") && !h.contains("id=\"footer-thrall-sprite\"") && h.contains("id=\"footer-hubs-eq\"") && h.contains("id=\"footer-mesh-graph\"") && h.contains("id=\"footer-vault-gauge\"") && h.contains("id=\"footer-uptime-clock\"") && !h.contains("id=\"footer-bg-btn\"") && !h.contains("id=\"footer-warp-btn\"") && h.contains("<div class=\"footer-left-slot\"><canvas id=\"footer-upload-graph\""));
+        assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED DEVICE") && h.contains("id=\"footer-status-msg\"") && !h.contains("Sign in with your account credentials"));
         let h_err = render_login_page(Some("Invalid credentials"), &snap, &store);
         let (h_err_hdr, h_err_rest) = h_err.split_once("</header>").unwrap();
         assert!(!h_err_hdr.contains("Invalid credentials") && h_err_rest.contains("id=\"footer-status-msg\" class=\"footer-toast toast-err\">Invalid credentials</span>"));
@@ -202,7 +202,7 @@ mod tests {
         assert!(!user_html.contains("ahamkara"));
 
         let common_html = render_dashboard_page("bob", false, &cfg, &store, &snap, 2, "", "", None, None);
-        assert!(common_html.contains("&#127760; Ops/") && !common_html.contains("Shared / Ops/") && !common_html.contains("class=\"card\""));
+        assert!(common_html.contains("&#127760; Ops/") && common_html.contains("READ-ONLY") && !common_html.contains("data-modal-open=\"upload-file\"") && !common_html.contains("Shared / Ops/") && !common_html.contains("class=\"card\""));
         assert!(common_html.contains("class=\"tree-toggle\" data-target=\"shared:Ops\""));
         assert!(!common_html.contains("Shared folders across your team"));
 
@@ -222,13 +222,13 @@ mod tests {
         assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents") && !in_h.contains("class=\"card\""));
 
         let s3 = render_dashboard_page("alice", false, &cfg, &store, &snap, 3, "", "", None, None);
-        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\" data-folders=\"personal:Documents,personal:Projects,shared:Ops\">+ Add Device</button>") && !s3.contains("class=\"card\""));
-        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=shared&amp;browse=shared:Ops") && s3.contains("data-modal-open=\"set-folder-path\"") && s3.contains("~/Thrall/Documents") && s3.contains("Sync: ON") && s3.contains("Sync: OFF") && s3.contains("Cloud Only (Not Synced)") && !s3.contains("~/THRALL"));
+        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-device\" data-folders=\"personal:Documents,personal:Projects,shared:Ops\">+ Add Device</button>") && !s3.contains("class=\"card\""));
+        assert!(s3.contains("data-target=\"device:") && s3.contains("/?tab=shared&amp;browse=shared:Ops") && s3.contains("data-modal-open=\"set-folder-path\"") && s3.contains("~/Thrall/Documents") && s3.contains("Sync: ON") && s3.contains("Sync: OFF") && s3.contains("Cloud Only (Not Synced)") && !s3.contains("~/THRALL"));
         let s3_bob = render_dashboard_page("bob", false, &cfg, &store, &snap, 3, "", "", None, None);
         assert!(s3_bob.contains("NO DEVICES") && s3_bob.contains("~/Thrall/Ops") && !s3_bob.contains(">Open</a>"));
 
         let about_html = render_dashboard_page("alice", false, &cfg, &store, &snap, 6, "", "", None, None);
-        assert!(about_html.contains("What is THRALL?") && about_html.contains("tuition-not-coffee") && about_html.contains("Syncthing &amp; Block Exchange Protocol (BEP)"));
+        assert!(about_html.contains("What is THRALL?") && about_html.contains("tuition-not-coffee") && about_html.contains("Syncthing &amp; Block Exchange Protocol (BEP)") && about_html.contains("https://github.com/UberMetroid/thrall/blob/main/AGENTS.md") && about_html.contains("Architecture &amp; Rules"));
 
         let admin_html = render_dashboard_page("admin", true, &cfg, &store, &snap, 4, "", "", None, None);
         let (_, adm_body) = admin_html.split_once("<header class=\"site-header\"").unwrap();

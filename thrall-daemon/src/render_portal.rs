@@ -7,6 +7,7 @@ use crate::reconcile_mesh::FleetSnapshot;
 pub mod about_ldap;
 pub mod admin_actions;
 pub mod explorer_view;
+pub mod mesh_stage;
 pub mod portal_actions;
 pub mod reconcile_folders;
 pub mod share_jail;
@@ -69,20 +70,10 @@ pub fn render_telemetry_json(snap: &FleetSnapshot, store: &MeshStore) -> String 
     let rx = fmt_rate(snap.nodes.iter().map(|n| n.in_bps).sum());
     let tx = fmt_rate(snap.nodes.iter().map(|n| n.out_bps).sum());
     let up_h = snap.nodes.iter().map(|n| n.uptime_sec).max().unwrap_or(0) / 3600;
-    let (mut rtts, mut bps_list, mut mass_list, mut brg_list) = (String::new(), String::new(), String::new(), String::new());
-    for idx in 0..tot {
-        let n = snap.nodes.get(idx);
-        let (in_b, out_b) = (n.map(|x| x.in_bps).unwrap_or(0), n.map(|x| x.out_bps).unwrap_or(0));
-        let rtt = n.map(|x| x.rtt_ms).filter(|&r| r > 0).unwrap_or((idx as u64 + 1) * 14);
-        let mass = n.map(|x| x.total_bytes).filter(|&m| m > 0).unwrap_or((idx as u64 + 1) * 1024);
-        let brg = n.map(|x| x.bearing_deg).unwrap_or((idx as u64 * 120) % 360);
-        if !rtts.is_empty() { rtts.push(','); bps_list.push(','); mass_list.push(','); brg_list.push(','); }
-        rtts.push_str(&rtt.to_string());
-        bps_list.push_str(&(in_b + out_b).to_string());
-        mass_list.push_str(&mass.to_string());
-        brg_list.push_str(&brg.to_string());
-    }
-    format!("{{\"hubs_online\":{on},\"hubs_total\":{tot},\"spokes\":{mini},\"active_links\":{conns},\"uptime_h\":{up_h},\"rx\":\"{rx}\",\"tx\":\"{tx}\",\"rtts\":[{rtts}],\"bps\":[{bps_list}],\"masses\":[{mass_list}],\"bearings\":[{brg_list}],\"parents\":[{parents}]}}\n")
+    let roster: Vec<_> = snap.nodes.iter().collect();
+    let series = mesh_stage::hub_series(&roster);
+    let flags = mesh_stage::online_flags_csv(snap);
+    format!("{{\"hubs_online\":{on},\"hubs_total\":{tot},\"spokes\":{mini},\"active_links\":{conns},\"uptime_h\":{up_h},\"rx\":\"{rx}\",\"tx\":\"{tx}\",\"online\":[{flags}],\"rtts\":[{rtts}],\"bps\":[{bps}],\"masses\":[{masses}],\"bearings\":[{bearings}],\"parents\":[{parents}]}}\n", rtts = series.rtts, bps = series.bps, masses = series.masses, bearings = series.bearings)
 }
 
 #[rustfmt::skip]
@@ -93,27 +84,21 @@ pub fn render_login_page(flash_err: Option<&str>, snap: &FleetSnapshot, store: &
     } else {
         "<span id=\"footer-status-msg\" class=\"footer-toast\" style=\"display:none\"></span>".to_string()
     };
-    let tot = snap.nodes.len().max(1);
+    let hubs = mesh_stage::online_hubs(snap);
+    let tot = hubs.len();
+    let roster_total = snap.nodes.len();
     let all_devs: Vec<_> = store.users.values().flatten().collect();
     let mini = all_devs.len();
-    let parents: String = all_devs.iter().enumerate().map(|(di, d)| snap.nodes.iter().position(|n| n.connected_ids.contains(&d.device_id)).unwrap_or(di % tot).to_string()).collect::<Vec<_>>().join(",");
-    let (mut rtts, mut bps_list, mut mass_list, mut brg_list) = (String::new(), String::new(), String::new(), String::new());
-    for idx in 0..tot {
-        let n = snap.nodes.get(idx);
-        let (in_b, out_b) = (n.map(|x| x.in_bps).unwrap_or(0), n.map(|x| x.out_bps).unwrap_or(0));
-        let rtt = n.map(|x| x.rtt_ms).filter(|&r| r > 0).unwrap_or((idx as u64 + 1) * 14);
-        let mass = n.map(|x| x.total_bytes).filter(|&m| m > 0).unwrap_or((idx as u64 + 1) * 1024);
-        let brg = n.map(|x| x.bearing_deg).unwrap_or((idx as u64 * 120) % 360);
-        if !rtts.is_empty() { rtts.push(','); bps_list.push(','); mass_list.push(','); brg_list.push(','); }
-        rtts.push_str(&rtt.to_string());
-        bps_list.push_str(&(in_b + out_b).to_string());
-        mass_list.push_str(&mass.to_string());
-        brg_list.push_str(&brg.to_string());
-    }
+    let dev_ids: Vec<String> = all_devs.iter().map(|d| d.device_id.clone()).collect();
+    let parents = mesh_stage::device_parents(snap, &dev_ids);
+    let roster: Vec<_> = snap.nodes.iter().collect();
+    let series = mesh_stage::hub_series(&roster);
+    let flags = mesh_stage::online_flags_csv(snap);
+    let (rtts, bps_list, mass_list, brg_list) = (series.rtts, series.bps, series.masses, series.bearings);
     let hdr = "<header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><a href=\"#\" data-modal-open=\"about-thrall\" class=\"auth-brand-row\" style=\"text-decoration:none;color:inherit\" title=\"About THRALL\"><img src=\"/icon.jpg\" alt=\"THRALL\" width=\"34\" height=\"34\"><div><canvas id=\"header-wordmark\" class=\"header-wordmark\" width=\"140\" height=\"34\" aria-label=\"THRALL\"></canvas><div class=\"visually-hidden\">THRALL</div><div style=\"font-family:var(--mono);font-size:0.65rem;color:var(--muted)\">Tool for Hierarchical Replication And Identity Linking</div></div></a><div></div><form method=\"POST\" action=\"/login\" autocomplete=\"off\" class=\"header-login-form\"><input type=\"text\" name=\"username\" required autocomplete=\"off\" placeholder=\"User or Email\" aria-label=\"User or Email\"><input type=\"password\" name=\"password\" required autocomplete=\"off\" placeholder=\"Password\" aria-label=\"Password\"><button type=\"submit\">[ SIGN IN ]</button></form></div></header>";
     let head_links = "<link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\">";
     let dock = about_ldap::render_footer_dock(&status_badge);
-    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">{head_links}<title>THRALL</title><style>{PORTAL_CSS}</style></head><body><canvas id=\"spotlight-canvas\" class=\"spotlight-canvas\" data-mesh-nodes=\"{tot}\" data-mini-nodes=\"{mini}\" data-mesh-rtts=\"{rtts}\" data-mesh-bps=\"{bps_list}\" data-mesh-masses=\"{mass_list}\" data-mesh-bearings=\"{brg_list}\" data-mini-parents=\"{parents}\" aria-hidden=\"true\"></canvas>{hdr}{dock}<script src=\"/login.js\"></script></body></html>")
+    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">{head_links}<title>THRALL</title><style>{PORTAL_CSS}</style></head><body><canvas id=\"spotlight-canvas\" class=\"spotlight-canvas\" data-hubs-online=\"{tot}\" data-hubs-total=\"{roster_total}\" data-hubs-flags=\"{flags}\" data-devices=\"{mini}\" data-mesh-rtts=\"{rtts}\" data-mesh-bps=\"{bps_list}\" data-mesh-masses=\"{mass_list}\" data-mesh-bearings=\"{brg_list}\" data-device-parents=\"{parents}\" aria-hidden=\"true\"></canvas>{hdr}{dock}<script src=\"/login.js\"></script></body></html>")
 }
 
 #[rustfmt::skip]
@@ -158,7 +143,7 @@ pub fn render_dashboard_page(
             for dev in &u_devs {
                 let (lbl, did) = (escape_html(&dev.label), escape_html(&dev.device_id));
                 let sid = dev.device_id.split('-').next().unwrap_or("mesh").to_ascii_lowercase();
-                let tkey = format!("spoke:{did}");
+                let tkey = format!("device:{did}");
                 let (mut acc_cnt, mut en_f, mut kids) = (0usize, 0usize, String::new());
                 for f in &u_folders {
                     let (f_esc, flow, k, sf) = (escape_html(f), f.to_ascii_lowercase(), format!("{username}:{f}"), format!("personal:{f}"));
@@ -209,7 +194,7 @@ pub fn render_dashboard_page(
                     rows.push_str(&format!("<tr class=\"pending-folder\"><td><a href=\"/?tab=shared&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:600\">&#127760; Shared / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code></td><td><span class=\"badge badge-warn\">NO DEVICES</span></td><td style=\"text-align:right\">{p_btn}</td></tr>"));
                 }
             }
-            format!("<table class=\"explorer-table\"><thead><tr><th>Device &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"enroll-spoke\" data-folders=\"{df_esc}\">+ Add Device</button></th><th>Device ID / Local Path</th><th style=\"width:210px\">Folders Synced</th><th style=\"width:190px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table><template id=\"tmpl-enroll-spoke\"><div class=\"mono\" id=\"gw-dev\" style=\"user-select:all\">{dev_id}</div>{qr}</template>")
+            format!("<table class=\"explorer-table\"><thead><tr><th>Device &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"enroll-device\" data-folders=\"{df_esc}\">+ Add Device</button></th><th>Device ID / Local Path</th><th style=\"width:210px\">Folders Synced</th><th style=\"width:190px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table><template id=\"tmpl-enroll-device\"><div class=\"mono\" id=\"gw-dev\" style=\"user-select:all\">{dev_id}</div>{qr}</template>")
         }
         6 => about_ldap::render_about_pane(),
         4 if is_admin => explorer_view::render_admin_pane(cfg, store, snap),

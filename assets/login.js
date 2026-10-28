@@ -176,7 +176,6 @@
     bgIdx = 1 + Math.floor(Math.random() * 5);
   }
   window.thrallBgIdx = bgIdx;
-  window.thrallWarpActive = false;
   if (document.body) {
     document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
   }
@@ -278,19 +277,31 @@
     var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var dpr = 1, width = 0, height = 0, cellPx = 8, originX = 0, originY = 0, gridCols = 0, gridRows = 0;
     var wmWidth = THRALL_WORDMARK[0].length, wmHeight = THRALL_WORDMARK.length, wmRows = THRALL_WORDMARK;
-    var meshCount = Math.max(1, parseInt(canvas.getAttribute('data-mesh-nodes') || '3', 10));
-    var rawMini = parseInt(canvas.getAttribute('data-mini-nodes'), 10);
+    // The stage draws online hubs only. `slots` maps each drawn slot to its roster
+    // index, so the roster-ordered telemetry series stay index-aligned.
+    var slots = [];
+    var rawFlags = canvas.getAttribute('data-hubs-flags');
+    if (rawFlags !== null) {
+      var flagList = rawFlags.split(',');
+      for (var fl = 0; fl < flagList.length; fl++) if (flagList[fl].trim() === 'true') slots.push(fl);
+    } else {
+      var fallbackHubs = Math.max(0, parseInt(canvas.getAttribute('data-hubs-online') || '0', 10) || 0);
+      for (var fb = 0; fb < fallbackHubs; fb++) slots.push(fb);
+    }
+    var meshCount = slots.length;
+    var rosterIndex = function (slot) { return slots[slot] !== undefined ? slots[slot] : slot; };
+    var rawMini = parseInt(canvas.getAttribute('data-devices'), 10);
     var miniCount = isNaN(rawMini) ? 0 : Math.max(0, rawMini);
     var rawRtts = (canvas.getAttribute('data-mesh-rtts') || '').split(',');
     var meshRtts = [];
     for (var ri = 0; ri < meshCount; ri++) {
-      var rv = parseFloat(rawRtts[ri]);
+      var rv = parseFloat(rawRtts[rosterIndex(ri)]);
       meshRtts.push(isNaN(rv) || rv <= 0 ? (ri + 1) * 14 : rv);
     }
     var rawBps = (canvas.getAttribute('data-mesh-bps') || '').split(',');
     var meshBps = [], totalBps = 0;
     for (var bi = 0; bi < meshCount; bi++) {
-      var bv = parseFloat(rawBps[bi]);
+      var bv = parseFloat(rawBps[rosterIndex(bi)]);
       var cleanB = isNaN(bv) || bv < 0 ? 0 : bv;
       meshBps.push(cleanB);
       totalBps += cleanB;
@@ -298,21 +309,23 @@
     var rawMasses = (canvas.getAttribute('data-mesh-masses') || '').split(',');
     var meshMasses = [];
     for (var mi = 0; mi < meshCount; mi++) {
-      var mv = parseFloat(rawMasses[mi]);
+      var mv = parseFloat(rawMasses[rosterIndex(mi)]);
       meshMasses.push(isNaN(mv) || mv <= 0 ? (mi + 1) * 1024 : mv);
     }
     var rawBearings = (canvas.getAttribute('data-mesh-bearings') || '').split(',');
     var meshBearings = [];
     for (var bri = 0; bri < meshCount; bri++) {
-      var brv = parseFloat(rawBearings[bri]);
-      var deg = isNaN(brv) ? (bri * 360 / meshCount) : brv;
+      var brv = parseFloat(rawBearings[rosterIndex(bri)]);
+      var deg = isNaN(brv) ? (meshCount > 0 ? (bri * 360 / meshCount) : 0) : brv;
       meshBearings.push((deg * Math.PI) / 180);
     }
-    var rawParents = (canvas.getAttribute('data-mini-parents') || '').split(',');
+    var rawParents = (canvas.getAttribute('data-device-parents') || '').split(',');
     var miniParents = [];
     for (var pi = 0; pi < miniCount; pi++) {
       var pv = parseInt(rawParents[pi], 10);
-      miniParents.push(isNaN(pv) || pv < 0 ? (pi % meshCount) : (pv % meshCount));
+      var slot = slots.indexOf(pv);
+      if (slot < 0) slot = pi;
+      miniParents.push(meshCount > 0 ? (slot % meshCount) : -1);
     }
     var mouse = { x: -2000, y: -2000, active: false, lastMove: 0 };
     var orb = { x: 0, y: 0, initialized: false };
@@ -413,8 +426,7 @@
       rafId = 0;
       var sec = t * 0.001;
       var throughputBoost = Math.min(2.4, Math.log10((totalBps || 0) + 10) * 0.32);
-      var warpMult = window.thrallWarpActive ? 4.2 : 1.0;
-      var spinRate = (0.22 + throughputBoost * 0.38) * warpMult;
+      var spinRate = 0.22 + throughputBoost * 0.38;
       var baryDx = 0, baryDy = 0, weightSum = 0;
       for (var bm = 0; bm < meshCount; bm++) {
         var mw = Math.log10((meshMasses[bm] || 1024) + 10);
@@ -612,10 +624,6 @@
         var my = Math.round(meshOrbs[m].y / cellPx) * cellPx;
         var massLog = Math.min(3, Math.max(1, Math.floor(Math.log10((meshMasses[m] || 1024) + 10) / 2.2)));
         ctx.save();
-        ctx.strokeStyle = colorSpotHigh;
-        ctx.lineWidth = Math.max(2, dpr * 1.8);
-        var mPad = cellPx * (1.8 + massLog * 0.45);
-        ctx.strokeRect(mx - mPad, my - mPad, cellPx + mPad * 2 - 1, cellPx + mPad * 2 - 1);
         ctx.fillStyle = colorSpotMid;
         for (var dyM = -2; dyM <= 2; dyM++) {
           for (var dxM = -2; dxM <= 2; dxM++) {
@@ -632,28 +640,18 @@
         }
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(mx, my, cellPx - 1, cellPx - 1);
-        ctx.font = '700 ' + Math.round(11 * dpr) + 'px ui-monospace, monospace';
-        ctx.fillStyle = colorSpotHigh;
-        ctx.fillText('HUB-0' + (m + 1), mx + mPad + 6 * dpr, my + 4 * dpr);
         ctx.restore();
       }
       for (var s = 0; s < miniCount; s++) {
         var sx = Math.round(miniOrbs[s].x / cellPx) * cellPx;
         var sy = Math.round(miniOrbs[s].y / cellPx) * cellPx;
         ctx.save();
-        ctx.strokeStyle = 'rgba(0, 229, 255, 0.88)';
-        ctx.lineWidth = Math.max(1.2, dpr * 1.1);
-        var pad = cellPx * 0.85;
-        ctx.strokeRect(sx - pad, sy - pad, cellPx + pad * 2 - 1, cellPx + pad * 2 - 1);
         ctx.fillStyle = '#00e5ff';
         ctx.fillRect(sx, sy, cellPx - 1, cellPx - 1);
         ctx.fillStyle = '#ffffff';
         var inner = Math.max(2, Math.floor(cellPx * 0.45));
         var off = Math.floor((cellPx - 1 - inner) * 0.5);
         ctx.fillRect(sx + off, sy + off, inner, inner);
-        ctx.font = '700 ' + Math.round(9.5 * dpr) + 'px ui-monospace, monospace';
-        ctx.fillStyle = '#00e5ff';
-        ctx.fillText('SPOKE-0' + (s + 1), sx + pad + 4 * dpr, sy + 3 * dpr);
         ctx.restore();
       }
 
@@ -669,18 +667,27 @@
 
     window.thrallApplyLiveTelemetry = function (d) {
       if (!d || typeof d !== 'object') return;
-      if (typeof d.hubs_total === 'number' && d.hubs_total >= 1) meshCount = d.hubs_total;
+      // d.online is roster-ordered; rebuild the drawn-slot mapping from it.
+      if (Array.isArray(d.online)) {
+        slots = [];
+        for (var oi = 0; oi < d.online.length; oi++) if (d.online[oi]) slots.push(oi);
+        meshCount = slots.length;
+      } else if (typeof d.hubs_online === 'number') {
+        meshCount = Math.max(0, d.hubs_online);
+        slots = [];
+        for (var oi2 = 0; oi2 < meshCount; oi2++) slots.push(oi2);
+      }
       if (typeof d.spokes === 'number' && d.spokes >= 0) miniCount = d.spokes;
       if (Array.isArray(d.rtts)) {
         for (var i = 0; i < meshCount; i++) {
-          var rv = parseFloat(d.rtts[i]);
+          var rv = parseFloat(d.rtts[rosterIndex(i)]);
           meshRtts[i] = isNaN(rv) || rv <= 0 ? (i + 1) * 14 : rv;
         }
       }
       if (Array.isArray(d.bps)) {
         totalBps = 0;
         for (var j = 0; j < meshCount; j++) {
-          var bv = parseFloat(d.bps[j]);
+          var bv = parseFloat(d.bps[rosterIndex(j)]);
           var cb = isNaN(bv) || bv < 0 ? 0 : bv;
           meshBps[j] = cb;
           totalBps += cb;
@@ -688,21 +695,23 @@
       }
       if (Array.isArray(d.masses)) {
         for (var k = 0; k < meshCount; k++) {
-          var mv = parseFloat(d.masses[k]);
+          var mv = parseFloat(d.masses[rosterIndex(k)]);
           meshMasses[k] = isNaN(mv) || mv <= 0 ? (k + 1) * 1024 : mv;
         }
       }
       if (Array.isArray(d.bearings)) {
         for (var b = 0; b < meshCount; b++) {
-          var brv = parseFloat(d.bearings[b]);
-          var deg = isNaN(brv) ? (b * 360 / meshCount) : brv;
+          var brv = parseFloat(d.bearings[rosterIndex(b)]);
+          var deg = isNaN(brv) ? (meshCount > 0 ? (b * 360 / meshCount) : 0) : brv;
           meshBearings[b] = (deg * Math.PI) / 180;
         }
       }
       if (Array.isArray(d.parents)) {
         for (var p = 0; p < miniCount; p++) {
           var pv = parseInt(d.parents[p], 10);
-          miniParents[p] = isNaN(pv) || pv < 0 ? (p % meshCount) : (pv % meshCount);
+          var slot = slots.indexOf(pv);
+          if (slot < 0) slot = p;
+          miniParents[p] = meshCount > 0 ? (slot % meshCount) : -1;
         }
       }
       wakeRender();
@@ -918,10 +927,10 @@
         { title: 'REVOCATION', body: 'Unchecking a user and clicking Save Access immediately removes that share from all of their devices.' }
       ],
       5: [
-        { title: 'BACKBONE', body: 'Regional Thrall Nodes form a full mesh over port 22000 while serving Client Devices as hub-and-spoke.' },
-        { title: 'FAST SSH', body: 'THRALL manages regional nodes over persistent OpenSSH ControlMaster sockets for sub-second updates.' },
-        { title: 'NODE CONTROL', body: 'Click Disconnect to isolate a regional server from the mesh, or Reconcile for a full fleet refresh.' },
-        { title: 'ADD NODE', body: 'Enter a node name and Tailscale/mesh IP to peer a new regional server into the mesh.' }
+        { title: 'BACKBONE', body: 'Regional Thrall Hubs form a full mesh over port 22000 while serving Client Devices as hub-and-spoke.' },
+        { title: 'FAST SSH', body: 'THRALL manages regional hubs over persistent OpenSSH ControlMaster sockets for sub-second updates.' },
+        { title: 'HUB CONTROL', body: 'Click Disconnect to isolate a regional hub from the mesh, or Reconcile for a full fleet refresh.' },
+        { title: 'ADD HUB', body: 'Enter a hub name and Tailscale/mesh IP to peer a new regional hub into the mesh.' }
       ]
     };
 
@@ -1302,6 +1311,7 @@
           '<a href="https://github.com/UberMetroid/thrall" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--accent)"><span>&#128214; THRALL GitHub Repository</span><span>&nearr;</span></a>' +
           '<a href="https://syncthing.net/" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--text)"><span>&#128279; Syncthing &amp; BEP Protocol</span><span>&nearr;</span></a>' +
           '<a href="https://github.com/UberMetroid/tuition-not-coffee" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--warn)"><span>&#127891; Tuition, Not Coffee (College Fund)</span><span>&nearr;</span></a>' +
+          '<a href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--text-secondary)"><span>&#128737; Architecture &amp; Rules (Zero-Dependency Rust)</span><span>&nearr;</span></a>' +
           '</div>' +
           '<div class="row" style="justify-content:flex-end">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Close</button>' +
@@ -1423,8 +1433,8 @@
             if (inp) inp.focus();
           }
         );
-      } else if (kind === 'enroll-spoke') {
-        var tmpl = document.getElementById('tmpl-enroll-spoke');
+      } else if (kind === 'enroll-device') {
+        var tmpl = document.getElementById('tmpl-enroll-device');
         var gwHtml = tmpl ? tmpl.innerHTML : '';
         var fListRaw = (openBtn.getAttribute('data-folders') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
         var selChecks = '';
@@ -1536,13 +1546,10 @@
 
   function initUploadEngine() {
     var graphCanvas = document.getElementById('footer-upload-graph');
-    var spriteCanvas = document.getElementById('footer-thrall-sprite');
     var hubsCanvas = document.getElementById('footer-hubs-eq');
     var meshCanvas = document.getElementById('footer-mesh-graph');
     var vaultCanvas = document.getElementById('footer-vault-gauge');
     var clockCanvas = document.getElementById('footer-uptime-clock');
-    var bgBtnCanvas = document.getElementById('footer-bg-btn');
-    var warpBtnCanvas = document.getElementById('footer-warp-btn');
     var statusMsg = document.getElementById('footer-status-msg');
     var toastTimer = 0;
     var BAR_COUNT = 22;
@@ -1575,10 +1582,11 @@
     };
     var spotInit = document.getElementById('spotlight-canvas');
     if (spotInit) {
-      var initTot = parseInt(spotInit.getAttribute('data-mesh-nodes') || '3', 10);
+      var initTot = parseInt(spotInit.getAttribute('data-hubs-total') || '3', 10);
       if (initTot > 0) footerTel.hubsTotal = initTot;
-      footerTel.hubsOnline = footerTel.hubsTotal;
-      var initSpokes = parseInt(spotInit.getAttribute('data-mini-nodes') || '0', 10);
+      var initOn = parseInt(spotInit.getAttribute('data-hubs-online') || '0', 10);
+      footerTel.hubsOnline = isNaN(initOn) ? 0 : Math.max(0, Math.min(initTot, initOn));
+      var initSpokes = parseInt(spotInit.getAttribute('data-devices') || '0', 10);
       if (!isNaN(initSpokes)) footerTel.spokes = initSpokes;
       var initRtts = (spotInit.getAttribute('data-mesh-rtts') || '').split(',').map(function (x) { return parseFloat(x); }).filter(function (x) { return !isNaN(x) && x > 0; });
       if (initRtts.length) footerTel.rtts = initRtts;
@@ -1668,31 +1676,6 @@
       }
     }
 
-    var THRALL_SPRITE_IDLE = [
-      '000111111000',
-      '001111111100',
-      '011101101110',
-      '011010010110',
-      '111111111111',
-      '110110011011',
-      '011111111110',
-      '001101101100',
-      '001010010100',
-      '011000000110'
-    ];
-    var THRALL_SPRITE_ACT = [
-      '001111111100',
-      '011101101110',
-      '111011110111',
-      '111110011111',
-      '011111111110',
-      '011011110110',
-      '110110011011',
-      '101100001101',
-      '001101101100',
-      '010000000010'
-    ];
-
     function renderFooterWidgets() {
       var acc = window.thrallCurrentAccent || [80, 250, 123];
       var ar = acc[0], ag = acc[1], ab = acc[2];
@@ -1702,31 +1685,6 @@
       var mainCol = 'rgb(' + ar + ',' + ag + ',' + ab + ')';
       var hotCol = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
       var gridCol = 'rgba(' + ar + ',' + ag + ',' + ab + ',0.14)';
-      var hasErr = Boolean(statusMsg && statusMsg.style.display !== 'none' && statusMsg.classList.contains('toast-err'));
-
-      // #1: 8-Bit Animated Thrall Sprite
-      if (spriteCanvas && spriteCanvas.getContext) {
-        var sCtx = spriteCanvas.getContext('2d');
-        var sw = spriteCanvas.width, sh = spriteCanvas.height;
-        sCtx.fillStyle = '#06080a';
-        sCtx.fillRect(0, 0, sw, sh);
-        sCtx.fillStyle = gridCol;
-        for (var sy = 3; sy < sh - 2; sy += 4) sCtx.fillRect(0, sy, sw, 1);
-        var busy = uploadGraphState.active || (uploadGraphState.bytesPerSec > 250) || (footerTel.totalMeshBps > 250) || window.thrallWarpActive;
-        var grid = (busy && (footerTel.tick % 2 === 1)) ? THRALL_SPRITE_ACT : THRALL_SPRITE_IDLE;
-        var yOff = (!busy && (Math.floor(footerTel.tick / 3) % 2 === 1)) ? 3 : 2;
-        var spCol = hasErr ? '#ff5555' : (busy ? hotCol : mainCol);
-        var eyeCol = hasErr ? '#ffb000' : '#ffffff';
-        for (var sr = 0; sr < grid.length; sr++) {
-          var sRow = grid[sr];
-          for (var sc = 0; sc < sRow.length; sc++) {
-            if (sRow.charAt(sc) === '1') {
-              sCtx.fillStyle = (sr === 2 || sr === 3) ? eyeCol : spCol;
-              sCtx.fillRect(2 + sc * 2, yOff + sr * 2, 2, 2);
-            }
-          }
-        }
-      }
 
       // #2: 8-Bit Hub Signal / Ping Equalizer
       if (hubsCanvas && hubsCanvas.getContext) {
@@ -1838,33 +1796,6 @@
         cCtx.fillStyle = hotCol;
         cCtx.fillRect(pulseX, ch - 4, 4, 2);
       }
-
-      // #6A: 8-Bit Background Cycler Button
-      if (bgBtnCanvas && bgBtnCanvas.getContext) {
-        var bCtx = bgBtnCanvas.getContext('2d');
-        var bw = bgBtnCanvas.width, bh = bgBtnCanvas.height;
-        bCtx.fillStyle = '#06080a';
-        bCtx.fillRect(0, 0, bw, bh);
-        var curBg = window.thrallBgIdx || 1;
-        drawPixelTextLeft3x5(bCtx, 'BG:' + curBg, 4, 5, '#ffffff');
-        for (var bi = 1; bi <= 5; bi++) {
-          bCtx.fillStyle = bi === curBg ? hotCol : '#1b2229';
-          bCtx.fillRect(4 + (bi - 1) * 9, 15, 7, 4);
-        }
-      }
-
-      // #6B: 8-Bit Constellation Warp Button
-      if (warpBtnCanvas && warpBtnCanvas.getContext) {
-        var wCtx = warpBtnCanvas.getContext('2d');
-        var ww = warpBtnCanvas.width, wh = warpBtnCanvas.height;
-        wCtx.fillStyle = window.thrallWarpActive ? 'rgba(' + ar + ',' + ag + ',' + ab + ',0.22)' : '#06080a';
-        wCtx.fillRect(0, 0, ww, wh);
-        drawPixelTextLeft3x5(wCtx, 'WRP', 4, 5, window.thrallWarpActive ? '#ffffff' : mainCol);
-        var chev = window.thrallWarpActive ? ((footerTel.tick % 3) * 3) : 0;
-        wCtx.fillStyle = window.thrallWarpActive ? hotCol : '#26303a';
-        wCtx.fillRect(4 + chev, 15, 12, 3);
-        wCtx.fillRect(20 + chev, 15, 12, 3);
-      }
     }
     window.thrallRenderFooterWidgets = renderFooterWidgets;
 
@@ -1885,31 +1816,6 @@
       }
       renderFooterWidgets();
     };
-
-    if (bgBtnCanvas) {
-      var cycleBg = function () {
-        var nextBg = ((window.thrallBgIdx || 1) % 5) + 1;
-        if (window.thrallSetBgIdx) window.thrallSetBgIdx(nextBg);
-        renderFooterWidgets();
-        showToast('Background Theme: THRALL BG-0' + nextBg, false, true);
-      };
-      bgBtnCanvas.addEventListener('click', cycleBg);
-      bgBtnCanvas.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleBg(); }
-      });
-    }
-    if (warpBtnCanvas) {
-      var toggleWarp = function () {
-        window.thrallWarpActive = !window.thrallWarpActive;
-        if (window.thrallRenderSpotlight) window.thrallRenderSpotlight();
-        renderFooterWidgets();
-        showToast(window.thrallWarpActive ? 'Constellation Warp Drive: ENGAGED' : 'Constellation Warp Drive: NOMINAL', false, true);
-      };
-      warpBtnCanvas.addEventListener('click', toggleWarp);
-      warpBtnCanvas.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleWarp(); }
-      });
-    }
 
     function showToast(text, isErr, autoHide) {
       if (!statusMsg) statusMsg = document.getElementById('footer-status-msg');
