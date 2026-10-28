@@ -3,6 +3,11 @@
 use std::env;
 use std::fs;
 
+mod emit;
+mod secret;
+
+pub use emit::{save_fleet_config, serialize_fleet_yaml};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PortalConfig {
     pub listen_addr: String,
@@ -80,7 +85,7 @@ pub fn parse_fleet_yaml(raw: &str) -> Result<FleetConfig, String> {
         portal: PortalConfig {
             listen_addr: "0.0.0.0:8080".to_string(),
             database_path: "/config/mesh-mgr.db".to_string(),
-            session_secret: "change-me".to_string(),
+            session_secret: String::new(),
         },
         ldap: LdapConfig {
             url: "ldap://127.0.0.1:389".to_string(),
@@ -209,31 +214,15 @@ pub fn apply_env_overrides(cfg: &mut FleetConfig) {
     }
 }
 
-pub fn serialize_fleet_yaml(cfg: &FleetConfig) -> String {
-    let a: Vec<String> = cfg
-        .ldap
-        .admin_users
-        .iter()
-        .map(|u| format!("\"{u}\""))
-        .collect();
-    let (p, l, acsv) = (&cfg.portal, &cfg.ldap, a.join(", "));
-    let mut out = format!("portal:\n  listen_addr: \"{}\"\n  database_path: \"{}\"\n  session_secret: \"{}\"\n\nldap:\n  url: \"{}\"\n  base_dn: \"{}\"\n  bind_dn: \"{}\"\n  bind_password: \"{}\"\n  user_filter: \"{}\"\n  admin_users: [{acsv}]\n\nservers:\n", p.listen_addr, p.database_path, p.session_secret, l.url, l.base_dn, l.bind_dn, l.bind_password, l.user_filter);
-    for s in &cfg.servers {
-        out.push_str(&format!("  - name: \"{}\"\n    ssh_host: \"{}\"\n    ssh_user: \"{}\"\n    ssh_key_path: \"{}\"\n    syncthing_api_url: \"{}\"\n    syncthing_api_key: \"{}\"\n    syncthing_wan_addr: \"{}\"\n    users_base_path: \"{}\"\n    shared_base_path: \"{}\"\n", s.name, s.ssh_host, s.ssh_user, s.ssh_key_path, s.syncthing_api_url, s.syncthing_api_key, s.syncthing_wan_addr, s.users_base_path, s.shared_base_path));
-    }
-    out
-}
-
-pub fn save_fleet_config(path: &str, cfg: &FleetConfig) -> Result<(), String> {
-    fs::write(path, serialize_fleet_yaml(cfg)).map_err(|e| e.to_string())
-}
-
 pub fn load_or_create_fleet_config(path: &str) -> Result<FleetConfig, String> {
-    if let Ok(content) = fs::read_to_string(path) {
-        return parse_fleet_yaml(&content);
-    }
-    let _ = fs::write(path, DEFAULT_FLEET_YAML);
-    parse_fleet_yaml(DEFAULT_FLEET_YAML)
+    let mut cfg = if let Ok(content) = fs::read_to_string(path) {
+        parse_fleet_yaml(&content)?
+    } else {
+        let _ = fs::write(path, DEFAULT_FLEET_YAML);
+        parse_fleet_yaml(DEFAULT_FLEET_YAML)?
+    };
+    secret::ensure_session_secret(&mut cfg, path)?;
+    Ok(cfg)
 }
 
 #[cfg(test)]

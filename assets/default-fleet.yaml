@@ -6,7 +6,9 @@
 portal:
   listen_addr: "0.0.0.0:8080"
   database_path: "/config/mesh-mgr.db"
-  session_secret: "change-me"
+  # Leave empty: the daemon generates a random secret and persists it here on first
+  # boot. The daemon refuses to start while this still holds the shipped placeholder.
+  session_secret: ""
 
 ldap:
   url: "ldap://ldap.example.com:389"
