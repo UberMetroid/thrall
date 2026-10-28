@@ -96,7 +96,7 @@ mod tests {
     fn hub(name: &str, online: bool, rtt: u64, mass: u64, devices: &[&str]) -> NodeStatus {
         NodeStatus {
             name: name.into(),
-            ssh_host: String::new(),
+            api_url: String::new(),
             wan_addr: String::new(),
             online,
             disabled: !online,

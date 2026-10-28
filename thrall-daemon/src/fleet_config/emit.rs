@@ -19,7 +19,7 @@ pub fn serialize_fleet_yaml(cfg: &FleetConfig) -> String {
     let (p, l, acsv) = (&cfg.portal, &cfg.ldap, a.join(", "));
     let mut out = format!("portal:\n  listen_addr: \"{}\"\n  database_path: \"{}\"\n  session_secret: \"{}\"\n\nldap:\n  url: \"{}\"\n  base_dn: \"{}\"\n  bind_dn: \"{}\"\n  bind_password: \"{}\"\n  user_filter: \"{}\"\n  admin_users: [{acsv}]\n\nservers:\n", p.listen_addr, p.database_path, p.session_secret, l.url, l.base_dn, l.bind_dn, l.bind_password, l.user_filter);
     for s in &cfg.servers {
-        out.push_str(&format!("  - name: \"{}\"\n    local: {}\n    ssh_host: \"{}\"\n    ssh_user: \"{}\"\n    ssh_key_path: \"{}\"\n    syncthing_api_url: \"{}\"\n    syncthing_api_key: \"{}\"\n    syncthing_wan_addr: \"{}\"\n    users_base_path: \"{}\"\n    shared_base_path: \"{}\"\n", s.name, s.local, s.ssh_host, s.ssh_user, s.ssh_key_path, s.syncthing_api_url, s.syncthing_api_key, s.syncthing_wan_addr, s.users_base_path, s.shared_base_path));
+        out.push_str(&format!("  - name: \"{}\"\n    local: {}\n    syncthing_api_url: \"{}\"\n    syncthing_api_key: \"{}\"\n    syncthing_wan_addr: \"{}\"\n", s.name, s.local, s.syncthing_api_url, s.syncthing_api_key, s.syncthing_wan_addr));
     }
     out
 }

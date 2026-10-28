@@ -19,21 +19,22 @@ ldap:
   admin_users: ["admin"]
 
 servers:
+  # Every peer is reached over its own REST API, authenticated with that
+  # peer's API key. THRALL opens no SSH connection and needs no SSH access to
+  # any machine. A peer that shares the host with the daemon is marked
+  # `local: true` and is reached over the loopback interface; every other peer
+  # must publish its API on a reachable address, such as the host's address on
+  # a private overlay network.
+  #
+  # The API key is the credential that authenticates THRALL against the peer.
+  # Read it once from the peer's own configuration and keep this file private.
   - name: "us-west"
-    ssh_host: "10.0.1.10:22"
-    ssh_user: "root"
-    ssh_key_path: "/config/id_ed25519"
-    syncthing_api_url: "http://127.0.0.1:8384"
+    local: false
+    syncthing_api_url: "http://100.64.0.10:8384"
     syncthing_api_key: ""
-    syncthing_wan_addr: "tcp://west.example.com:22000"
-    users_base_path: "/users"
-    shared_base_path: "/shared"
+    syncthing_wan_addr: "tcp://100.64.0.10:22000"
   - name: "us-east"
-    ssh_host: "10.0.2.10:22"
-    ssh_user: "root"
-    ssh_key_path: "/config/id_ed25519"
-    syncthing_api_url: "http://127.0.0.1:8384"
+    local: false
+    syncthing_api_url: "http://100.64.0.20:8384"
     syncthing_api_key: ""
-    syncthing_wan_addr: "tcp://east.example.com:22000"
-    users_base_path: "/users"
-    shared_base_path: "/shared"
+    syncthing_wan_addr: "tcp://100.64.0.20:22000"

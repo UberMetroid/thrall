@@ -1,12 +1,9 @@
 //! Per-server Syncthing folder provisioning and remote acceptance verification for THRALL.
 
-use std::fs;
-
 use crate::device_store::{sanitize_device_label, syncthing_folder_id, MeshStore};
 use crate::fleet_config::ServerNodeConfig;
 use crate::peer_client::{
-    ensure_folders, ensure_trusted_network, parse_json_string_field, parse_json_u64_field,
-    syncthing_rest,
+    parse_json_string_field, parse_json_u64_field, prepare_folder, syncthing_rest,
 };
 use crate::reconcile_mesh::{build_device_json, build_folder_json, FleetSnapshot};
 
@@ -16,14 +13,15 @@ fn sync_folder(
     key: &str,
     fid: &str,
     flbl: &str,
-    hp: &str,
     cp: &str,
     devs: &[String],
     ro: bool,
 ) -> u64 {
-    let _ = fs::create_dir_all(format!("{cp}/.stfolder"));
-    let dirs = vec![format!("{hp}/.stfolder")];
-    let _ = ensure_folders(srv, &dirs);
+    // A peer that shares the host also shares its storage, so the folder
+    // directory is prepared here. A remote peer creates the folder path
+    // itself when the folder configuration is applied, so there is nothing
+    // to prepare and nothing to reach the host for.
+    let _ = prepare_folder(srv, cp);
     let f_json = build_folder_json(fid, flbl, cp, devs, ro);
     let put_ep = format!("/rest/config/folders/{fid}");
     let scan_ep = format!("/rest/db/scan?folder={fid}");
@@ -67,18 +65,16 @@ type AccList = Vec<(String, bool)>;
 #[rustfmt::skip]
 pub fn sync_folder_group(srv: &ServerNodeConfig, key: &str, online_ids: &[String], store: &MeshStore, user: Option<&str>, fname: &str, check_acc: bool) -> (u64, AccList, AccList) {
     let flow = fname.to_ascii_lowercase();
-    let (mfid, flbl, hp, cp, scope_f, users): (_, _, _, _, _, Vec<String>) = if let Some(u) = user {
-        let u_base = srv.users_base_path.trim_end_matches('/');
-        (syncthing_folder_id(&format!("user:{u}:{flow}:mesh")), format!("{u}/{fname}"), format!("{u_base}/{u}/{fname}"), format!("/users/{u}/{fname}"), format!("personal:{fname}"), vec![u.to_string()])
+    let (mfid, flbl, cp, scope_f, users): (_, _, _, _, Vec<String>) = if let Some(u) = user {
+        (syncthing_folder_id(&format!("user:{u}:{flow}:mesh")), format!("{u}/{fname}"), format!("/users/{u}/{fname}"), format!("personal:{fname}"), vec![u.to_string()])
     } else {
-        let (sh_base, r) = (srv.shared_base_path.trim_end_matches('/'), fname == "Shared");
+        let r = fname == "Shared";
         let flbl = if r { "Shared".into() } else { format!("Shared ({fname})") };
-        let hp = if r { sh_base.into() } else { format!("{sh_base}/{fname}") };
         let cp = if r { "/shared".into() } else { format!("/shared/{fname}") };
         let us = store.shared_folders.get(fname).into_iter().flatten().cloned().collect();
-        (syncthing_folder_id(&format!("shared:{flow}:mesh")), flbl, hp, cp, format!("shared:{fname}"), us)
+        (syncthing_folder_id(&format!("shared:{flow}:mesh")), flbl, cp, format!("shared:{fname}"), us)
     };
-    let mut pct = sync_folder(srv, key, &mfid, &flbl, &hp, &cp, online_ids, false);
+    let mut pct = sync_folder(srv, key, &mfid, &flbl, &cp, online_ids, false);
     let (mut u_acc, mut d_acc) = (Vec::new(), Vec::new());
     for u in users {
         let ro = user.is_none() && store.is_shared_readonly(fname, &u);
@@ -96,7 +92,7 @@ pub fn sync_folder_group(srv: &ServerNodeConfig, key: &str, online_ids: &[String
             if !cdevs.contains(&d.device_id) {
                 cdevs.push(d.device_id.clone());
             }
-            pct = pct.min(sync_folder(srv, key, &cfid, &flbl, &hp, &cp, &cdevs, ro));
+            pct = pct.min(sync_folder(srv, key, &cfid, &flbl, &cp, &cdevs, ro));
             if check_acc {
                 let ok = is_accepted(srv, key, &cfid, &d.device_id);
                 all_ok &= ok;
@@ -153,7 +149,8 @@ pub fn reconcile_server_node(
     store: &mut MeshStore,
     snap: &mut FleetSnapshot,
 ) {
-    let _ = ensure_trusted_network(srv);
+    // The peer manages its own firewall. THRALL never reaches into a host to
+    // change its network rules.
     discover_device_labels(srv, key, store);
     for p in snap
         .nodes

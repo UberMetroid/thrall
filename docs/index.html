@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THRALL v0.4.5 — Tool for Hierarchical Replication And Identity Linking</title>
+  <title>THRALL v0.5.0 — Tool for Hierarchical Replication And Identity Linking</title>
   <meta name="description" content="Zero-dependency static Rust multi-server Syncthing control plane, 5-tab boxless web explorer, XDG & custom folder orchestrator, and 8-bit telemetry dock.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="alternate" type="text/markdown" href="https://ubermetroid.github.io/ahamkara/llms.txt" title="Rite of Communion (llms.txt)">
@@ -120,7 +120,7 @@
       <h1>THRALL</h1>
       <div class="subtitle">Tool for Hierarchical Replication And Identity Linking</div>
       <div class="badges">
-        <span class="badge">v0.4.5 Release</span>
+        <span class="badge">v0.5.0 Release</span>
         <span class="badge">Zero External Crates (std only)</span>
         <span class="badge blue">54px Symmetric Dock &amp; 8-Bit Flow Graph</span>
         <span class="badge purple">5 Boxless SPA Explorer Tabs</span>
@@ -131,7 +131,7 @@
       </p>
       <div class="btn-row">
         <a class="btn" href="https://github.com/UberMetroid/thrall">View on GitHub &rarr;</a>
-        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.4.5">v0.4.5 Release Notes</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.5.0">v0.5.0 Release Notes</a>
         <a class="btn secondary" href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a>
         <a class="btn secondary" href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Wish-Dragon Communion</a>
       </div>
@@ -141,6 +141,7 @@
       <div class="ticker-track">
         <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
         <span class="chip">&#129504; ONE CONTROL PLANE &bull; PEER CONTAINER ON EVERY HUB</span>
+        <span class="chip">&#128274; NO SSH CLIENT &bull; AUTHENTICATED PEER APIs</span>
         <span class="chip">&#127912; 54PX HEADER &amp; FOOTER DOCK + 8-BIT RAINBOW PALETTE</span>
         <span class="chip">&#128202; REAL-TIME BROWSER &harr; MESH 8-BIT DATA FLOW GRAPH</span>
         <span class="chip">&#128193; + STANDARD FOLDER (XDG) &amp; + CUSTOM FOLDER MODALS</span>
@@ -148,6 +149,7 @@
         <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
         <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
         <span class="chip">&#129504; ONE CONTROL PLANE &bull; PEER CONTAINER ON EVERY HUB</span>
+        <span class="chip">&#128274; NO SSH CLIENT &bull; AUTHENTICATED PEER APIs</span>
         <span class="chip">&#127912; 54PX HEADER &amp; FOOTER DOCK + 8-BIT RAINBOW PALETTE</span>
         <span class="chip">&#128202; REAL-TIME BROWSER &harr; MESH 8-BIT DATA FLOW GRAPH</span>
         <span class="chip">&#128193; + STANDARD FOLDER (XDG) &amp; + CUSTOM FOLDER MODALS</span>
@@ -195,18 +197,18 @@
     +----------------------------------------------+
     |         Control-plane host  (ONE per fleet)  |
     |                                              |
-    |           [ thrall container ]               |
-    |             - RFC 4511 LDAP bind             |
-    |             - 5-tab self-service portal      |
-    |             - roster / topology / ACLs in    |
-    |               /config/mesh-mgr.db            |
-    |             - reconciler: calls each peer    |
-    |               REST API, never its data       |
+    |         [ thrall container ]                 |
+    |           - RFC 4511 LDAP bind               |
+    |           - 5-tab self-service portal        |
+    |           - roster / topology / ACLs in      |
+    |             /config/mesh-mgr.db              |
+    |           - reconciler: calls each peer's    |
+    |             authenticated REST API           |
+    |           - no SSH client, no SSH access     |
     +--------+---------------+---------------+-----+
              |               |               |
            REST            REST            REST
-         (direct)         (SSH or         (SSH or
-          local)        Tailscale)      Tailscale)
+        (loopback)       (tailnet)       (tailnet)
              |               |               |
              v               v               v
       +------------+  +------------+  +------------+
@@ -216,7 +218,8 @@
       +------------+  +------------+  +------------+
 </pre>
       <p><strong>Do not install THRALL on every hub.</strong> The roster is a single-writer whole-file store with no lock, no version counter, and no merge; every control plane reconciles <em>every</em> hub listed in <code>fleet.yaml</code>; and portal identity &mdash; session secret, LDAP bind, portal surface &mdash; is per-instance. <code>N</code> control planes therefore mean <code>N &times; N</code> reconciliation writes racing into the same peers, plus <code>N</code> portals and <code>N</code> credential sets to defend. That is a duplicated brain, not redundancy. For failover, use a <strong>warm standby</strong>: a second control plane holding a standby copy of <code>mesh-mgr.db</code>, promoted deliberately and never reconciling concurrently with the primary.</p>
-      <p>Each peer is reached over its REST API only. Set <code>local: true</code> when a peer shares the host with the daemon and THRALL calls it directly &mdash; no SSH into the local machine, and the peer's own config file is never read. Remote peers are reached over SSH with every SSH-bound value shell-quoted and folder sub-paths percent-encoded. Give every peer its own <code>syncthing_api_key</code>, and publish peer APIs on a private overlay network rather than the public internet.</p>
+      <p>Every peer is reached over <strong>its own REST API</strong>, authenticated with <strong>that peer's API key</strong>. A peer that shares the host with the daemon (<code>local: true</code>) is reached over the loopback interface; every other peer publishes the same API on a reachable address, such as its address on a private overlay network. The peer creates its own folder paths when the folder configuration is applied, so the daemon never touches a peer's filesystem.</p>
+      <p>The control-plane image ships <strong>no SSH client</strong>. There is no <code>ssh</code> binary in it, no SSH key in the fleet configuration, and no fleet-wide credential that can reach every hub at once &mdash; a per-peer API key is scoped to one peer's REST surface. A remote peer whose <code>syncthing_api_url</code> points at loopback is refused at discovery time rather than silently landing on the local peer.</p>
       <p>Every commit passes the 4-step Rust Verification Ladder and the 16–256 line Page Rule gate:</p>
 <pre>
 cargo test --workspace --all-targets
@@ -228,7 +231,7 @@ cargo build --release --workspace
 
     <div class="card">
       <h2>[05] Fedora-Minimal Container &amp; Quadlet Deployment</h2>
-      <p>Fedora-native supply chain: a hardened <code>fedora-minimal:44</code> OCI image built from signed Fedora packages only &mdash; no Alpine/BusyBox, no Guix daemon, no package manager, and no Syncthing binary in the control-plane runtime image. Bundles the zero-dependency <code>thrall</code> controller and <code>openssh-clients</code> + <code>curl</code> for zero-shell SSH fleet transport &mdash; nothing else.</p>
+      <p>Fedora-native supply chain: a hardened <code>fedora-minimal:44</code> OCI image built from signed Fedora packages only &mdash; no Alpine/BusyBox, no Guix daemon, no package manager, no SSH client, and no Syncthing binary in the control-plane runtime image. Bundles the zero-dependency <code>thrall</code> controller and <code>curl</code> for the authenticated peer REST API transport &mdash; nothing else.</p>
 <pre>
 # Build locally (or: sudo podman pull ghcr.io/ubermetroid/thrall:latest)
 sudo podman build -t localhost/thrall:latest -f Containerfile .
@@ -242,7 +245,7 @@ sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart syncthing.service
     </div>
 
     <footer>
-      THRALL v0.4.5 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
+      THRALL v0.5.0 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
     </footer>
   </div>
   <div class="chibi-dock">

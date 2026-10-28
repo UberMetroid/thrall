@@ -17,7 +17,7 @@ use crate::render_portal::reconcile_folders;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeStatus {
     pub name: String,
-    pub ssh_host: String,
+    pub api_url: String,
     pub wan_addr: String,
     pub online: bool,
     pub disabled: bool,
@@ -67,10 +67,10 @@ pub fn build_folder_json(fid: &str, label: &str, path: &str, device_ids: &[Strin
 }
 
 #[rustfmt::skip]
-fn tcp_ping_ms(wan_addr: &str, ssh_host: &str) -> u64 {
-    let raw = wan_addr.strip_prefix("tcp://").unwrap_or(ssh_host);
+fn tcp_ping_ms(wan_addr: &str) -> u64 {
+    let raw = wan_addr.strip_prefix("tcp://").unwrap_or(wan_addr);
     let target = if raw.contains(':') { raw.to_string() } else { format!("{raw}:22000") };
-    if let Some(addr) = target.to_socket_addrs().ok().and_then(|mut i| i.next()) {
+    if let Some(addr) = target.to_ascii_lowercase().to_socket_addrs().ok().and_then(|mut i| i.next()) {
         let t0 = Instant::now();
         if TcpStream::connect_timeout(&addr, Duration::from_millis(800)).is_ok() {
             return (t0.elapsed().as_millis() as u64).max(1);
@@ -95,11 +95,11 @@ pub fn parse_connected_device_ids(c1: &str) -> Vec<String> {
 #[rustfmt::skip]
 pub fn discover_node(node: &ServerNodeConfig, disabled: bool, prev: Option<&NodeStatus>) -> NodeStatus {
     let err = if disabled { "Disconnected by admin" } else { "" };
-    let rtt = if disabled { 0 } else { tcp_ping_ms(&node.syncthing_wan_addr, &node.ssh_host) };
+    let rtt = if disabled { 0 } else { tcp_ping_ms(&node.syncthing_wan_addr) };
     let mut h_hash = 0xcbf2_9ce4_8422_2325u64;
-    for b in node.ssh_host.bytes() { h_hash = (h_hash ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3); }
+    for b in node.syncthing_api_url.bytes() { h_hash = (h_hash ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3); }
     let mut st = NodeStatus {
-        name: node.name.clone(), ssh_host: node.ssh_host.clone(), wan_addr: node.syncthing_wan_addr.clone(),
+        name: node.name.clone(), api_url: node.syncthing_api_url.clone(), wan_addr: node.syncthing_wan_addr.clone(),
         online: false, disabled, device_id: String::new(), api_key: String::new(), uptime_sec: 0,
         active_conns: 0, in_bps: 0, out_bps: 0, rx_bytes: 0, tx_bytes: 0, total_bytes: 0, rtt_ms: rtt, bearing_deg: h_hash % 360,
         connected_ids: Vec::new(), last_error: err.to_string(),

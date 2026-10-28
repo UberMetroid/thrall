@@ -19,7 +19,7 @@ A **page** is one committed Rust file. Every page holds one idea, fits in one he
 - `[GATE:test]` **Directory Density (≤ 8 files)**: At most 8 `.rs` files per directory.
 - `[GATE:test]` **Banned Drawer Filenames**: `util.rs`, `utils.rs`, `helper.rs`, `helpers.rs`, `common.rs`, `misc.rs`, `shared.rs`, `base.rs`, `core.rs`.
 - `[POLICY]` **Domain Naming Recipe**:
-  - Action pages: `ldap_bind.rs`, `ssh_syncthing.rs`, `reconcile_mesh.rs`, `render_portal.rs`.
+  - Action pages: `ldap_bind.rs`, `peer_client.rs`, `reconcile_mesh.rs`, `render_portal.rs`.
   - State pages: `fleet_config.rs`, `device_store.rs`, `portal_server.rs`.
 - `[POLICY]` **Blobs Out**: Move static configurations and stylesheets into `assets/` and load with `include_str!`.
 

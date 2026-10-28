@@ -1,17 +1,7 @@
-//! Minimal extractors for the Syncthing REST API responses and config XML.
+//! Minimal extractors for the Syncthing REST API responses.
 //!
-//! Kept separate from the SSH transport so the transport module can focus on
-//! running commands safely on remote hosts.
-
-/// Extract the text content of a simple XML tag.
-pub fn extract_xml_tag(xml: &str, tag: &str) -> Option<String> {
-    let open = format!("<{tag}>");
-    let close = format!("</{tag}>");
-    let start = xml.find(&open)? + open.len();
-    let end = xml[start..].find(&close)? + start;
-    let val = xml[start..end].trim();
-    (!val.is_empty()).then(|| val.to_string())
-}
+//! Kept separate from the transport so the transport module can focus on
+//! making the call and reading the reply.
 
 /// Extract a string field from a JSON object.
 pub fn parse_json_string_field(json: &str, field: &str) -> Option<String> {
@@ -62,10 +52,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_xml_and_json_extractors() {
-        let xml = "<configuration><gui><apikey>abc123xyz</apikey></gui></configuration>";
-        assert_eq!(extract_xml_tag(xml, "apikey").as_deref(), Some("abc123xyz"));
-
+    fn test_json_extractors() {
         let status_json = r#"{"myID": "T4U7YLJ-I6PFVWY", "uptime": 42, "connected": true}"#;
         assert_eq!(
             parse_json_string_field(status_json, "myID").as_deref(),

@@ -102,6 +102,11 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
 
     // The control-plane daemon must never spawn or reference a local Syncthing
     // binary either: no env-var opt-in, no binary path, no spawn helper.
+    //
+    // The same rule covers SSH. THRALL reaches every peer over that peer's own
+    // authenticated REST API, so there is nothing left for an SSH client to do.
+    // A fleet-wide SSH key can reach every hub at once; a per-peer API key is
+    // scoped to one peer's REST surface. The image must not even carry one.
     let mut daemon_files = Vec::new();
     collect_rs_files(workspace_root, &mut daemon_files);
     for file in &daemon_files {
@@ -114,15 +119,38 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
             "/bin/syncthing",
             "/usr/bin/syncthing",
             "maybe_spawn_local_syncthing",
+            "Command::new(\"ssh\")",
+            "openssh",
+            "/usr/bin/ssh",
+            "/bin/ssh",
+            "ssh_host",
+            "ssh_user",
+            "ssh_key_path",
         ] {
             assert!(
                 !content.contains(needle),
-                "the thrall daemon must not reference a local syncthing binary \
-                 ({needle}) in {}",
+                "the thrall daemon must not reference a local Syncthing binary or an SSH \
+                 client ({needle}) in {}",
                 file.display()
             );
         }
     }
+
+    // The image must not install an SSH client either.
+    assert!(
+        !containerfile.lines().any(|l| {
+            let t = l.trim().to_lowercase();
+            t.contains("microdnf install") && t.contains("openssh")
+        }),
+        "the thrall control-plane image must not install an SSH client"
+    );
+
+    // The shipped fleet template must not carry SSH settings.
+    let fleet = fs::read_to_string(workspace_root.join("assets/default-fleet.yaml"))?;
+    assert!(
+        !fleet.contains("ssh_"),
+        "the default fleet configuration must not carry SSH settings"
+    );
 
     let quadlet = fs::read_to_string(workspace_root.join("quadlet/thrall.container"))?;
     assert!(quadlet.contains("NoNewPrivileges=true"));

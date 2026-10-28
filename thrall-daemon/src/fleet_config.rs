@@ -28,17 +28,14 @@ pub struct LdapConfig {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerNodeConfig {
     pub name: String,
-    /// True when this peer shares the host with the daemon and is reached
-    /// directly over its REST API instead of over SSH.
+    /// True when this peer shares the host with the daemon.
     pub local: bool,
-    pub ssh_host: String,
-    pub ssh_user: String,
-    pub ssh_key_path: String,
+    /// Base URL of the peer's REST API.
     pub syncthing_api_url: String,
+    /// API key that authenticates the daemon against the peer's REST API.
     pub syncthing_api_key: String,
+    /// The peer's Block Exchange Protocol address, advertised to other peers.
     pub syncthing_wan_addr: String,
-    pub users_base_path: String,
-    pub shared_base_path: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -124,14 +121,9 @@ pub fn parse_fleet_yaml(raw: &str) -> Result<FleetConfig, String> {
             let mut srv = ServerNodeConfig {
                 name: String::new(),
                 local: false,
-                ssh_host: String::new(),
-                ssh_user: "root".to_string(),
-                ssh_key_path: "/config/id_ed25519".to_string(),
                 syncthing_api_url: "http://127.0.0.1:8384".to_string(),
                 syncthing_api_key: String::new(),
                 syncthing_wan_addr: "dynamic".to_string(),
-                users_base_path: "/users".to_string(),
-                shared_base_path: "/shared".to_string(),
             };
             let rest = trimmed.trim_start_matches("- ").trim();
             if let Some((k, v)) = rest.split_once(':') {
@@ -182,14 +174,9 @@ fn apply_server_field(srv: &mut ServerNodeConfig, key: &str, raw_val: &str) {
     match key {
         "name" => srv.name = val,
         "local" => srv.local = val == "true" || val == "yes" || val == "1",
-        "ssh_host" => srv.ssh_host = val,
-        "ssh_user" => srv.ssh_user = val,
-        "ssh_key_path" => srv.ssh_key_path = val,
         "syncthing_api_url" => srv.syncthing_api_url = val,
         "syncthing_api_key" => srv.syncthing_api_key = val,
         "syncthing_wan_addr" => srv.syncthing_wan_addr = val,
-        "users_base_path" => srv.users_base_path = val,
-        "shared_base_path" => srv.shared_base_path = val,
         _ => {}
     }
 }

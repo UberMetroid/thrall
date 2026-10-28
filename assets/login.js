@@ -928,9 +928,9 @@
       ],
       5: [
         { title: 'BACKBONE', body: 'Regional Thrall Hubs form a full mesh over port 22000 while serving Client Devices as hub-and-spoke.' },
-        { title: 'FAST SSH', body: 'THRALL manages regional hubs over persistent OpenSSH ControlMaster sockets for sub-second updates.' },
+        { title: 'FAST API', body: 'THRALL manages regional hubs over their authenticated REST APIs. No SSH access is required on any machine.' },
         { title: 'HUB CONTROL', body: 'Click Disconnect to isolate a regional hub from the mesh, or Reconcile for a full fleet refresh.' },
-        { title: 'ADD HUB', body: 'Enter a hub name and Tailscale/mesh IP to peer a new regional hub into the mesh.' }
+        { title: 'ADD HUB', body: 'Enter a hub name, its API URL, and its API key to peer a new regional hub into the mesh.' }
       ]
     };
 
@@ -1422,7 +1422,8 @@
           '<h3>Add Mesh Hub</h3>' +
           '<form method="POST" action="/admin/servers/add">' +
           '<div style="margin-bottom:0.65rem"><input type="text" name="name" required placeholder="Hub Name (e.g. hyperion)"></div>' +
-          '<div style="margin-bottom:0.85rem"><input type="text" name="host" required placeholder="Tailscale IP / Host (e.g. 100.x.y.z)"></div>' +
+          '<div style="margin-bottom:0.65rem"><input type="text" name="api_url" required placeholder="Peer API URL (e.g. http://100.x.y.z:8384)"></div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="api_key" required placeholder="Peer API Key (from the peer config)"></div>' +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
           '<button type="submit">Add Hub</button>' +

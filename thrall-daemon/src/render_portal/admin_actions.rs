@@ -23,30 +23,15 @@ pub fn short_id(dev_id: &str) -> String {
         .to_ascii_lowercase()
 }
 
-fn new_node(name: &str, host: &str, tmpl: Option<&ServerNodeConfig>) -> ServerNodeConfig {
-    let (ip, _) = host.split_once(':').unwrap_or((host, "22"));
-    let sh = if host.contains(':') {
-        host.into()
-    } else {
-        format!("{host}:22")
-    };
-    let u = tmpl.map_or("root", |s| &s.ssh_user).into();
-    let k = tmpl
-        .map_or("/config/id_ed25519", |s| &s.ssh_key_path)
-        .into();
-    let ub = tmpl.map_or("/users", |s| &s.users_base_path).into();
-    let sb = tmpl.map_or("/shared", |s| &s.shared_base_path).into();
+/// Build a fleet entry for a peer reached over its authenticated REST API.
+fn new_node(name: &str, api_url: &str, api_key: &str) -> ServerNodeConfig {
+    let host = crate::peer_client::host_of(api_url);
     ServerNodeConfig {
         name: name.to_ascii_lowercase(),
         local: false,
-        ssh_host: sh,
-        ssh_user: u,
-        ssh_key_path: k,
-        syncthing_api_url: "http://127.0.0.1:8384".into(),
-        syncthing_api_key: String::new(),
-        syncthing_wan_addr: format!("tcp://{ip}:22000"),
-        users_base_path: ub,
-        shared_base_path: sb,
+        syncthing_api_url: api_url.trim().to_string(),
+        syncthing_api_key: api_key.trim().to_string(),
+        syncthing_wan_addr: format!("tcp://{host}:22000"),
     }
 }
 
@@ -154,12 +139,14 @@ pub fn handle_admin_post_action(
         return true;
     }
     if path == "/admin/servers/add" {
-        let host = fval("host").trim();
-        let valid_h = !host.is_empty() && host.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | ':'));
+        let api_url = fval("api_url").trim();
+        let api_key = fval("api_key").trim();
+        let url_ok = crate::peer_client::validate_api_url(api_url).is_ok();
+        let key_ok = crate::peer_client::validate_api_key(api_key).is_ok();
         if let Ok(name) = sanitize_folder_name(fval("name")) {
             let nlow = name.to_ascii_lowercase();
-            if valid_h && !cfg.servers.iter().any(|s| s.name == nlow) {
-                let node = new_node(&nlow, host, cfg.servers.first());
+            if url_ok && key_ok && !cfg.servers.iter().any(|s| s.name == nlow) {
+                let node = new_node(&nlow, api_url, api_key);
                 cfg.servers.push(node);
                 let _ = save_fleet_config("/config/fleet.yaml", cfg);
                 *snap = reconcile_fleet(cfg, store);
@@ -167,7 +154,7 @@ pub fn handle_admin_post_action(
                 return true;
             }
         }
-        write_redirect(stream, "/?tab=admin&err=Invalid+Mesh+Hub+name+or+host", "");
+        write_redirect(stream, "/?tab=admin&err=Invalid+Mesh+Hub+name,+API+URL+or+API+key", "");
         return true;
     }
     let srv = fval("server").trim();

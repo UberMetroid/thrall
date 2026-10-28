@@ -1,9 +1,11 @@
 # Multi-stage hardened Fedora-minimal Podman Containerfile for THRALL
 # Bundles:
 #   - /bin/thrall: Zero-dependency Rust LDAP + Syncthing mesh controller (stripped, glibc)
-#   - openssh-clients & curl: Zero-shell SSH transport for remote fleet management
+#   - curl: the transport for the authenticated peer REST APIs
 # The Syncthing peer node is NOT bundled here: it runs from the dedicated
 # thrall-syncthing image (Containerfile.syncthing) via quadlet/syncthing.container.
+# No SSH client is installed: THRALL reaches every peer over its REST API and
+# has no use for one.
 # Fedora-native supply chain: signed packages from Fedora repos only - no Alpine/BusyBox, no Guix.
 
 ARG FEDORA_MAJOR=44
@@ -19,7 +21,7 @@ FROM registry.fedoraproject.org/fedora-minimal:${FEDORA_MAJOR}
 # Strip the package managers from the runtime image (smaller attack surface).
 # /usr/bin/microdnf is shipped by the dnf5 package itself, and dnf5 is a
 # protected package - so empty the protection list for this one transaction.
-RUN microdnf install -y openssh-clients curl ca-certificates tzdata \
+RUN microdnf install -y curl ca-certificates tzdata \
     && groupadd -g 1000 thrall \
     && useradd -u 1000 -g 1000 -M -d /config -s /sbin/nologin thrall \
     && mkdir -p /config /users /shared/.stfolder \
