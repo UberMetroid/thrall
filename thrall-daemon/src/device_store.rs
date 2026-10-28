@@ -28,6 +28,8 @@ pub struct MeshStore {
     pub disabled_servers: BTreeSet<String>,
     pub public_shares: BTreeMap<String, String>,
     pub folder_paths: BTreeMap<(String, String), String>,
+    pub shared_readonly: BTreeSet<(String, String)>,
+    pub device_excluded_folders: BTreeSet<(String, String)>,
 }
 
 fn luhn_base32_check_char(chunk13: &[u8]) -> Option<u8> {
@@ -141,6 +143,14 @@ impl MeshStore {
         self.folder_paths.get(&(user.to_string(), scope_folder.to_string())).cloned().unwrap_or_else(|| default_local_path(scope_folder))
     }
 
+    pub fn is_shared_readonly(&self, folder: &str, user: &str) -> bool {
+        self.shared_readonly.contains(&(folder.to_string(), user.to_string()))
+    }
+
+    pub fn is_device_folder_excluded(&self, dev_id: &str, scope_folder: &str) -> bool {
+        self.device_excluded_folders.contains(&(dev_id.to_string(), scope_folder.to_string()))
+    }
+
     pub fn parse(content: &str) -> Self {
         let mut store = Self::default();
         for l in content.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
@@ -148,6 +158,15 @@ impl MeshStore {
                 if let Ok(fname) = sanitize_folder_name(f) {
                     let set = store.shared_folders.entry(fname).or_default();
                     for u in csv.split(',').filter_map(|x| sanitize_username(x).ok()) { set.insert(u); }
+                }
+            } else if let Some((f, u)) = l.strip_prefix("@shared_ro\t").and_then(|r| r.split_once('\t')) {
+                if let (Ok(fnm), Ok(un)) = (sanitize_folder_name(f), sanitize_username(u)) {
+                    store.shared_readonly.insert((fnm, un));
+                }
+            } else if let Some((did, sf)) = l.strip_prefix("@dev_excl\t").and_then(|r| r.split_once('\t')) {
+                let ok_sf = sf.strip_prefix("personal:").or_else(|| sf.strip_prefix("shared:")).is_some_and(|f| sanitize_folder_name(f).is_ok());
+                if let (true, Ok(id)) = (ok_sf, normalize_and_verify_device_id(did)) {
+                    store.device_excluded_folders.insert((id, sf.to_string()));
                 }
             } else if let Some(rest) = l.strip_prefix("@user_folders\t") {
                 let (u, csv) = rest.split_once('\t').unwrap_or((rest, ""));
@@ -192,6 +211,8 @@ impl MeshStore {
             let joined: Vec<&str> = users.iter().map(String::as_str).collect();
             out.push_str(&format!("@share\t{folder}\t{}\n", joined.join(",")));
         }
+        for (f, u) in &self.shared_readonly { out.push_str(&format!("@shared_ro\t{f}\t{u}\n")); }
+        for (did, sf) in &self.device_excluded_folders { out.push_str(&format!("@dev_excl\t{did}\t{sf}\n")); }
         for srv in &self.disabled_servers { out.push_str(&format!("@disabled_server\t{srv}\n")); }
         for (tok, tgt) in &self.public_shares { out.push_str(&format!("@link\t{tok}\t{tgt}\n")); }
         out

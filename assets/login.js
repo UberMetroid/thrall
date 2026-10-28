@@ -85,6 +85,9 @@
     if (window.thrallRenderFooterGraph) {
       window.thrallRenderFooterGraph();
     }
+    if (window.thrallRenderFooterWidgets) {
+      window.thrallRenderFooterWidgets();
+    }
   }
 
   function renderHeaderWordmark() {
@@ -173,6 +176,7 @@
     bgIdx = 1 + Math.floor(Math.random() * 5);
   }
   window.thrallBgIdx = bgIdx;
+  window.thrallWarpActive = false;
   if (document.body) {
     document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
   }
@@ -183,12 +187,26 @@
       document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + bgIdx + ".jpg')";
     }
     var canvas = document.getElementById('spotlight-canvas');
+    var bgImg = new Image();
+    var bgReady = false;
+    window.thrallSetBgIdx = function (idx) {
+      var n = ((idx - 1 + 5) % 5) + 1;
+      bgIdx = n;
+      window.thrallBgIdx = n;
+      try {
+        sessionStorage.setItem('thrall_bg_idx', String(n));
+      } catch (e) {}
+      if (document.body) {
+        document.body.style.backgroundImage = "linear-gradient(rgba(7, 8, 9, 0.86), rgba(7, 8, 9, 0.92)), url('/bg-" + n + ".jpg')";
+      }
+      bgReady = false;
+      bgImg.src = '/bg-' + n + '.jpg';
+      if (window.thrallRenderSpotlight) window.thrallRenderSpotlight();
+    };
     if (!canvas) return;
     var ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
-    var bgImg = new Image();
-    var bgReady = false;
     bgImg.onload = function () {
       bgReady = true;
       wakeRender();
@@ -395,7 +413,8 @@
       rafId = 0;
       var sec = t * 0.001;
       var throughputBoost = Math.min(2.4, Math.log10((totalBps || 0) + 10) * 0.32);
-      var spinRate = 0.22 + throughputBoost * 0.38;
+      var warpMult = window.thrallWarpActive ? 4.2 : 1.0;
+      var spinRate = (0.22 + throughputBoost * 0.38) * warpMult;
       var baryDx = 0, baryDy = 0, weightSum = 0;
       for (var bm = 0; bm < meshCount; bm++) {
         var mw = Math.log10((meshMasses[bm] || 1024) + 10);
@@ -977,13 +996,38 @@
     '7': ['111', '001', '001', '010', '010'],
     '8': ['111', '101', '111', '101', '111'],
     '9': ['111', '101', '111', '001', '111'],
-    '%': ['101', '001', '010', '100', '101'],
+    'A': ['010', '101', '111', '101', '101'],
     'B': ['110', '101', '110', '101', '110'],
+    'C': ['111', '100', '100', '100', '111'],
+    'D': ['110', '101', '101', '101', '110'],
+    'E': ['111', '100', '110', '100', '111'],
+    'F': ['111', '100', '110', '100', '100'],
+    'G': ['111', '100', '101', '101', '111'],
+    'H': ['101', '101', '111', '101', '101'],
+    'I': ['111', '010', '010', '010', '111'],
+    'J': ['001', '001', '001', '101', '111'],
     'K': ['101', '101', '110', '101', '101'],
+    'L': ['100', '100', '100', '100', '111'],
     'M': ['101', '111', '111', '101', '101'],
-    '/': ['001', '001', '010', '100', '100'],
+    'N': ['101', '111', '111', '111', '101'],
+    'O': ['111', '101', '101', '101', '111'],
+    'P': ['111', '101', '111', '100', '100'],
+    'Q': ['111', '101', '101', '111', '001'],
+    'R': ['110', '101', '110', '101', '101'],
     'S': ['111', '100', '111', '001', '111'],
-    '.': ['000', '000', '000', '000', '010']
+    'T': ['111', '010', '010', '010', '010'],
+    'U': ['101', '101', '101', '101', '111'],
+    'V': ['101', '101', '101', '101', '010'],
+    'W': ['101', '101', '111', '111', '101'],
+    'X': ['101', '101', '010', '101', '101'],
+    'Y': ['101', '101', '010', '010', '010'],
+    'Z': ['111', '001', '010', '100', '111'],
+    '%': ['101', '001', '010', '100', '101'],
+    '/': ['001', '001', '010', '100', '100'],
+    ':': ['000', '010', '000', '010', '000'],
+    '-': ['000', '000', '111', '000', '000'],
+    '.': ['000', '000', '000', '000', '010'],
+    ' ': ['000', '000', '000', '000', '000']
   };
 
   function initTelemetryPolling() {
@@ -1004,6 +1048,7 @@
           }
           if (!d) return;
           if (window.thrallApplyLiveTelemetry) window.thrallApplyLiveTelemetry(d);
+          if (window.thrallUpdateFooterTelemetry) window.thrallUpdateFooterTelemetry(d);
           var elHubs = document.getElementById('tui-hubs');
           if (elHubs) elHubs.textContent = padRight(d.hubs_online + '/' + d.hubs_total, 8);
           var elLinks = document.getElementById('tui-links');
@@ -1017,6 +1062,7 @@
         })
         .catch(function () {});
     }
+    setTimeout(poll, 900);
     setInterval(poll, 15000);
   }
 
@@ -1246,7 +1292,23 @@
       var rbr = openBtn.getAttribute('data-ret-br') || '';
       var lbl = openBtn.getAttribute('data-label') || '';
 
-      if (kind === 'create-standard-folder') {
+      if (kind === 'about-thrall') {
+        openModal(
+          '<h3>About THRALL</h3>' +
+          '<p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.55;margin-bottom:0.75rem">' +
+          '<strong>THRALL</strong> (<em>Tool for Hierarchical Replication And Identity Linking</em>) is a zero-trust multi-server Syncthing control plane and self-service web portal written in pure-std Rust.' +
+          '</p>' +
+          '<div class="grid" style="gap:0.5rem;margin-bottom:0.9rem;font-size:0.78rem;font-family:var(--mono)">' +
+          '<a href="https://github.com/UberMetroid/thrall" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--accent)"><span>&#128214; THRALL GitHub Repository</span><span>&nearr;</span></a>' +
+          '<a href="https://syncthing.net/" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--text)"><span>&#128279; Syncthing &amp; BEP Protocol</span><span>&nearr;</span></a>' +
+          '<a href="https://github.com/UberMetroid/tuition-not-coffee" target="_blank" rel="noopener" class="user-chip" style="justify-content:space-between;text-decoration:none;color:var(--warn)"><span>&#127891; Tuition, Not Coffee (College Fund)</span><span>&nearr;</span></a>' +
+          '</div>' +
+          '<div class="row" style="justify-content:flex-end">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Close</button>' +
+          '</div>',
+          false
+        );
+      } else if (kind === 'create-standard-folder') {
         var existingRaw = (openBtn.getAttribute('data-existing') || '').split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
         var xdgAll = ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Public', 'Templates'];
         var xdgCommon = ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos'];
@@ -1280,7 +1342,13 @@
         openModal(
           '<h3>Create Custom Folder</h3>' +
           '<form method="POST" action="/user/folders/create">' +
-          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" required placeholder="Folder Name (e.g. Projects)"></div>' +
+          '<div style="margin-bottom:0.65rem"><input type="text" name="folder" required placeholder="Folder Name (e.g. Projects)"></div>' +
+          '<div style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.65rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">' +
+          '<span>Sync to:</span>' +
+          '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="xdg_root" value="thrall" checked> <code>~/Thrall/&lt;Folder&gt;</code></label>' +
+          '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="xdg_root" value="home"> <code>~/&lt;Folder&gt;</code></label>' +
+          '</div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="local_path" placeholder="Optional custom local path (e.g. ~/Work/Projects)"></div>' +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
           '<button type="submit">Create Folder</button>' +
@@ -1358,6 +1426,23 @@
       } else if (kind === 'enroll-spoke') {
         var tmpl = document.getElementById('tmpl-enroll-spoke');
         var gwHtml = tmpl ? tmpl.innerHTML : '';
+        var fListRaw = (openBtn.getAttribute('data-folders') || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        var selChecks = '';
+        for (var fi = 0; fi < fListRaw.length; fi++) {
+          var fk = fListRaw[fi];
+          var isShared = fk.indexOf('shared:') === 0;
+          var fn = fk.indexOf(':') !== -1 ? fk.split(':')[1] : fk;
+          var icon = isShared ? '&#127760; Shared / ' : '&#128193; Personal / ';
+          selChecks += '<label class="user-chip"><input type="checkbox" name="sync_folders" value="' + escHtml(fk) + '" checked>' + icon + escHtml(fn) + '</label>';
+        }
+        var selBlock = fListRaw.length
+          ? '<div style="font-size:0.76rem;color:var(--text-secondary);margin-bottom:0.55rem;display:flex;gap:0.85rem;flex-wrap:wrap;align-items:center">' +
+            '<span>Initial Sync:</span>' +
+            '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="sync_mode" value="all" checked> Sync Everything</label>' +
+            '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="sync_mode" value="selective"> Selective Sync</label>' +
+            '</div>' +
+            '<div id="thrall-selective-sync-grid" class="acl-user-grid" style="display:none;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0.85rem">' + selChecks + '</div>'
+          : '<input type="hidden" name="sync_mode" value="all">';
         openModal(
           '<h3>Add Device (Two-Way Handshake)</h3>' +
           '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem">' +
@@ -1366,7 +1451,8 @@
           '</div>' +
           '<form method="POST" action="/devices/add">' +
           '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.45rem"><strong>Step 2 (In This Portal):</strong> Paste your Device\'s 56-character ID (from <em>Actions &rarr; Show ID</em>):</div>' +
-          '<div style="margin-bottom:0.85rem"><input type="text" name="device_id" required placeholder="Paste 56-Char Syncthing Device ID"></div>' +
+          '<div style="margin-bottom:0.65rem"><input type="text" name="device_id" required placeholder="Paste 56-Char Syncthing Device ID"></div>' +
+          selBlock +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
           '<button type="submit">Add Device</button>' +
@@ -1374,6 +1460,13 @@
           false,
           function (card) {
             var inp = card.querySelector('input[name="device_id"]');
+            var radios = card.querySelectorAll('input[name="sync_mode"]');
+            var grid = card.querySelector('#thrall-selective-sync-grid');
+            for (var ri = 0; ri < radios.length; ri++) {
+              radios[ri].addEventListener('change', function (ev) {
+                if (grid) grid.style.display = ev.target.value === 'selective' ? 'grid' : 'none';
+              });
+            }
             if (inp) inp.focus();
           }
         );
@@ -1443,6 +1536,13 @@
 
   function initUploadEngine() {
     var graphCanvas = document.getElementById('footer-upload-graph');
+    var spriteCanvas = document.getElementById('footer-thrall-sprite');
+    var hubsCanvas = document.getElementById('footer-hubs-eq');
+    var meshCanvas = document.getElementById('footer-mesh-graph');
+    var vaultCanvas = document.getElementById('footer-vault-gauge');
+    var clockCanvas = document.getElementById('footer-uptime-clock');
+    var bgBtnCanvas = document.getElementById('footer-bg-btn');
+    var warpBtnCanvas = document.getElementById('footer-warp-btn');
     var statusMsg = document.getElementById('footer-status-msg');
     var toastTimer = 0;
     var BAR_COUNT = 22;
@@ -1456,6 +1556,36 @@
       bytesPerSec: 0,
       bars: initialBars
     };
+    var MESH_BAR_COUNT = 18;
+    var meshBars = [];
+    for (var mb = 0; mb < MESH_BAR_COUNT; mb++) {
+      meshBars.push(0.08);
+    }
+    var footerTel = {
+      hubsOnline: 3,
+      hubsTotal: 3,
+      spokes: 0,
+      activeLinks: 6,
+      uptimeH: 1,
+      rtts: [14, 28, 42],
+      bps: [0, 0, 0],
+      totalMeshBps: 0,
+      masses: [1024, 2048, 4096],
+      tick: 0
+    };
+    var spotInit = document.getElementById('spotlight-canvas');
+    if (spotInit) {
+      var initTot = parseInt(spotInit.getAttribute('data-mesh-nodes') || '3', 10);
+      if (initTot > 0) footerTel.hubsTotal = initTot;
+      footerTel.hubsOnline = footerTel.hubsTotal;
+      var initSpokes = parseInt(spotInit.getAttribute('data-mini-nodes') || '0', 10);
+      if (!isNaN(initSpokes)) footerTel.spokes = initSpokes;
+      var initRtts = (spotInit.getAttribute('data-mesh-rtts') || '').split(',').map(function (x) { return parseFloat(x); }).filter(function (x) { return !isNaN(x) && x > 0; });
+      if (initRtts.length) footerTel.rtts = initRtts;
+      var initMass = (spotInit.getAttribute('data-mesh-masses') || '').split(',').map(function (x) { return parseFloat(x); }).filter(function (x) { return !isNaN(x) && x > 0; });
+      if (initMass.length) footerTel.masses = initMass;
+    }
+
     var perfObserverAttached = false;
     var perfResourceCursor = 0;
     if (typeof window.PerformanceObserver === 'function') {
@@ -1517,6 +1647,268 @@
           }
         }
       }
+    }
+
+    function drawPixelTextLeft3x5(ctx, str, leftX, topY, color) {
+      var s = String(str || '').toUpperCase();
+      var charW = 3, gap = 1;
+      ctx.fillStyle = color;
+      for (var i = 0; i < s.length; i++) {
+        var g = PIXEL_GLYPHS_3X5[s.charAt(i)];
+        if (!g) continue;
+        var cx = leftX + i * (charW + gap);
+        for (var r = 0; r < g.length; r++) {
+          var rowStr = g[r];
+          for (var c = 0; c < rowStr.length; c++) {
+            if (rowStr.charAt(c) === '1') {
+              ctx.fillRect(cx + c, topY + r, 1, 1);
+            }
+          }
+        }
+      }
+    }
+
+    var THRALL_SPRITE_IDLE = [
+      '000111111000',
+      '001111111100',
+      '011101101110',
+      '011010010110',
+      '111111111111',
+      '110110011011',
+      '011111111110',
+      '001101101100',
+      '001010010100',
+      '011000000110'
+    ];
+    var THRALL_SPRITE_ACT = [
+      '001111111100',
+      '011101101110',
+      '111011110111',
+      '111110011111',
+      '011111111110',
+      '011011110110',
+      '110110011011',
+      '101100001101',
+      '001101101100',
+      '010000000010'
+    ];
+
+    function renderFooterWidgets() {
+      var acc = window.thrallCurrentAccent || [80, 250, 123];
+      var ar = acc[0], ag = acc[1], ab = acc[2];
+      var hr = Math.min(255, Math.round(ar + (255 - ar) * 0.45));
+      var hg = Math.min(255, Math.round(ag + (255 - ag) * 0.45));
+      var hb = Math.min(255, Math.round(ab + (255 - ab) * 0.45));
+      var mainCol = 'rgb(' + ar + ',' + ag + ',' + ab + ')';
+      var hotCol = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
+      var gridCol = 'rgba(' + ar + ',' + ag + ',' + ab + ',0.14)';
+      var hasErr = Boolean(statusMsg && statusMsg.style.display !== 'none' && statusMsg.classList.contains('toast-err'));
+
+      // #1: 8-Bit Animated Thrall Sprite
+      if (spriteCanvas && spriteCanvas.getContext) {
+        var sCtx = spriteCanvas.getContext('2d');
+        var sw = spriteCanvas.width, sh = spriteCanvas.height;
+        sCtx.fillStyle = '#06080a';
+        sCtx.fillRect(0, 0, sw, sh);
+        sCtx.fillStyle = gridCol;
+        for (var sy = 3; sy < sh - 2; sy += 4) sCtx.fillRect(0, sy, sw, 1);
+        var busy = uploadGraphState.active || (uploadGraphState.bytesPerSec > 250) || (footerTel.totalMeshBps > 250) || window.thrallWarpActive;
+        var grid = (busy && (footerTel.tick % 2 === 1)) ? THRALL_SPRITE_ACT : THRALL_SPRITE_IDLE;
+        var yOff = (!busy && (Math.floor(footerTel.tick / 3) % 2 === 1)) ? 3 : 2;
+        var spCol = hasErr ? '#ff5555' : (busy ? hotCol : mainCol);
+        var eyeCol = hasErr ? '#ffb000' : '#ffffff';
+        for (var sr = 0; sr < grid.length; sr++) {
+          var sRow = grid[sr];
+          for (var sc = 0; sc < sRow.length; sc++) {
+            if (sRow.charAt(sc) === '1') {
+              sCtx.fillStyle = (sr === 2 || sr === 3) ? eyeCol : spCol;
+              sCtx.fillRect(2 + sc * 2, yOff + sr * 2, 2, 2);
+            }
+          }
+        }
+      }
+
+      // #2: 8-Bit Hub Signal / Ping Equalizer
+      if (hubsCanvas && hubsCanvas.getContext) {
+        var hCtx = hubsCanvas.getContext('2d');
+        var hw = hubsCanvas.width, hh = hubsCanvas.height;
+        hCtx.fillStyle = '#06080a';
+        hCtx.fillRect(0, 0, hw, hh);
+        hCtx.fillStyle = gridCol;
+        for (var hy = 3; hy < hh - 3; hy += 4) hCtx.fillRect(0, hy, hw, 1);
+        var hTot = Math.max(1, Math.min(4, footerTel.hubsTotal || 3));
+        var hOn = Math.max(0, Math.min(hTot, footerTel.hubsOnline));
+        for (var hi = 0; hi < hTot; hi++) {
+          var isOn = hi < hOn;
+          var rtt = (footerTel.rtts && footerTel.rtts[hi]) || ((hi + 1) * 14);
+          var sigBars = !isOn ? 1 : (rtt < 25 ? 5 : (rtt < 60 ? 4 : (rtt < 120 ? 3 : 2)));
+          var tx = 4 + hi * 9;
+          hCtx.fillStyle = isOn ? hotCol : '#f85149';
+          hCtx.fillRect(tx + 2, 2, 2, 2);
+          for (var sb = 0; sb < 5; sb++) {
+            var segY = hh - 4 - sb * 3;
+            hCtx.fillStyle = sb < sigBars ? (sb === sigBars - 1 ? hotCol : mainCol) : '#14191f';
+            hCtx.fillRect(tx, segY, 6, 2);
+          }
+        }
+        var minRtt = (footerTel.rtts && footerTel.rtts.length) ? Math.round(Math.min.apply(null, footerTel.rtts)) : 14;
+        drawPixelText3x5(hCtx, hOn + '/' + hTot + 'H', hw - 3, 4, '#ffffff');
+        drawPixelText3x5(hCtx, minRtt + 'MS', hw - 3, 13, hotCol);
+        hubsCanvas.title = 'Regional Mesh Hubs: ' + hOn + '/' + hTot + ' online (best RTT: ' + minRtt + ' ms)';
+      }
+
+      // #3: 8-Bit Mesh Sync Heartbeat / Throughput Graph
+      if (meshCanvas && meshCanvas.getContext) {
+        var mCtx = meshCanvas.getContext('2d');
+        var mw = meshCanvas.width, mh = meshCanvas.height;
+        mCtx.fillStyle = '#06080a';
+        mCtx.fillRect(0, 0, mw, mh);
+        mCtx.fillStyle = gridCol;
+        for (var my = 3; my < mh - 4; my += 4) mCtx.fillRect(0, my, mw, 1);
+        for (var mi = 0; mi < meshBars.length; mi++) {
+          var ml = meshBars[mi] || 0;
+          var mbh = ml > 0 ? Math.max(2, Math.min(17, Math.round(ml * 17))) : 0;
+          if (mbh <= 0) continue;
+          var mbx = 3 + mi * 4;
+          for (var mpy = mh - 5; mpy > mh - 5 - mbh; mpy -= 2) {
+            mCtx.fillStyle = (mpy <= mh - 5 - mbh + 2) ? hotCol : mainCol;
+            mCtx.fillRect(mbx, mpy, 3, 1.5);
+          }
+        }
+        mCtx.fillStyle = '#14191f';
+        mCtx.fillRect(2, mh - 3, mw - 4, 2);
+        var mBps = footerTel.totalMeshBps || 0;
+        var mFill = mBps > 0 ? Math.max(6, Math.round((mw - 4) * Math.min(1, Math.log10(mBps + 1) / 7))) : ((footerTel.tick * 4) % (mw - 8));
+        mCtx.fillStyle = mBps > 0 ? hotCol : mainCol;
+        mCtx.fillRect(2, mh - 3, mFill, 2);
+        drawPixelTextLeft3x5(mCtx, 'MSH', 3, 4, mainCol);
+        drawPixelText3x5(mCtx, mBps > 0 ? formatShortRate(mBps) : 'SYNC', mw - 3, 4, '#ffffff');
+      }
+
+      // #4: 8-Bit Vault / Mass Gauge
+      if (vaultCanvas && vaultCanvas.getContext) {
+        var vCtx = vaultCanvas.getContext('2d');
+        var vw = vaultCanvas.width, vh = vaultCanvas.height;
+        vCtx.fillStyle = '#06080a';
+        vCtx.fillRect(0, 0, vw, vh);
+        var totalMass = 0;
+        for (var vmi = 0; vmi < (footerTel.masses || []).length; vmi++) {
+          totalMass += (footerTel.masses[vmi] || 0);
+        }
+        var massStr = totalMass >= 1073741824
+          ? Math.round(totalMass / 1073741824) + 'G'
+          : (totalMass >= 1048576 ? Math.round(totalMass / 1048576) + 'M' : Math.max(1, Math.round(totalMass / 1024)) + 'K');
+        drawPixelTextLeft3x5(vCtx, 'VLT', 3, 4, hotCol);
+        drawPixelText3x5(vCtx, (footerTel.activeLinks || 0) + 'L/' + massStr, vw - 3, 4, '#ffffff');
+        var segs = 10;
+        var activeSegs = Math.max(2, Math.min(segs, Math.round(Math.log10(totalMass + 10) * 1.1)));
+        for (var vs = 0; vs < segs; vs++) {
+          vCtx.fillStyle = vs < activeSegs ? (vs === activeSegs - 1 ? hotCol : mainCol) : '#14191f';
+          vCtx.fillRect(3 + vs * 8.5, 13, 7, 7);
+        }
+        vaultCanvas.title = 'Mesh Vault Mass: ' + massStr + ' (' + (footerTel.activeLinks || 0) + ' active BEP links, ' + (footerTel.spokes || 0) + ' devices)';
+      }
+
+      // #5: 8-Bit Uptime Clock
+      if (clockCanvas && clockCanvas.getContext) {
+        var cCtx = clockCanvas.getContext('2d');
+        var cw = clockCanvas.width, ch = clockCanvas.height;
+        cCtx.fillStyle = '#06080a';
+        cCtx.fillRect(0, 0, cw, ch);
+        var hgSprite = [
+          '11111',
+          '01110',
+          '00100',
+          '01010',
+          '11111'
+        ];
+        for (var hrIdx = 0; hrIdx < hgSprite.length; hrIdx++) {
+          for (var hcIdx = 0; hcIdx < 5; hcIdx++) {
+            if (hgSprite[hrIdx].charAt(hcIdx) === '1') {
+              cCtx.fillStyle = hrIdx === 0 || hrIdx === 4 ? hotCol : mainCol;
+              cCtx.fillRect(4 + hcIdx * 2, 4 + hrIdx * 3, 2, 2);
+            }
+          }
+        }
+        var upVal = Math.max(1, footerTel.uptimeH || 1);
+        drawPixelText3x5(cCtx, 'UP ' + upVal + 'H', cw - 4, 6, '#ffffff');
+        var pulseX = 18 + ((Math.floor(footerTel.tick / 2)) % Math.max(4, cw - 22));
+        cCtx.fillStyle = '#14191f';
+        cCtx.fillRect(18, ch - 4, cw - 22, 2);
+        cCtx.fillStyle = hotCol;
+        cCtx.fillRect(pulseX, ch - 4, 4, 2);
+      }
+
+      // #6A: 8-Bit Background Cycler Button
+      if (bgBtnCanvas && bgBtnCanvas.getContext) {
+        var bCtx = bgBtnCanvas.getContext('2d');
+        var bw = bgBtnCanvas.width, bh = bgBtnCanvas.height;
+        bCtx.fillStyle = '#06080a';
+        bCtx.fillRect(0, 0, bw, bh);
+        var curBg = window.thrallBgIdx || 1;
+        drawPixelTextLeft3x5(bCtx, 'BG:' + curBg, 4, 5, '#ffffff');
+        for (var bi = 1; bi <= 5; bi++) {
+          bCtx.fillStyle = bi === curBg ? hotCol : '#1b2229';
+          bCtx.fillRect(4 + (bi - 1) * 9, 15, 7, 4);
+        }
+      }
+
+      // #6B: 8-Bit Constellation Warp Button
+      if (warpBtnCanvas && warpBtnCanvas.getContext) {
+        var wCtx = warpBtnCanvas.getContext('2d');
+        var ww = warpBtnCanvas.width, wh = warpBtnCanvas.height;
+        wCtx.fillStyle = window.thrallWarpActive ? 'rgba(' + ar + ',' + ag + ',' + ab + ',0.22)' : '#06080a';
+        wCtx.fillRect(0, 0, ww, wh);
+        drawPixelTextLeft3x5(wCtx, 'WRP', 4, 5, window.thrallWarpActive ? '#ffffff' : mainCol);
+        var chev = window.thrallWarpActive ? ((footerTel.tick % 3) * 3) : 0;
+        wCtx.fillStyle = window.thrallWarpActive ? hotCol : '#26303a';
+        wCtx.fillRect(4 + chev, 15, 12, 3);
+        wCtx.fillRect(20 + chev, 15, 12, 3);
+      }
+    }
+    window.thrallRenderFooterWidgets = renderFooterWidgets;
+
+    window.thrallUpdateFooterTelemetry = function (d) {
+      if (!d || typeof d !== 'object') return;
+      if (typeof d.hubs_online === 'number') footerTel.hubsOnline = d.hubs_online;
+      if (typeof d.hubs_total === 'number' && d.hubs_total >= 1) footerTel.hubsTotal = d.hubs_total;
+      if (typeof d.spokes === 'number') footerTel.spokes = d.spokes;
+      if (typeof d.active_links === 'number') footerTel.activeLinks = d.active_links;
+      if (typeof d.uptime_h === 'number') footerTel.uptimeH = d.uptime_h;
+      if (Array.isArray(d.rtts) && d.rtts.length) footerTel.rtts = d.rtts;
+      if (Array.isArray(d.masses) && d.masses.length) footerTel.masses = d.masses;
+      if (Array.isArray(d.bps)) {
+        footerTel.bps = d.bps;
+        var sumB = 0;
+        for (var i = 0; i < d.bps.length; i++) sumB += (Number(d.bps[i]) || 0);
+        footerTel.totalMeshBps = sumB;
+      }
+      renderFooterWidgets();
+    };
+
+    if (bgBtnCanvas) {
+      var cycleBg = function () {
+        var nextBg = ((window.thrallBgIdx || 1) % 5) + 1;
+        if (window.thrallSetBgIdx) window.thrallSetBgIdx(nextBg);
+        renderFooterWidgets();
+        showToast('Background Theme: THRALL BG-0' + nextBg, false, true);
+      };
+      bgBtnCanvas.addEventListener('click', cycleBg);
+      bgBtnCanvas.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleBg(); }
+      });
+    }
+    if (warpBtnCanvas) {
+      var toggleWarp = function () {
+        window.thrallWarpActive = !window.thrallWarpActive;
+        if (window.thrallRenderSpotlight) window.thrallRenderSpotlight();
+        renderFooterWidgets();
+        showToast(window.thrallWarpActive ? 'Constellation Warp Drive: ENGAGED' : 'Constellation Warp Drive: NOMINAL', false, true);
+      };
+      warpBtnCanvas.addEventListener('click', toggleWarp);
+      warpBtnCanvas.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleWarp(); }
+      });
     }
 
     function showToast(text, isErr, autoHide) {
@@ -1664,6 +2056,7 @@
 
     window.thrallRenderFooterGraph = renderGraphFrame;
     renderGraphFrame();
+    renderFooterWidgets();
 
     setInterval(function () {
       if (document.hidden) return;
@@ -1701,7 +2094,15 @@
         barHeight = Math.max(0.08, Math.min(1.0, Math.log10(bytesPerSec + 1) / 6.5));
       }
       pushBrowserLevel(barHeight);
+      footerTel.tick = (footerTel.tick + 1) >>> 0;
+      var mRate = footerTel.totalMeshBps || 0;
+      var mLevel = mRate > 0
+        ? Math.max(0.14, Math.min(1.0, Math.log10(mRate + 1) / 6.5))
+        : (footerTel.hubsOnline > 0 ? (0.1 + 0.08 * Math.sin(footerTel.tick * 0.35)) : 0);
+      meshBars.shift();
+      meshBars.push(mLevel);
       renderGraphFrame();
+      renderFooterWidgets();
     }, 150);
 
     function readBlobSlice(blob) {
@@ -1948,11 +2349,12 @@
     function syncActiveTabFromHref(href) {
       try {
         var u = new URL(href, window.location.origin);
-        var tab = u.searchParams.get('tab') || '1';
+        var tab = u.searchParams.get('tab') || 'personal';
         var browse = u.searchParams.get('browse') || '';
-        if (tab === '1' && browse.indexOf('shared:') === 0) tab = '2';
-        else if (tab === '2' && browse.indexOf('personal:') === 0) tab = '1';
-        var tabs = document.querySelectorAll('.footer-nav-tabs .tab-btn');
+        if (tab === 'global' || tab === 'mesh' || tab === 'ldap') tab = 'admin';
+        if (tab === 'personal' && browse.indexOf('shared:') === 0) tab = 'shared';
+        else if (tab === 'shared' && browse.indexOf('personal:') === 0) tab = 'personal';
+        var tabs = document.querySelectorAll('.body-tabs .body-tab');
         for (var i = 0; i < tabs.length; i++) {
           var th = tabs[i].getAttribute('href') || '';
           tabs[i].classList.toggle('active', th === '/?tab=' + tab);
@@ -1970,12 +2372,6 @@
         return;
       }
       curContainer.innerHTML = newContainer.innerHTML;
-
-      var newTabs = doc.querySelector('.footer-nav-tabs');
-      var curTabs = document.querySelector('.footer-nav-tabs');
-      if (newTabs && curTabs) {
-        curTabs.innerHTML = newTabs.innerHTML;
-      }
 
       if (!keepToast) {
         var newToast = doc.getElementById('footer-status-msg');

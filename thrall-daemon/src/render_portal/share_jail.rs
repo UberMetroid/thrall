@@ -55,8 +55,14 @@ pub fn parse_form_multi(body: &str, key: &str) -> BTreeSet<String> {
         .filter(|(k, _)| url_decode(k.trim()) == key)
         .filter_map(|(_, v)| {
             let d = url_decode(v);
-            if key == "users" {
+            if key == "users" || key == "ro_users" {
                 sanitize_username(&d).ok()
+            } else if key == "sync_folders" {
+                let (p, f) = d.split_once(':')?;
+                (p == "personal" || p == "shared")
+                    .then(|| sanitize_folder_name(f).ok())
+                    .flatten()
+                    .map(|cf| format!("{p}:{cf}"))
             } else {
                 sanitize_folder_name(&d).ok()
             }

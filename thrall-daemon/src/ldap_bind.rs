@@ -202,22 +202,15 @@ fn collect_search_dns(stream: &mut TcpStream, base_dn: &str, filter: &[u8]) -> V
     dns
 }
 
+#[rustfmt::skip]
 pub fn list_ldap_users(cfg: &LdapConfig) -> Vec<String> {
-    let mut users: BTreeSet<String> = cfg
-        .admin_users
-        .iter()
-        .filter_map(|a| sanitize_username(a).ok())
-        .filter(|u| u != "root")
-        .collect();
+    let mut users: BTreeSet<String> = cfg.admin_users.iter().filter_map(|a| sanitize_username(a).ok()).filter(|u| u != "root").collect();
     if let Ok(mut stream) = connect_and_service_bind(cfg) {
         let filter = encode_equality_filter("objectClass", "person");
         for dn in collect_search_dns(&mut stream, &cfg.base_dn, &filter) {
-            let rdn = dn.split(',').next().unwrap_or("");
-            if let Some(uid) = rdn.trim().strip_prefix("uid=") {
+            if let Some(uid) = dn.split(',').next().unwrap_or("").trim().strip_prefix("uid=") {
                 if let Ok(clean) = sanitize_username(uid) {
-                    if clean != "root" {
-                        users.insert(clean);
-                    }
+                    if clean != "root" { users.insert(clean); }
                 }
             }
         }
@@ -225,19 +218,19 @@ pub fn list_ldap_users(cfg: &LdapConfig) -> Vec<String> {
     users.into_iter().collect()
 }
 
-pub fn authenticate_ldap_user(
-    cfg: &LdapConfig,
-    username: &str,
-    password: &str,
-) -> Result<String, String> {
-    if username.trim().is_empty() || password.is_empty() {
-        return Err("User and password are required".to_string());
-    }
+pub fn validate_ldap_connection(cfg: &LdapConfig) -> Result<usize, String> {
     let mut stream = connect_and_service_bind(cfg)?;
-    let filter = encode_ldap_filter(&cfg.user_filter, username);
-    let dns = collect_search_dns(&mut stream, &cfg.base_dn, &filter);
-    let user_dn = dns.into_iter().next().ok_or("Invalid credentials")?;
-    send_bind(&mut stream, 3, &user_dn, password)?;
+    let filter = encode_equality_filter("objectClass", "person");
+    Ok(collect_search_dns(&mut stream, &cfg.base_dn, &filter).len())
+}
+
+#[rustfmt::skip]
+pub fn authenticate_ldap_user(cfg: &LdapConfig, u: &str, p: &str) -> Result<String, String> {
+    if u.trim().is_empty() || p.is_empty() { return Err("User and password are required".to_string()); }
+    let mut stream = connect_and_service_bind(cfg)?;
+    let filter = encode_ldap_filter(&cfg.user_filter, u);
+    let user_dn = collect_search_dns(&mut stream, &cfg.base_dn, &filter).into_iter().next().ok_or("Invalid credentials")?;
+    send_bind(&mut stream, 3, &user_dn, p)?;
     Ok(user_dn)
 }
 
@@ -245,7 +238,6 @@ pub fn authenticate_ldap_user(
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_ber_encoding_for_bind_and_search() {
         assert_eq!(build_simple_bind_request(1, "cn=a", "s")[0], 0x30);

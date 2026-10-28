@@ -27,6 +27,8 @@ pub struct NodeStatus {
     pub active_conns: u64,
     pub in_bps: u64,
     pub out_bps: u64,
+    pub rx_bytes: u64,
+    pub tx_bytes: u64,
     pub total_bytes: u64,
     pub rtt_ms: u64,
     pub bearing_deg: u64,
@@ -57,17 +59,11 @@ pub fn build_device_json(device_id: &str, name: &str, address: &str, introducer:
     format!("{{\"deviceID\":\"{device_id}\",\"name\":\"{name}\",\"addresses\":[\"{address}\"],\"compression\":\"metadata\",\"introducer\":{introducer},\"autoAcceptFolders\":false}}")
 }
 
-pub fn build_folder_json(fid: &str, label: &str, path: &str, device_ids: &[String]) -> String {
-    let mut devs = String::new();
-    for (i, id) in device_ids.iter().enumerate() {
-        if i > 0 {
-            devs.push(',');
-        }
-        devs.push_str(&format!(
-            "{{\"deviceID\":\"{id}\",\"introducedBy\":\"\",\"encryptionPassword\":\"\"}}"
-        ));
-    }
-    format!("{{\"id\":\"{fid}\",\"label\":\"{label}\",\"filesystemType\":\"basic\",\"path\":\"{path}\",\"type\":\"sendreceive\",\"devices\":[{devs}],\"rescanIntervalS\":3600,\"fsWatcherEnabled\":true,\"fsWatcherDelayS\":10,\"ignorePerms\":true,\"autoNormalize\":true}}")
+#[rustfmt::skip]
+pub fn build_folder_json(fid: &str, label: &str, path: &str, device_ids: &[String], ro: bool) -> String {
+    let ftype = if ro { "sendonly" } else { "sendreceive" };
+    let devs = device_ids.iter().map(|id| format!("{{\"deviceID\":\"{id}\",\"introducedBy\":\"\",\"encryptionPassword\":\"\"}}")).collect::<Vec<_>>().join(",");
+    format!("{{\"id\":\"{fid}\",\"label\":\"{label}\",\"filesystemType\":\"basic\",\"path\":\"{path}\",\"type\":\"{ftype}\",\"devices\":[{devs}],\"rescanIntervalS\":3600,\"fsWatcherEnabled\":true,\"fsWatcherDelayS\":10,\"ignorePerms\":true,\"autoNormalize\":true}}")
 }
 
 #[rustfmt::skip]
@@ -84,7 +80,20 @@ fn tcp_ping_ms(wan_addr: &str, ssh_host: &str) -> u64 {
 }
 
 #[rustfmt::skip]
-pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
+pub fn parse_connected_device_ids(c1: &str) -> Vec<String> {
+    let norm = c1.replace("\":{", "\": {");
+    let (mut out, parts) = (Vec::new(), norm.split("\": {").collect::<Vec<_>>());
+    for pair in parts.windows(2) {
+        if let Some(id) = pair[0].rsplit_once('"').map(|(_, s)| s).filter(|s| s.len() >= 50) {
+            let body = pair[1].split_once('}').map_or(pair[1], |(b, _)| b);
+            if body.contains("\"connected\": true") || body.contains("\"connected\":true") { out.push(id.to_string()); }
+        }
+    }
+    out
+}
+
+#[rustfmt::skip]
+pub fn discover_node(node: &ServerNodeConfig, disabled: bool, prev: Option<&NodeStatus>) -> NodeStatus {
     let err = if disabled { "Disconnected by admin" } else { "" };
     let rtt = if disabled { 0 } else { tcp_ping_ms(&node.syncthing_wan_addr, &node.ssh_host) };
     let mut h_hash = 0xcbf2_9ce4_8422_2325u64;
@@ -92,7 +101,7 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
     let mut st = NodeStatus {
         name: node.name.clone(), ssh_host: node.ssh_host.clone(), wan_addr: node.syncthing_wan_addr.clone(),
         online: false, disabled, device_id: String::new(), api_key: String::new(), uptime_sec: 0,
-        active_conns: 0, in_bps: 0, out_bps: 0, total_bytes: 0, rtt_ms: rtt, bearing_deg: h_hash % 360,
+        active_conns: 0, in_bps: 0, out_bps: 0, rx_bytes: 0, tx_bytes: 0, total_bytes: 0, rtt_ms: rtt, bearing_deg: h_hash % 360,
         connected_ids: Vec::new(), last_error: err.to_string(),
     };
     if disabled { return st; }
@@ -115,20 +124,17 @@ pub fn discover_node(node: &ServerNodeConfig, disabled: bool) -> NodeStatus {
             (parse_json_u64_field(t, "inBytesTotal").unwrap_or(0), parse_json_u64_field(t, "outBytesTotal").unwrap_or(0))
         };
         if let Ok(c1) = ssh_syncthing_rest(node, &st.api_key, "GET", "/rest/system/connections", None) {
-            let conns = c1.matches("\"connected\": true").count() + c1.matches("\"connected\":true").count();
-            st.active_conns = conns as u64;
-            for blk in c1.split("\": {") {
-                if blk.contains("\"connected\": true") || blk.contains("\"connected\":true") {
-                    if let Some(id) = blk.rsplit_once('"').map(|(_, s)| s).filter(|s| s.len() >= 50) {
-                        st.connected_ids.push(id.to_string());
-                    }
-                }
-            }
+            st.connected_ids = parse_connected_device_ids(&c1);
+            st.active_conns = st.connected_ids.len() as u64;
             let (rx1, tx1) = totals(&c1);
-            let up = st.uptime_sec.max(1);
+            st.rx_bytes = rx1;
+            st.tx_bytes = tx1;
             st.total_bytes = rx1 + tx1;
-            st.in_bps = (rx1 * 8) / up;
-            st.out_bps = (tx1 * 8) / up;
+            if let Some(p) = prev.filter(|p| p.online && st.uptime_sec > p.uptime_sec) {
+                let dt = (st.uptime_sec - p.uptime_sec).max(1);
+                st.in_bps = (rx1.saturating_sub(p.rx_bytes) * 8) / dt;
+                st.out_bps = (tx1.saturating_sub(p.tx_bytes) * 8) / dt;
+            }
         }
     }
     st
@@ -195,47 +201,27 @@ fn discover_shared_folder_names(store: &mut MeshStore) -> Vec<String> {
     store.shared_folders.keys().cloned().collect()
 }
 
+#[rustfmt::skip]
 pub fn reconcile_fleet(cfg: &FleetConfig, store: &mut MeshStore) -> FleetSnapshot {
-    let mut snap = FleetSnapshot {
-        ldap_users: list_ldap_users(&cfg.ldap),
-        ..FleetSnapshot::default()
-    };
+    static PREV_NODES: std::sync::Mutex<Vec<NodeStatus>> = std::sync::Mutex::new(Vec::new());
+    let prev_list = PREV_NODES.lock().ok().map(|g| g.clone()).unwrap_or_default();
+    let mut snap = FleetSnapshot { ldap_users: list_ldap_users(&cfg.ldap), ..FleetSnapshot::default() };
     for u in store.users.keys() {
-        if u != "root" && !snap.ldap_users.contains(u) {
-            snap.ldap_users.push(u.clone());
-        }
+        if u != "root" && !snap.ldap_users.contains(u) { snap.ldap_users.push(u.clone()); }
     }
     snap.ldap_users.sort();
-    for u in &snap.ldap_users {
-        let _ = store.ensure_user_folders(u);
-    }
+    for u in &snap.ldap_users { let _ = store.ensure_user_folders(u); }
     let folder_names = discover_shared_folder_names(store);
     for srv in &cfg.servers {
         let dis = store.disabled_servers.contains(&srv.name);
-        snap.nodes.push(discover_node(srv, dis));
+        let prev = prev_list.iter().find(|n| n.name == srv.name);
+        snap.nodes.push(discover_node(srv, dis, prev));
     }
-    let online_ids: Vec<String> = snap
-        .nodes
-        .iter()
-        .filter(|n| n.online && !n.device_id.is_empty())
-        .map(|n| n.device_id.clone())
-        .collect();
-    let active_srvs: Vec<_> = cfg
-        .servers
-        .iter()
-        .zip(snap.nodes.iter())
-        .filter(|(_, s)| s.online)
-        .map(|(srv, s)| (srv, s.api_key.clone()))
-        .collect();
+    if let Ok(mut g) = PREV_NODES.lock() { *g = snap.nodes.clone(); }
+    let online_ids: Vec<String> = snap.nodes.iter().filter(|n| n.online && !n.device_id.is_empty()).map(|n| n.device_id.clone()).collect();
+    let active_srvs: Vec<_> = cfg.servers.iter().zip(snap.nodes.iter()).filter(|(_, s)| s.online).map(|(srv, s)| (srv, s.api_key.clone())).collect();
     for (srv, key) in active_srvs {
-        reconcile_folders::reconcile_server_node(
-            srv,
-            &key,
-            &online_ids,
-            &folder_names,
-            store,
-            &mut snap,
-        );
+        reconcile_folders::reconcile_server_node(srv, &key, &online_ids, &folder_names, store, &mut snap);
     }
     let _ = store.save(&cfg.portal.database_path);
     snap

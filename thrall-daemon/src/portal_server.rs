@@ -235,12 +235,18 @@ pub fn handle_http_client(
     {
         return;
     }
-    let tab: u8 = qval("tab").parse().unwrap_or(1);
+    let tab: u8 = match qval("tab") {
+        "shared" => 2,
+        "devices" => 3,
+        "admin" | "global" | "mesh" | "ldap" => 4,
+        "about" => 6,
+        _ => 1,
+    };
     let (ok, err) = (
         qmap.get("ok").map(String::as_str),
         qmap.get("err").map(String::as_str),
     );
     let (br, sb) = (qval("browse"), qval("sub"));
-    let page = render_dashboard_page(&u, adm, store, snap, tab, br, sb, ok, err);
+    let page = render_dashboard_page(&u, adm, cfg, store, snap, tab, br, sb, ok, err);
     write_html(s, "200 OK", &page);
 }

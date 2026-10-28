@@ -10,6 +10,7 @@ use crate::ssh_syncthing::{
     ssh_syncthing_rest,
 };
 
+#[allow(clippy::too_many_arguments)]
 fn sync_folder(
     srv: &ServerNodeConfig,
     key: &str,
@@ -18,16 +19,26 @@ fn sync_folder(
     hp: &str,
     cp: &str,
     devs: &[String],
+    ro: bool,
 ) -> u64 {
     let _ = fs::create_dir_all(format!("{cp}/.stfolder"));
     let dirs = vec![format!("{hp}/.stfolder")];
     let _ = ssh_mkdir_many(srv, &dirs);
-    let f_json = build_folder_json(fid, flbl, cp, devs);
+    let f_json = build_folder_json(fid, flbl, cp, devs, ro);
     let put_ep = format!("/rest/config/folders/{fid}");
     let scan_ep = format!("/rest/db/scan?folder={fid}");
     let comp_ep = format!("/rest/db/completion?folder={fid}");
     let _ = ssh_syncthing_rest(srv, key, "PUT", &put_ep, Some(&f_json));
     let _ = ssh_syncthing_rest(srv, key, "POST", &scan_ep, None);
+    if ro {
+        let _ = ssh_syncthing_rest(
+            srv,
+            key,
+            "POST",
+            &format!("/rest/db/override?folder={fid}"),
+            None,
+        );
+    }
     let res = ssh_syncthing_rest(srv, key, "GET", &comp_ep, None);
     res.ok()
         .and_then(|c| parse_json_u64_field(&c, "completion"))
@@ -56,44 +67,43 @@ type AccList = Vec<(String, bool)>;
 #[rustfmt::skip]
 pub fn sync_folder_group(srv: &ServerNodeConfig, key: &str, online_ids: &[String], store: &MeshStore, user: Option<&str>, fname: &str, check_acc: bool) -> (u64, AccList, AccList) {
     let flow = fname.to_ascii_lowercase();
-    let (mfid, flbl, hp, cp, users): (_, _, _, _, Vec<String>) = if let Some(u) = user {
+    let (mfid, flbl, hp, cp, scope_f, users): (_, _, _, _, _, Vec<String>) = if let Some(u) = user {
         let u_base = srv.users_base_path.trim_end_matches('/');
-        let _ = ssh_syncthing_rest(srv, key, "DELETE", &format!("/rest/config/folders/user-{u}-{flow}-mesh"), None);
-        (syncthing_folder_id(&format!("user:{u}:{flow}:mesh")), format!("{u}/{fname}"), format!("{u_base}/{u}/{fname}"), format!("/users/{u}/{fname}"), vec![u.to_string()])
+        (syncthing_folder_id(&format!("user:{u}:{flow}:mesh")), format!("{u}/{fname}"), format!("{u_base}/{u}/{fname}"), format!("/users/{u}/{fname}"), format!("personal:{fname}"), vec![u.to_string()])
     } else {
         let (sh_base, r) = (srv.shared_base_path.trim_end_matches('/'), fname == "Shared");
-        let _ = ssh_syncthing_rest(srv, key, "DELETE", &format!("/rest/config/folders/shared-{flow}-mesh"), None);
         let flbl = if r { "Shared".into() } else { format!("Shared ({fname})") };
         let hp = if r { sh_base.into() } else { format!("{sh_base}/{fname}") };
         let cp = if r { "/shared".into() } else { format!("/shared/{fname}") };
         let us = store.shared_folders.get(fname).into_iter().flatten().cloned().collect();
-        (syncthing_folder_id(&format!("shared:{flow}:mesh")), flbl, hp, cp, us)
+        (syncthing_folder_id(&format!("shared:{flow}:mesh")), flbl, hp, cp, format!("shared:{fname}"), us)
     };
-    let mut pct = sync_folder(srv, key, &mfid, &flbl, &hp, &cp, online_ids);
+    let mut pct = sync_folder(srv, key, &mfid, &flbl, &hp, &cp, online_ids, false);
     let (mut u_acc, mut d_acc) = (Vec::new(), Vec::new());
     for u in users {
+        let ro = user.is_none() && store.is_shared_readonly(fname, &u);
         let devs: Vec<_> = store.users.get(&u).into_iter().flatten().collect();
-        let mut all_ok = !devs.is_empty();
+        let (mut en_cnt, mut all_ok) = (0usize, true);
         for d in devs {
             let sid = short_id(&d.device_id);
-            let (leg_cid, cfid) = if user.is_some() {
-                (format!("user-{u}-{flow}-{sid}"), syncthing_folder_id(&format!("user:{u}:{flow}:{sid}")))
-            } else {
-                (format!("shared-{flow}-{sid}"), syncthing_folder_id(&format!("shared:{flow}:{sid}")))
-            };
-            let _ = ssh_syncthing_rest(srv, key, "DELETE", &format!("/rest/config/folders/{leg_cid}"), None);
+            let cfid = if user.is_some() { syncthing_folder_id(&format!("user:{u}:{flow}:{sid}")) } else { syncthing_folder_id(&format!("shared:{flow}:{sid}")) };
+            if store.is_device_folder_excluded(&d.device_id, &scope_f) {
+                let _ = ssh_syncthing_rest(srv, key, "DELETE", &format!("/rest/config/folders/{cfid}"), None);
+                continue;
+            }
+            en_cnt += 1;
             let mut cdevs = online_ids.to_vec();
             if !cdevs.contains(&d.device_id) {
                 cdevs.push(d.device_id.clone());
             }
-            pct = pct.min(sync_folder(srv, key, &cfid, &flbl, &hp, &cp, &cdevs));
+            pct = pct.min(sync_folder(srv, key, &cfid, &flbl, &hp, &cp, &cdevs, ro));
             if check_acc {
                 let ok = is_accepted(srv, key, &cfid, &d.device_id);
                 all_ok &= ok;
                 d_acc.push((d.device_id.clone(), ok));
             }
         }
-        u_acc.push((u, all_ok));
+        u_acc.push((u, en_cnt > 0 && all_ok));
     }
     (pct, u_acc, d_acc)
 }
@@ -198,5 +208,19 @@ pub fn reconcile_server_node(
                 snap.user_accepted.insert(k, true);
             }
         }
+    }
+}
+
+#[rustfmt::skip]
+pub fn trigger_web_scan(cfg: &crate::fleet_config::FleetConfig, snap: &FleetSnapshot, store: &MeshStore, user: &str, br: &str) {
+    let mfid = if let Some(sh) = br.strip_prefix("shared:") {
+        syncthing_folder_id(&format!("shared:{}:mesh", sh.to_ascii_lowercase()))
+    } else {
+        let pf = br.strip_prefix("personal:").or_else(|| br.strip_prefix("personal/")).map(String::from).unwrap_or_else(|| store.folders_for_user(user).into_iter().next().unwrap_or_default());
+        syncthing_folder_id(&format!("user:{user}:{}:mesh", pf.to_ascii_lowercase()))
+    };
+    if let Some((srv, st)) = cfg.servers.iter().zip(snap.nodes.iter()).find(|(_, s)| s.online).map(|(srv, s)| (srv.clone(), s.api_key.clone())) {
+        let ep = format!("/rest/db/scan?folder={mfid}");
+        std::thread::spawn(move || { let _ = ssh_syncthing_rest(&srv, &st, "POST", &ep, None); });
     }
 }

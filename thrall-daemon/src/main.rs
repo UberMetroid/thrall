@@ -164,13 +164,21 @@ mod tests {
         assert_eq!(p.to_str(), Some("/users/alice/Documents/spec.txt"));
         assert_eq!(sanitize_username("Alice@Example.com").unwrap(), "alice");
 
-        let snap = FleetSnapshot::default();
+        let mut snap = FleetSnapshot { ldap_users: vec!["alice".into(), "bob".into()], ..FleetSnapshot::default() };
+        let cfg = crate::fleet_config::parse_fleet_yaml(crate::fleet_config::DEFAULT_FLEET_YAML).unwrap();
+        store.shared_readonly.insert(("Ops".into(), "bob".into()));
+        store.device_excluded_folders.insert((norm_id.clone(), "personal:Projects".into()));
+        let rt_ro = MeshStore::parse(&store.serialize());
+        assert!(rt_ro.is_shared_readonly("Ops", "bob") && !rt_ro.is_shared_readonly("Ops", "alice") && rt_ro.is_device_folder_excluded(&norm_id, "personal:Projects") && !rt_ro.is_device_folder_excluded(&norm_id, "personal:Documents"));
+        assert!(crate::reconcile_mesh::build_folder_json("f1", "L", "/p", &[], true).contains("\"type\":\"sendonly\"") && crate::reconcile_mesh::build_folder_json("f1", "L", "/p", &[], false).contains("\"type\":\"sendreceive\""));
+        let conn_j = format!("{{\"connections\":{{\"{norm_id}\":{{\"connected\":true}},\"BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB-BBBBBBB\":{{\"connected\":false}}}}}}");
+        assert_eq!(crate::reconcile_mesh::parse_connected_device_ids(&conn_j), vec![norm_id.clone()]);
         let h = render_login_page(None, &snap, &store);
         assert!(!h.contains("login-sub") && !h.contains("sec-ticker") && !h.contains("sec-chibi"));
         assert!(h.contains("User or Email") && !h.contains("THRALL MESH DIRECTOR"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
-        assert!(h.contains("site-header") && h.contains("[ SIGN IN ]") && !h.contains("/icon.jpg"));
-        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\""));
+        assert!(h.contains("site-header") && h.contains("[ SIGN IN ]") && h.contains("/icon.jpg") && h.contains("data-modal-open=\"about-thrall\""));
+        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("id=\"footer-upload-graph\"") && h.contains("id=\"footer-thrall-sprite\"") && h.contains("id=\"footer-hubs-eq\"") && h.contains("id=\"footer-mesh-graph\"") && h.contains("id=\"footer-vault-gauge\"") && h.contains("id=\"footer-uptime-clock\"") && h.contains("id=\"footer-bg-btn\"") && h.contains("id=\"footer-warp-btn\""));
         assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED SPOKE") && h.contains("id=\"footer-status-msg\"") && !h.contains("Sign in with your account credentials"));
         let h_err = render_login_page(Some("Invalid credentials"), &snap, &store);
         let (h_err_hdr, h_err_rest) = h_err.split_once("</header>").unwrap();
@@ -182,27 +190,26 @@ mod tests {
             assert!(!h.contains(w));
         }
         assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
-        let user_html = render_dashboard_page("bob", false, &store, &snap, 4, "", "", Some("Share mode updated"), None);
+        let user_html = render_dashboard_page("bob", false, &cfg, &store, &snap, 4, "", "", Some("Share mode updated"), None);
         let (_, u_body) = user_html.split_once("<header class=\"site-header\"").unwrap();
         let (u_hdr, u_rest) = u_body.split_once("</header>").unwrap();
-        let (_, u_ftr) = u_rest.split_once("<footer class=\"footer-dock\"").unwrap();
-        assert!(!u_hdr.contains("nav-tabs") && !u_hdr.contains("/icon.jpg") && !u_hdr.contains("<input") && !u_hdr.contains("USER //") && !u_hdr.contains("ROLE //") && u_hdr.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
-        assert!(!user_html.contains(">Mesh setup<") && !user_html.contains(">Global folders<") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
-        assert!(u_ftr.contains(">Personal folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a></nav>"));
+        let (u_mid, u_ftr) = u_rest.split_once("<footer class=\"footer-dock\"").unwrap();
+        assert!(!u_hdr.contains("nav-tabs") && u_hdr.contains("/icon.jpg") && u_hdr.contains("href=\"/?tab=about\"") && !u_hdr.contains("<input") && !u_hdr.contains("USER //") && !u_hdr.contains("ROLE //") && u_hdr.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
+        assert!(u_mid.contains("<nav class=\"body-tabs\" aria-label=\"Portal Navigation\"><div class=\"body-tabs-left\"><a href=\"/?tab=personal\" class=\"body-tab active\">Personal</a><a href=\"/?tab=shared\" class=\"body-tab\">Shared</a><a href=\"/?tab=devices\" class=\"body-tab\">Devices</a></div></nav>") && !u_ftr.contains("body-tabs") && !u_ftr.contains("footer-nav-tabs"));
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
         assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-standard-folder\"") && user_html.contains("data-modal-open=\"create-custom-folder\""));
-        assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
+        assert!(!user_html.contains("ahamkara"));
 
-        let common_html = render_dashboard_page("bob", false, &store, &snap, 2, "", "", None, None);
+        let common_html = render_dashboard_page("bob", false, &cfg, &store, &snap, 2, "", "", None, None);
         assert!(common_html.contains("&#127760; Ops/") && !common_html.contains("Shared / Ops/") && !common_html.contains("class=\"card\""));
         assert!(common_html.contains("class=\"tree-toggle\" data-target=\"shared:Ops\""));
         assert!(!common_html.contains("Shared folders across your team"));
 
-        let empty_h = render_dashboard_page("emptyuser", false, &store, &snap, 1, "personal", "", None, Some("Invalid folder name"));
+        let empty_h = render_dashboard_page("emptyuser", false, &cfg, &store, &snap, 1, "personal", "", None, Some("Invalid folder name"));
         assert!(empty_h.contains("0 folders accessible yet. Create a personal folder above.") && empty_h.contains("id=\"footer-status-msg\" class=\"footer-toast toast-err\">Invalid folder name</span>"));
 
-        let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
+        let root_a = render_dashboard_page("alice", false, &cfg, &store, &snap, 1, "", "", None, None);
         assert!(root_a.contains("&#128193; Documents/") && root_a.contains("data-existing=\"Documents,Projects\"") && !root_a.contains("class=\"card\""));
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\"") && root_a.contains("data-drop-browse=\"personal:Documents\""));
         assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\"") && root_a.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\""));
@@ -211,26 +218,26 @@ mod tests {
         assert_eq!(crate::render_portal::share_jail::decode_hex("48656c6c6f"), b"Hello");
 
         let br = "personal:Documents";
-        let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);
+        let in_h = render_dashboard_page("alice", false, &cfg, &store, &snap, 1, br, "", None, None);
         assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents") && !in_h.contains("class=\"card\""));
 
-        let s3 = render_dashboard_page("alice", false, &store, &snap, 3, "", "", None, None);
-        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\">+ Add Device</button>") && !s3.contains("class=\"card\""));
-        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=2&amp;browse=shared:Ops") && s3.contains("data-modal-open=\"set-folder-path\"") && s3.contains("~/Thrall/Documents") && !s3.contains("~/THRALL"));
-        let s3_bob = render_dashboard_page("bob", false, &store, &snap, 3, "", "", None, None);
+        let s3 = render_dashboard_page("alice", false, &cfg, &store, &snap, 3, "", "", None, None);
+        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\" data-folders=\"personal:Documents,personal:Projects,shared:Ops\">+ Add Device</button>") && !s3.contains("class=\"card\""));
+        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=shared&amp;browse=shared:Ops") && s3.contains("data-modal-open=\"set-folder-path\"") && s3.contains("~/Thrall/Documents") && s3.contains("Sync: ON") && s3.contains("Sync: OFF") && s3.contains("Cloud Only (Not Synced)") && !s3.contains("~/THRALL"));
+        let s3_bob = render_dashboard_page("bob", false, &cfg, &store, &snap, 3, "", "", None, None);
         assert!(s3_bob.contains("NO DEVICES") && s3_bob.contains("~/Thrall/Ops") && !s3_bob.contains(">Open</a>"));
 
-        let acl_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
-        assert!(acl_html.contains("class=\"explorer-table\"") && acl_html.contains("data-modal-open=\"create-shared-folder\"") && acl_html.contains("acl-save-btn") && acl_html.contains("Save Access") && !acl_html.contains("Apply ACL") && !acl_html.contains("class=\"card\""));
+        let about_html = render_dashboard_page("alice", false, &cfg, &store, &snap, 6, "", "", None, None);
+        assert!(about_html.contains("What is THRALL?") && about_html.contains("tuition-not-coffee") && about_html.contains("Syncthing &amp; Block Exchange Protocol (BEP)"));
 
-        let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
+        let admin_html = render_dashboard_page("admin", true, &cfg, &store, &snap, 4, "", "", None, None);
         let (_, adm_body) = admin_html.split_once("<header class=\"site-header\"").unwrap();
         let (hdr_part, rest_part) = adm_body.split_once("</header>").unwrap();
-        let (_, ftr_part) = rest_part.split_once("<footer class=\"footer-dock\"").unwrap();
-        assert!(!hdr_part.contains("nav-tabs") && !hdr_part.contains("<input") && !hdr_part.contains("USER //") && !hdr_part.contains("ROLE //") && hdr_part.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
-        assert!(ftr_part.contains("footer-nav-tabs") && ftr_part.contains(">Personal folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=4\" class=\"tab-btn admin-tab\">Global folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=5\" class=\"tab-btn admin-tab active\">Mesh setup</a></nav>"));
-        assert!(!admin_html.contains("class=\"card\"") && !admin_html.contains(">SPOKE<") && !admin_html.contains("enrolled spokes"));
-        assert!(admin_html.contains("data-modal-open=\"add-mesh-hub\"") && !admin_html.contains("LDAP"));
+        let (mid_part, ftr_part) = rest_part.split_once("<footer class=\"footer-dock\"").unwrap();
+        assert!(!hdr_part.contains("nav-tabs") && hdr_part.contains("/icon.jpg") && hdr_part.contains("href=\"/?tab=about\"") && hdr_part.contains("<form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form>"));
+        assert!(mid_part.contains("<div class=\"body-tabs-right\"><a href=\"/?tab=admin\" class=\"body-tab admin-tab active\">Admin</a></div>") && !ftr_part.contains("footer-nav-tabs"));
+        assert!(admin_html.contains("data-target=\"admin:global\"") && admin_html.contains("data-target=\"admin:mesh\"") && admin_html.contains("data-target=\"admin:ldap\""));
+        assert!(admin_html.contains("data-modal-open=\"create-shared-folder\"") && admin_html.contains("acl-save-btn") && admin_html.contains("name=\"ro_users\" value=\"bob\" checked") && admin_html.contains("data-modal-open=\"add-mesh-hub\"") && admin_html.contains("/admin/ldap/test") && admin_html.contains("/admin/ldap/update"));
 
         let tmp_base = std::env::temp_dir().join("thrall_test_jail");
         let _ = std::fs::create_dir_all(&tmp_base);
@@ -238,15 +245,11 @@ mod tests {
         let _ = std::fs::remove_file(&tmp_sym);
         #[cfg(unix)]
         if std::os::unix::fs::symlink("/etc", &tmp_sym).is_ok() {
-            assert!(!crate::render_portal::share_jail::verify_no_symlink_escape(
-                &tmp_base, &tmp_sym
-            ));
-            assert!(!crate::render_portal::share_jail::verify_no_symlink_escape(
-                &tmp_base,
-                &tmp_sym.join("nested/sub/path")
-            ));
+            assert!(!crate::render_portal::share_jail::verify_no_symlink_escape(&tmp_base, &tmp_sym));
+            assert!(!crate::render_portal::share_jail::verify_no_symlink_escape(&tmp_base, &tmp_sym.join("nested/sub/path")));
             let _ = std::fs::remove_file(&tmp_sym);
         }
         let _ = std::fs::remove_dir_all(&tmp_base);
+        snap.ldap_users.clear();
     }
 }

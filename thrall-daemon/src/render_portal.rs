@@ -1,8 +1,10 @@
 //! Dark-mode HTML/SVG UI renderer & Web File Explorer for THRALL (`st-mesh-mgr`).
 
 use crate::device_store::{syncthing_folder_id, MeshStore};
+use crate::fleet_config::FleetConfig;
 use crate::reconcile_mesh::FleetSnapshot;
 
+pub mod about_ldap;
 pub mod admin_actions;
 pub mod explorer_view;
 pub mod portal_actions;
@@ -108,9 +110,9 @@ pub fn render_login_page(flash_err: Option<&str>, snap: &FleetSnapshot, store: &
         mass_list.push_str(&mass.to_string());
         brg_list.push_str(&brg.to_string());
     }
-    let hdr = "<header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><div class=\"auth-brand-row\"><div><canvas id=\"header-wordmark\" class=\"header-wordmark\" width=\"140\" height=\"34\" aria-label=\"THRALL\"></canvas><div class=\"visually-hidden\">THRALL</div><div style=\"font-family:var(--mono);font-size:0.65rem;color:var(--muted)\">Tool for Hierarchical Replication And Identity Linking</div></div></div><div></div><form method=\"POST\" action=\"/login\" autocomplete=\"off\" class=\"header-login-form\"><input type=\"text\" name=\"username\" required autocomplete=\"off\" placeholder=\"User or Email\" aria-label=\"User or Email\"><input type=\"password\" name=\"password\" required autocomplete=\"off\" placeholder=\"Password\" aria-label=\"Password\"><button type=\"submit\">[ SIGN IN ]</button></form></div></header>";
+    let hdr = "<header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><a href=\"#\" data-modal-open=\"about-thrall\" class=\"auth-brand-row\" style=\"text-decoration:none;color:inherit\" title=\"About THRALL\"><img src=\"/icon.jpg\" alt=\"THRALL\" width=\"34\" height=\"34\"><div><canvas id=\"header-wordmark\" class=\"header-wordmark\" width=\"140\" height=\"34\" aria-label=\"THRALL\"></canvas><div class=\"visually-hidden\">THRALL</div><div style=\"font-family:var(--mono);font-size:0.65rem;color:var(--muted)\">Tool for Hierarchical Replication And Identity Linking</div></div></a><div></div><form method=\"POST\" action=\"/login\" autocomplete=\"off\" class=\"header-login-form\"><input type=\"text\" name=\"username\" required autocomplete=\"off\" placeholder=\"User or Email\" aria-label=\"User or Email\"><input type=\"password\" name=\"password\" required autocomplete=\"off\" placeholder=\"Password\" aria-label=\"Password\"><button type=\"submit\">[ SIGN IN ]</button></form></div></header>";
     let head_links = "<link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\">";
-    let dock = format!("<footer class=\"footer-dock\" id=\"footer-dock\" aria-label=\"Theme Palette\"><div class=\"footer-dock-inner\"><div class=\"footer-left-slot\">{status_badge}</div><div></div><div class=\"dock-controls\"><canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\" aria-label=\"Browser &lt;-&gt; Mesh Data Flow\"></canvas><div class=\"footer-accent-picker\" id=\"footer-accent-picker\" role=\"radiogroup\" aria-label=\"8-Bit Rainbow Palette\"><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Coral\" style=\"--swatch:#ff5555;background-color:#ff5555;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Coral\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Orange\" style=\"--swatch:#ff7700;background-color:#ff7700;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Orange\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Amber\" style=\"--swatch:#ffb000;background-color:#ffb000;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Amber\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Yellow\" style=\"--swatch:#f1fa8c;background-color:#f1fa8c;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Yellow\"></button><button type=\"button\" class=\"dock-accent-dot active\" data-accent-name=\"Emerald\" style=\"--swatch:#50fa7b;background-color:#50fa7b;\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" aria-label=\"Emerald\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Cyan\" style=\"--swatch:#00e5ff;background-color:#00e5ff;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Cyan\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Blue\" style=\"--swatch:#3b82f6;background-color:#3b82f6;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Blue\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Violet\" style=\"--swatch:#bd93f9;background-color:#bd93f9;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Violet\"></button></div></div></div></footer>");
+    let dock = about_ldap::render_footer_dock(&status_badge);
     format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">{head_links}<title>THRALL</title><style>{PORTAL_CSS}</style></head><body><canvas id=\"spotlight-canvas\" class=\"spotlight-canvas\" data-mesh-nodes=\"{tot}\" data-mini-nodes=\"{mini}\" data-mesh-rtts=\"{rtts}\" data-mesh-bps=\"{bps_list}\" data-mesh-masses=\"{mass_list}\" data-mesh-bearings=\"{brg_list}\" data-mini-parents=\"{parents}\" aria-hidden=\"true\"></canvas>{hdr}{dock}<script src=\"/login.js\"></script></body></html>")
 }
 
@@ -119,6 +121,7 @@ pub fn render_login_page(flash_err: Option<&str>, snap: &FleetSnapshot, store: &
 pub fn render_dashboard_page(
     username: &str,
     is_admin: bool,
+    cfg: &FleetConfig,
     store: &MeshStore,
     snap: &FleetSnapshot,
     active_tab: u8,
@@ -127,33 +130,18 @@ pub fn render_dashboard_page(
     flash_ok: Option<&str>,
     flash_err: Option<&str>,
 ) -> String {
-    let raw_tab = if (1..=3).contains(&active_tab) || (is_admin && (4..=5).contains(&active_tab)) {
-        active_tab
-    } else {
-        1
-    };
-    let tab = if raw_tab == 1 && browse.starts_with("shared:") {
-        2
-    } else if raw_tab == 2 && browse.starts_with("personal:") {
-        1
-    } else {
-        raw_tab
-    };
+    let norm_tab = if matches!(active_tab, 4 | 5 | 7) { 4 } else { active_tab };
+    let raw_tab = if matches!(norm_tab, 1..=3 | 6) || (is_admin && norm_tab == 4) { norm_tab } else { 1 };
+    let tab = if raw_tab == 1 && browse.starts_with("shared:") { 2 } else if raw_tab == 2 && browse.starts_with("personal:") { 1 } else { raw_tab };
     let user_esc = escape_html(username);
     let footer_status = if let Some(err) = flash_err.filter(|s| !s.is_empty()) {
-        let err_esc = escape_html(err);
-        format!("<span id=\"footer-status-msg\" class=\"footer-toast toast-err\">{err_esc}</span>")
+        format!("<span id=\"footer-status-msg\" class=\"footer-toast toast-err\">{}</span>", escape_html(err))
     } else if let Some(ok) = flash_ok.filter(|s| !s.is_empty()) {
-        let ok_esc = escape_html(ok);
-        format!("<span id=\"footer-status-msg\" class=\"footer-toast\">{ok_esc}</span>")
+        format!("<span id=\"footer-status-msg\" class=\"footer-toast\">{}</span>", escape_html(ok))
     } else {
         "<span id=\"footer-status-msg\" class=\"footer-toast\" style=\"display:none\"></span>".to_string()
     };
-    let online_nodes: Vec<_> = snap
-        .nodes
-        .iter()
-        .filter(|n| n.online && !n.device_id.is_empty())
-        .collect();
+    let online_nodes: Vec<_> = snap.nodes.iter().filter(|n| n.online && !n.device_id.is_empty()).collect();
 
     let pane = match tab {
         3 => {
@@ -163,38 +151,45 @@ pub fn render_dashboard_page(
             let u_devs: Vec<_> = store.users.get(username).into_iter().flatten().collect();
             let u_folders = store.folders_for_user(username);
             let s_folders: Vec<_> = store.shared_folders.iter().filter(|(_, a)| a.contains(username)).map(|(f, _)| f.clone()).collect();
-            let tot_f = u_folders.len() + s_folders.len();
+            let mut all_sf: Vec<String> = u_folders.iter().map(|f| format!("personal:{f}")).collect();
+            all_sf.extend(s_folders.iter().map(|f| format!("shared:{f}")));
+            let df_esc = escape_html(&all_sf.join(","));
             let mut rows = String::new();
             for dev in &u_devs {
                 let (lbl, did) = (escape_html(&dev.label), escape_html(&dev.device_id));
                 let sid = dev.device_id.split('-').next().unwrap_or("mesh").to_ascii_lowercase();
                 let tkey = format!("spoke:{did}");
-                let mut acc_cnt = 0usize;
-                let mut kids = String::new();
+                let (mut acc_cnt, mut en_f, mut kids) = (0usize, 0usize, String::new());
                 for f in &u_folders {
                     let (f_esc, flow, k, sf) = (escape_html(f), f.to_ascii_lowercase(), format!("{username}:{f}"), format!("personal:{f}"));
                     let (fid, lp_esc) = (escape_html(&syncthing_folder_id(&format!("user:{username}:{flow}:{sid}"))), escape_html(&store.local_path_for(username, &sf)));
+                    let excl = store.is_device_folder_excluded(&dev.device_id, &sf);
                     let pct = online_nodes.iter().filter_map(|n| snap.user_completion.get(&(k.clone(), n.name.clone())).copied()).min().unwrap_or(100);
                     let ok = snap.device_accepted.get(&(format!("user:{k}"), dev.device_id.clone())).copied().unwrap_or(false);
-                    if ok { acc_cnt += 1; }
-                    let st_b = if ok { "<span class=\"badge badge-online\">&#10003; accepted</span>" } else { "<span class=\"badge badge-warn\">&#9203; unaccepted</span> <a href=\"http://127.0.0.1:8384\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--warn);font-size:0.74rem\">127.0.0.1:8384</a>" };
-                    let p_btn = format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-modal-open=\"set-folder-path\" data-folder=\"personal:{f_esc}\" data-path=\"{lp_esc}\">Local Path</button>");
-                    kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span><a href=\"/?tab=1&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; Personal / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code> &bull; {pct}%</td><td>{st_b}</td><td style=\"text-align:right\">{p_btn}</td></tr>"));
+                    if !excl { en_f += 1; if ok { acc_cnt += 1; } }
+                    let st_b = if excl { "<span class=\"badge btn-secondary\" style=\"color:var(--muted)\">Cloud Only (Not Synced)</span>" } else if ok { "<span class=\"badge badge-online\">&#10003; accepted</span>" } else { "<span class=\"badge badge-warn\">&#9203; unaccepted</span> <a href=\"http://127.0.0.1:8384\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--warn);font-size:0.74rem\">127.0.0.1:8384</a>" };
+                    let (s_cls, s_lbl) = if excl { ("btn-secondary", "Sync: OFF") } else { ("badge-online", "Sync: ON") };
+                    let s_btn = format!("<form method=\"POST\" action=\"/devices/folder-sync\" style=\"display:inline\"><input type=\"hidden\" name=\"device_id\" value=\"{did}\"><input type=\"hidden\" name=\"folder\" value=\"personal:{f_esc}\"><button type=\"submit\" class=\"{s_cls}\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\">{s_lbl}</button></form>");
+                    let p_btn = format!("{s_btn} <button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-modal-open=\"set-folder-path\" data-folder=\"personal:{f_esc}\" data-path=\"{lp_esc}\">Local Path</button>");
+                    kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span><a href=\"/?tab=personal&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; Personal / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code> &bull; {pct}%</td><td>{st_b}</td><td style=\"text-align:right\">{p_btn}</td></tr>"));
                 }
                 for fname in &s_folders {
                     let (f_esc, flow, sf) = (escape_html(fname), fname.to_ascii_lowercase(), format!("shared:{fname}"));
                     let (fid, lp_esc) = (escape_html(&syncthing_folder_id(&format!("shared:{flow}:{sid}"))), escape_html(&store.local_path_for(username, &sf)));
+                    let excl = store.is_device_folder_excluded(&dev.device_id, &sf);
                     let pct = snap.shared_completion.get(fname).copied().unwrap_or(100);
                     let ok = snap.device_accepted.get(&(format!("shared:{fname}"), dev.device_id.clone())).copied().unwrap_or(false);
-                    if ok { acc_cnt += 1; }
-                    let st_b = if ok { "<span class=\"badge badge-online\">&#10003; accepted</span>" } else { "<span class=\"badge badge-warn\">&#9203; unaccepted</span> <a href=\"http://127.0.0.1:8384\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--warn);font-size:0.74rem\">127.0.0.1:8384</a>" };
-                    let p_btn = format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-modal-open=\"set-folder-path\" data-folder=\"shared:{f_esc}\" data-path=\"{lp_esc}\">Local Path</button>");
-                    kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span><a href=\"/?tab=2&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:600\">&#127760; Shared / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code> &bull; {pct}%</td><td>{st_b}</td><td style=\"text-align:right\">{p_btn}</td></tr>"));
+                    if !excl { en_f += 1; if ok { acc_cnt += 1; } }
+                    let st_b = if excl { "<span class=\"badge btn-secondary\" style=\"color:var(--muted)\">Cloud Only (Not Synced)</span>" } else if ok { "<span class=\"badge badge-online\">&#10003; accepted</span>" } else { "<span class=\"badge badge-warn\">&#9203; unaccepted</span> <a href=\"http://127.0.0.1:8384\" target=\"_blank\" rel=\"noopener\" style=\"color:var(--warn);font-size:0.74rem\">127.0.0.1:8384</a>" };
+                    let (s_cls, s_lbl) = if excl { ("btn-secondary", "Sync: OFF") } else { ("badge-online", "Sync: ON") };
+                    let s_btn = format!("<form method=\"POST\" action=\"/devices/folder-sync\" style=\"display:inline\"><input type=\"hidden\" name=\"device_id\" value=\"{did}\"><input type=\"hidden\" name=\"folder\" value=\"shared:{f_esc}\"><button type=\"submit\" class=\"{s_cls}\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\">{s_lbl}</button></form>");
+                    let p_btn = format!("{s_btn} <button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-modal-open=\"set-folder-path\" data-folder=\"shared:{f_esc}\" data-path=\"{lp_esc}\">Local Path</button>");
+                    kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td style=\"padding-left:1.75rem\"><span class=\"tree-branch\">&#9492;&#9472;</span><a href=\"/?tab=shared&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:600\">&#127760; Shared / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code> &bull; {pct}%</td><td>{st_b}</td><td style=\"text-align:right\">{p_btn}</td></tr>"));
                 }
                 if kids.is_empty() {
                     kids.push_str(&format!("<tr class=\"tree-child\" data-parent=\"{tkey}\" style=\"display:none\"><td colspan=\"4\" style=\"padding-left:1.75rem;color:var(--muted);font-size:0.8rem\"><span class=\"tree-branch\">&#9492;&#9472;</span>0 folders provisioned yet.</td></tr>"));
                 }
-                let sync_b = if tot_f == 0 || acc_cnt == tot_f { format!("<span class=\"badge badge-online\">{acc_cnt}/{tot_f} Accepted</span>") } else { format!("<span class=\"badge badge-warn\">{acc_cnt}/{tot_f} Accepted</span>") };
+                let sync_b = if en_f == 0 || acc_cnt == en_f { format!("<span class=\"badge badge-online\">{acc_cnt}/{en_f} Accepted</span>") } else { format!("<span class=\"badge badge-warn\">{acc_cnt}/{en_f} Accepted</span>") };
                 let tbtn = format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{tkey}\" aria-expanded=\"false\" aria-label=\"Expand {lbl}\">+</button>");
                 let rev_b = format!("<button type=\"button\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-del-action=\"/devices/remove\" data-del-name=\"{lbl}\" data-del-item=\"{did}\">Revoke</button>");
                 rows.push_str(&format!("<tr><td>{tbtn}<strong>&#128187; {lbl}</strong></td><td><code style=\"font-family:var(--mono);font-size:0.8rem\">{did}</code></td><td>{sync_b}</td><td style=\"text-align:right\">{rev_b}</td></tr>{kids}"));
@@ -205,34 +200,30 @@ pub fn render_dashboard_page(
                     let (f_esc, flow, sf) = (escape_html(f), f.to_ascii_lowercase(), format!("personal:{f}"));
                     let (fid, lp_esc) = (escape_html(&syncthing_folder_id(&format!("user:{username}:{flow}:mesh"))), escape_html(&store.local_path_for(username, &sf)));
                     let p_btn = format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-modal-open=\"set-folder-path\" data-folder=\"personal:{f_esc}\" data-path=\"{lp_esc}\">Local Path</button>");
-                    rows.push_str(&format!("<tr class=\"pending-folder\"><td><a href=\"/?tab=1&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; Personal / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code></td><td><span class=\"badge badge-warn\">NO DEVICES</span></td><td style=\"text-align:right\">{p_btn}</td></tr>"));
+                    rows.push_str(&format!("<tr class=\"pending-folder\"><td><a href=\"/?tab=personal&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; Personal / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code></td><td><span class=\"badge badge-warn\">NO DEVICES</span></td><td style=\"text-align:right\">{p_btn}</td></tr>"));
                 }
                 for fname in &s_folders {
                     let (f_esc, flow, sf) = (escape_html(fname), fname.to_ascii_lowercase(), format!("shared:{fname}"));
                     let (fid, lp_esc) = (escape_html(&syncthing_folder_id(&format!("shared:{flow}:mesh"))), escape_html(&store.local_path_for(username, &sf)));
                     let p_btn = format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-modal-open=\"set-folder-path\" data-folder=\"shared:{f_esc}\" data-path=\"{lp_esc}\">Local Path</button>");
-                    rows.push_str(&format!("<tr class=\"pending-folder\"><td><a href=\"/?tab=2&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:600\">&#127760; Shared / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code></td><td><span class=\"badge badge-warn\">NO DEVICES</span></td><td style=\"text-align:right\">{p_btn}</td></tr>"));
+                    rows.push_str(&format!("<tr class=\"pending-folder\"><td><a href=\"/?tab=shared&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:600\">&#127760; Shared / {f_esc}/</a></td><td><code>{fid}</code> &bull; <code>{lp_esc}</code></td><td><span class=\"badge badge-warn\">NO DEVICES</span></td><td style=\"text-align:right\">{p_btn}</td></tr>"));
                 }
             }
-            format!("<table class=\"explorer-table\"><thead><tr><th>Device &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"enroll-spoke\">+ Add Device</button></th><th>Device ID / Local Path</th><th style=\"width:210px\">Folders Synced</th><th style=\"width:140px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table><template id=\"tmpl-enroll-spoke\"><div class=\"mono\" id=\"gw-dev\" style=\"user-select:all\">{dev_id}</div>{qr}</template>")
+            format!("<table class=\"explorer-table\"><thead><tr><th>Device &nbsp;<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"enroll-spoke\" data-folders=\"{df_esc}\">+ Add Device</button></th><th>Device ID / Local Path</th><th style=\"width:210px\">Folders Synced</th><th style=\"width:190px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table><template id=\"tmpl-enroll-spoke\"><div class=\"mono\" id=\"gw-dev\" style=\"user-select:all\">{dev_id}</div>{qr}</template>")
         }
-        4 | 5 if is_admin => explorer_view::render_admin_pane(tab, store, snap),
+        6 => about_ldap::render_about_pane(),
+        4 if is_admin => explorer_view::render_admin_pane(cfg, store, snap),
         _ => explorer_view::render_file_explorer(username, store, tab, browse, sub),
     };
     let c = |n: u8, adm: bool| match (tab == n, adm) {
-        (true, true) => "tab-btn admin-tab active",
-        (false, true) => "tab-btn admin-tab",
-        (true, false) => "tab-btn active",
-        (false, false) => "tab-btn",
+        (true, true) => "body-tab admin-tab active",
+        (false, true) => "body-tab admin-tab",
+        (true, false) => "body-tab active",
+        (false, false) => "body-tab",
     };
-    let (c1, c2, c3) = (c(1, false), c(2, false), c(3, false));
-    let (c4, c5) = (c(4, true), c(5, true));
-    let admin_links = if is_admin {
-        format!("<span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=4\" class=\"{c4}\">Global folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=5\" class=\"{c5}\">Mesh setup</a>")
-    } else {
-        String::new()
-    };
-    let footer_tabs = format!("<nav class=\"nav-tabs footer-nav-tabs\"><a href=\"/?tab=1\" class=\"{c1}\">Personal folders</a><a href=\"/?tab=2\" class=\"{c2}\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"{c3}\">Device setup</a>{admin_links}</nav>");
-    let footer = format!("<footer class=\"footer-dock\" id=\"footer-dock\" aria-label=\"Theme Palette\"><div class=\"footer-dock-inner\"><div class=\"footer-left-slot\">{footer_tabs}{footer_status}</div><div></div><div class=\"dock-controls\"><canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\" aria-label=\"Browser &lt;-&gt; Mesh Data Flow\"></canvas><div class=\"footer-accent-picker\" id=\"footer-accent-picker\" role=\"radiogroup\" aria-label=\"8-Bit Rainbow Palette\"><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Coral\" style=\"--swatch:#ff5555;background-color:#ff5555;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Coral\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Orange\" style=\"--swatch:#ff7700;background-color:#ff7700;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Orange\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Amber\" style=\"--swatch:#ffb000;background-color:#ffb000;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Amber\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Yellow\" style=\"--swatch:#f1fa8c;background-color:#f1fa8c;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Yellow\"></button><button type=\"button\" class=\"dock-accent-dot active\" data-accent-name=\"Emerald\" style=\"--swatch:#50fa7b;background-color:#50fa7b;\" role=\"radio\" aria-checked=\"true\" tabindex=\"0\" aria-label=\"Emerald\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Cyan\" style=\"--swatch:#00e5ff;background-color:#00e5ff;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Cyan\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Blue\" style=\"--swatch:#3b82f6;background-color:#3b82f6;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Blue\"></button><button type=\"button\" class=\"dock-accent-dot\" data-accent-name=\"Violet\" style=\"--swatch:#bd93f9;background-color:#bd93f9;\" role=\"radio\" aria-checked=\"false\" tabindex=\"-1\" aria-label=\"Violet\"></button></div></div></div></footer>");
-    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"><title>THRALL — Tool for Hierarchical Replication And Identity Linking ({user_esc})</title><style>{PORTAL_CSS}</style></head><body><header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><div class=\"auth-brand-row\"><div><canvas id=\"header-wordmark\" class=\"header-wordmark\" width=\"140\" height=\"34\" aria-label=\"THRALL\"></canvas><div class=\"visually-hidden\">THRALL — Tool for Hierarchical Replication And Identity Linking</div><div style=\"font-family:var(--mono);font-size:0.65rem;color:var(--muted)\">Tool for Hierarchical Replication And Identity Linking</div></div></div><div></div><form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form></div></header><div class=\"middle-scroll\" id=\"middle-scroll\"><div class=\"container\">{pane}</div></div>{footer}<script src=\"/login.js\"></script></body></html>")
+    let (c1, c2, c3, c4) = (c(1, false), c(2, false), c(3, false), c(4, true));
+    let admin_link = if is_admin { format!("<div class=\"body-tabs-right\"><a href=\"/?tab=admin\" class=\"{c4}\">Admin</a></div>") } else { String::new() };
+    let body_tabs = format!("<nav class=\"body-tabs\" aria-label=\"Portal Navigation\"><div class=\"body-tabs-left\"><a href=\"/?tab=personal\" class=\"{c1}\">Personal</a><a href=\"/?tab=shared\" class=\"{c2}\">Shared</a><a href=\"/?tab=devices\" class=\"{c3}\">Devices</a></div>{admin_link}</nav>");
+    let footer = about_ldap::render_footer_dock(&footer_status);
+    format!("<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"><title>THRALL — Tool for Hierarchical Replication And Identity Linking ({user_esc})</title><style>{PORTAL_CSS}</style></head><body><header class=\"site-header\" id=\"site-header\"><div class=\"site-header-inner\"><a href=\"/?tab=about\" class=\"auth-brand-row\" style=\"text-decoration:none;color:inherit\" title=\"About THRALL\"><img src=\"/icon.jpg\" alt=\"THRALL\" width=\"34\" height=\"34\"><div><canvas id=\"header-wordmark\" class=\"header-wordmark\" width=\"140\" height=\"34\" aria-label=\"THRALL\"></canvas><div class=\"visually-hidden\">THRALL — Tool for Hierarchical Replication And Identity Linking</div><div style=\"font-family:var(--mono);font-size:0.65rem;color:var(--muted)\">Tool for Hierarchical Replication And Identity Linking</div></div></a><div></div><form method=\"POST\" action=\"/logout\" autocomplete=\"off\" class=\"header-login-form\"><button type=\"submit\">[ SIGN OUT ]</button></form></div></header><div class=\"middle-scroll\" id=\"middle-scroll\"><div class=\"container\">{body_tabs}{pane}</div></div>{footer}<script src=\"/login.js\"></script></body></html>")
 }
