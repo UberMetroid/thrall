@@ -53,15 +53,23 @@ fn test_no_peer_artifacts_in_the_repository() -> Result<(), Box<dyn std::error::
         );
     }
 
-    // The pipeline must not publish a peer package either.
-    let workflow = workspace_root.join(".github/workflows/ci.yml");
-    if workflow.exists() {
-        let text = fs::read_to_string(&workflow)?;
-        for needle in ["IMAGE_PEER", "thrall-syncthing", "Containerfile.syncthing"] {
-            assert!(
-                !text.contains(needle),
-                "the pipeline must not publish a peer image ({needle})"
-            );
+    // The pipeline must not publish a peer package either. Every workflow file
+    // is checked, so a peer publish step cannot hide in a second pipeline.
+    let workflows_dir = workspace_root.join(".github/workflows");
+    if workflows_dir.is_dir() {
+        for entry in fs::read_dir(&workflows_dir)?.flatten() {
+            let path = entry.path();
+            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            if !(name.ends_with(".yml") || name.ends_with(".yaml")) {
+                continue;
+            }
+            let text = fs::read_to_string(&path)?;
+            for needle in ["IMAGE_PEER", "thrall-syncthing", "Containerfile.syncthing"] {
+                assert!(
+                    !text.contains(needle),
+                    "the pipeline must not publish a peer image ({needle}) in {name}"
+                );
+            }
         }
     }
 
