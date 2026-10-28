@@ -4,7 +4,7 @@ After=network-online.target syncthing.service
 Wants=network-online.target syncthing.service
 
 [Container]
-Image=localhost/thrall:v0.4.2
+Image=localhost/thrall:v0.4.3
 ContainerName=thrall
 AutoUpdate=local
 Network=host
