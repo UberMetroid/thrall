@@ -221,7 +221,9 @@ pub fn trigger_web_scan(cfg: &crate::fleet_config::FleetConfig, snap: &FleetSnap
     };
     let rel = crate::device_store::sanitize_rel_subpath(sub).unwrap_or_default();
     if let Some((srv, st)) = cfg.servers.iter().zip(snap.nodes.iter()).find(|(_, s)| s.online).map(|(srv, s)| (srv.clone(), s.api_key.clone())) {
-        let ep = if rel.is_empty() { format!("/rest/db/scan?folder={mfid}") } else { format!("/rest/db/scan?folder={mfid}&sub={rel}") };
+        // Percent-encode the sub path: it is a query-string component, and it
+        // must not be able to introduce a separator or a shell metacharacter.
+        let ep = if rel.is_empty() { format!("/rest/db/scan?folder={mfid}") } else { format!("/rest/db/scan?folder={mfid}&sub={}", crate::render_portal::url::percent_encode(&rel)) };
         std::thread::spawn(move || { let _ = ssh_syncthing_rest(&srv, &st, "POST", &ep, None); });
     }
 }

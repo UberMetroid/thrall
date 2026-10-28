@@ -6,6 +6,15 @@ use std::process::{Command, Stdio};
 
 use crate::fleet_config::ServerNodeConfig;
 
+mod parse;
+mod rest;
+mod shell;
+
+pub use parse::{
+    extract_xml_tag, parse_json_bool_field, parse_json_string_field, parse_json_u64_field,
+};
+pub use rest::ssh_syncthing_rest;
+
 fn split_ssh_host_port(ssh_host: &str) -> (&str, &str) {
     if let Some((h, p)) = ssh_host.rsplit_once(':') {
         if !p.is_empty() && p.chars().all(|c| c.is_ascii_digit()) {
@@ -43,55 +52,6 @@ fn base_ssh_command(node: &ServerNodeConfig) -> Command {
     cmd
 }
 
-pub fn extract_xml_tag(xml: &str, tag: &str) -> Option<String> {
-    let open = format!("<{tag}>");
-    let close = format!("</{tag}>");
-    let start = xml.find(&open)? + open.len();
-    let end = xml[start..].find(&close)? + start;
-    let val = xml[start..end].trim();
-    (!val.is_empty()).then(|| val.to_string())
-}
-
-pub fn parse_json_string_field(json: &str, field: &str) -> Option<String> {
-    let pattern = format!("\"{field}\"");
-    let idx = json.find(&pattern)? + pattern.len();
-    let after_colon = json[idx..].find(':')? + idx + 1;
-    let rest = json[after_colon..].trim_start();
-    if !rest.starts_with('"') {
-        return None;
-    }
-    let inner = &rest[1..];
-    let end_quote = inner.find('"')?;
-    Some(inner[..end_quote].to_string())
-}
-
-pub fn parse_json_u64_field(json: &str, field: &str) -> Option<u64> {
-    let pattern = format!("\"{field}\"");
-    let idx = json.find(&pattern)? + pattern.len();
-    let after_colon = json[idx..].find(':')? + idx + 1;
-    let rest = json[after_colon..].trim_start();
-    let digits: String = rest
-        .chars()
-        .take_while(|c| c.is_ascii_digit() || *c == '.')
-        .collect();
-    let int_part = digits.split('.').next().unwrap_or("");
-    int_part.parse::<u64>().ok()
-}
-
-pub fn parse_json_bool_field(json: &str, field: &str) -> Option<bool> {
-    let pattern = format!("\"{field}\"");
-    let idx = json.find(&pattern)? + pattern.len();
-    let after_colon = json[idx..].find(':')? + idx + 1;
-    let rest = json[after_colon..].trim_start();
-    if rest.starts_with("true") {
-        Some(true)
-    } else if rest.starts_with("false") {
-        Some(false)
-    } else {
-        None
-    }
-}
-
 pub fn ssh_mkdir_many(node: &ServerNodeConfig, remote_dirs: &[String]) -> Result<(), String> {
     for d in remote_dirs {
         if !d.starts_with('/')
@@ -104,7 +64,8 @@ pub fn ssh_mkdir_many(node: &ServerNodeConfig, remote_dirs: &[String]) -> Result
         }
     }
     let mut cmd = base_ssh_command(node);
-    cmd.args(["mkdir", "-p"]).args(remote_dirs);
+    cmd.args(["mkdir", "-p"])
+        .args(remote_dirs.iter().map(|d| shell::quote(d)));
     let out = cmd
         .output()
         .map_err(|e| format!("[{}] ssh mkdir failed: {e}", node.name))?;
@@ -162,7 +123,7 @@ pub fn discover_remote_api_key(node: &ServerNodeConfig) -> Result<String, String
     ];
     for path in candidates {
         let mut cmd = base_ssh_command(node);
-        cmd.args(["cat", path]);
+        cmd.args(["cat", &shell::quote(path)]);
         if let Some(out) = cmd.output().ok().filter(|o| o.status.success()) {
             let xml = String::from_utf8_lossy(&out.stdout);
             if let Some(key) = extract_xml_tag(&xml, "apikey") {
@@ -176,80 +137,4 @@ pub fn discover_remote_api_key(node: &ServerNodeConfig) -> Result<String, String
         }
     }
     Err(format!("[{}] Missing Syncthing <apikey>", node.name))
-}
-
-pub fn ssh_syncthing_rest(
-    node: &ServerNodeConfig,
-    api_key: &str,
-    method: &str,
-    endpoint_path: &str,
-    json_body: Option<&str>,
-) -> Result<String, String> {
-    let base = node.syncthing_api_url.trim_end_matches('/');
-    let url = format!("{base}{endpoint_path}");
-    let header_key = format!("X-API-Key:{api_key}");
-
-    let mut cmd = base_ssh_command(node);
-    cmd.args(["curl", "-fsS", "-X", method, "-H", &header_key]);
-    if json_body.is_some() {
-        cmd.args(["-H", "Content-Type:application/json", "--data-binary", "@-"]);
-    }
-    cmd.arg(&url);
-
-    if let Some(body) = json_body {
-        cmd.stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| format!("[{}] ssh curl spawn failed: {e}", node.name))?;
-        if let Some(mut stdin) = child.stdin.take() {
-            stdin
-                .write_all(body.as_bytes())
-                .map_err(|e| format!("[{}] stdin write failed: {e}", node.name))?;
-        }
-        let out = child
-            .wait_with_output()
-            .map_err(|e| format!("[{}] ssh curl wait failed: {e}", node.name))?;
-        if !out.status.success() {
-            return Err(format!(
-                "[{}] {method} {endpoint_path} failed: {}",
-                node.name,
-                String::from_utf8_lossy(&out.stderr).trim()
-            ));
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).to_string())
-    } else {
-        let out = cmd
-            .output()
-            .map_err(|e| format!("[{}] ssh curl exec failed: {e}", node.name))?;
-        if !out.status.success() {
-            return Err(format!(
-                "[{}] {method} {endpoint_path} failed: {}",
-                node.name,
-                String::from_utf8_lossy(&out.stderr).trim()
-            ));
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).to_string())
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::unwrap_used, clippy::expect_used)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_xml_and_json_extractors() {
-        let xml = "<configuration><gui><apikey>abc123xyz</apikey></gui></configuration>";
-        assert_eq!(extract_xml_tag(xml, "apikey").as_deref(), Some("abc123xyz"));
-
-        let status_json = r#"{"myID": "T4U7YLJ-I6PFVWY", "uptime": 42, "connected": true}"#;
-        assert_eq!(
-            parse_json_string_field(status_json, "myID").as_deref(),
-            Some("T4U7YLJ-I6PFVWY")
-        );
-        assert_eq!(parse_json_u64_field(status_json, "uptime"), Some(42));
-        assert_eq!(parse_json_bool_field(status_json, "connected"), Some(true));
-    }
 }

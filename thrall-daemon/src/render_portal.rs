@@ -11,6 +11,7 @@ pub mod mesh_stage;
 pub mod portal_actions;
 pub mod reconcile_folders;
 pub mod share_jail;
+pub mod url;
 
 pub const PORTAL_CSS: &str = include_str!("../../assets/portal.css");
 
