@@ -72,14 +72,21 @@ pub fn sanitize_rel_subpath(sub: &str) -> Result<String, String> {
 }
 
 pub fn verify_no_symlink_escape(base: &std::path::Path, full: &std::path::Path) -> bool {
-    if let Ok(sm) = std::fs::symlink_metadata(full) {
-        if sm.file_type().is_symlink() {
-            return false;
+    let mut cur = Some(full);
+    while let Some(p) = cur {
+        if let Ok(sm) = std::fs::symlink_metadata(p) {
+            if sm.file_type().is_symlink() {
+                return false;
+            }
+            return match (base.canonicalize(), p.canonicalize()) {
+                (Ok(cb), Ok(cp)) => cp.starts_with(&cb),
+                _ => false,
+            };
         }
-        return match (base.canonicalize(), full.canonicalize()) {
-            (Ok(cb), Ok(cf)) => cf.starts_with(&cb),
-            _ => false,
-        };
+        if p == base {
+            break;
+        }
+        cur = p.parent();
     }
     true
 }

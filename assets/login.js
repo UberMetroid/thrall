@@ -1355,41 +1355,43 @@
       ctx.fillText(lbl, w - 28, 11);
     }
 
-    function readFileBuffer(file) {
-      if (file && typeof file.arrayBuffer === 'function') {
-        return file.arrayBuffer();
+    function readBlobSlice(blob) {
+      if (blob && typeof blob.arrayBuffer === 'function') {
+        return blob.arrayBuffer();
       }
       return new Promise(function (resolve, reject) {
         var fr = new FileReader();
         fr.onload = function () { resolve(fr.result); };
         fr.onerror = function () { reject(fr.error); };
-        fr.readAsArrayBuffer(file);
+        fr.readAsArrayBuffer(blob);
       });
     }
 
     function uploadSingleFile(br, baseSub, item, onChunk) {
       var target = splitRelPath(baseSub, item.relPath || item.file.name);
       if (!target) return Promise.resolve();
-      return readFileBuffer(item.file).then(function (buf) {
-        var bytes = new Uint8Array(buf || new ArrayBuffer(0));
-        var chunkSize = 12288;
-        var total = bytes.length;
-        var offset = 0;
-        var isFirst = true;
+      var file = item.file;
+      var chunkSize = 12288;
+      var total = file.size || 0;
+      var offset = 0;
+      var isFirst = true;
 
-        function nextChunk() {
-          if (offset >= total && !isFirst) return Promise.resolve();
-          var end = Math.min(total, offset + chunkSize);
-          var slice = bytes.subarray(offset, end);
+      function nextChunk() {
+        if (offset >= total && !isFirst) return Promise.resolve();
+        var end = Math.min(total, offset + chunkSize);
+        var blobSlice = file.slice ? file.slice(offset, end) : file;
+        var currentAppendix = isFirst ? '0' : '1';
+        offset = end;
+        isFirst = false;
+        return readBlobSlice(blobSlice).then(function (buf) {
+          var slice = new Uint8Array(buf || new ArrayBuffer(0));
           var hex = bytesToHex(slice);
           var body =
             'browse=' + encodeURIComponent(br) +
             '&sub=' + encodeURIComponent(target.sub) +
             '&filename=' + encodeURIComponent(target.filename) +
-            '&append=' + (isFirst ? '0' : '1') +
+            '&append=' + currentAppendix +
             '&hex=' + hex;
-          offset = end;
-          isFirst = false;
           return fetch('/files/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1400,9 +1402,9 @@
             if (onChunk) onChunk(slice.length);
             return nextChunk();
           });
-        }
-        return nextChunk();
-      });
+        });
+      }
+      return nextChunk();
     }
 
     function startBatchUpload(br, baseSub, items) {
@@ -1571,7 +1573,8 @@
       if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
       collectDataTransferFiles(e.dataTransfer).then(function (items) {
         if (items && items.length) {
-          var expandBtn = document.querySelector('.tree-toggle[data-target="' + br + '"]');
+          var tKey = sb ? (br + ':' + sb) : br;
+          var expandBtn = document.querySelector('.tree-toggle[data-target="' + tKey + '"]') || document.querySelector('.tree-toggle[data-target="' + br + '"]');
           if (expandBtn && expandBtn.getAttribute('aria-expanded') === 'false') {
             expandBtn.click();
           }

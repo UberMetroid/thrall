@@ -96,10 +96,9 @@ pub fn handle_post_action(
         let etab = if rbr.starts_with("shared:") || br.starts_with("shared:") { 2 } else { 1 };
         let valid_fn = !fnm.is_empty() && !fnm.starts_with('.') && fnm.len() <= 128 && fnm.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
         if let (true, Some((_, base, _))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
-            let _ = fs::create_dir_all(&base);
             let fpath = base.join(fnm);
             let data = if !fval("hex").is_empty() { decode_hex(fval("hex")) } else { fval("content").as_bytes().to_vec() };
-            let ok = if fval("append") == "1" {
+            let ok = fs::create_dir_all(&base).is_ok() && if fval("append") == "1" {
                 OpenOptions::new().create(true).append(true).open(&fpath).and_then(|mut f| f.write_all(&data)).is_ok()
             } else {
                 fs::write(&fpath, &data).is_ok()

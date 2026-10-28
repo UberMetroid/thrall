@@ -241,9 +241,13 @@ mod tests {
         let tmp_sym = tmp_base.join("escape_link");
         let _ = std::fs::remove_file(&tmp_sym);
         #[cfg(unix)]
-        if std::os::unix::fs::symlink("/etc/hosts", &tmp_sym).is_ok() {
+        if std::os::unix::fs::symlink("/etc", &tmp_sym).is_ok() {
             assert!(!crate::render_portal::share_jail::verify_no_symlink_escape(
                 &tmp_base, &tmp_sym
+            ));
+            assert!(!crate::render_portal::share_jail::verify_no_symlink_escape(
+                &tmp_base,
+                &tmp_sym.join("nested/sub/path")
             ));
             let _ = std::fs::remove_file(&tmp_sym);
         }
