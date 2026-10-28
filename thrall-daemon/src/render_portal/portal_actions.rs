@@ -90,8 +90,8 @@ pub fn handle_post_action(stream: &mut TcpStream, path: &str, body: &str, form: 
             write_redirect(stream, &u, "");
         } else if let (Ok(d), Some((_, base, rel))) = (sanitize_folder_name(fval("dirname")), resolve_jailed_path(username, store, br, sub)) {
             let _ = fs::create_dir_all(base.join(&d));
-            trigger_web_scan(cfg, snap, store, username, br);
             let nsub = if rel.is_empty() { d } else { format!("{rel}/{d}") };
+            trigger_web_scan(cfg, snap, store, username, br, &nsub);
             let u = if rbr.is_empty() { format!("/?tab={etab}&ok=Folder+created") } else { format!("/?tab={etab}&browse={rbr}&sub={nsub}&ok=Folder+created") };
             write_redirect(stream, &u, "");
         } else {
@@ -107,13 +107,13 @@ pub fn handle_post_action(stream: &mut TcpStream, path: &str, body: &str, form: 
         if is_ro(br) {
             if path == "/files/upload" { write_http(stream, "403 Forbidden", "application/json", "", b"{\"ok\":false,\"err\":\"Read-only shared folder\"}\n"); }
             else { write_redirect(stream, &format!("/?tab={etab}&browse={rbr}&sub={sub}&err=Read-only+shared+folder"), ""); }
-        } else if let (true, Some((_, base, _))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
+        } else if let (true, Some((_, base, rel))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
             let fpath = base.join(fnm);
             let data = if !fval("hex").is_empty() { decode_hex(fval("hex")) } else { fval("content").as_bytes().to_vec() };
             let ok = fs::create_dir_all(&base).is_ok() && if fval("append") == "1" {
                 OpenOptions::new().create(true).append(true).open(&fpath).and_then(|mut f| f.write_all(&data)).is_ok()
             } else { fs::write(&fpath, &data).is_ok() };
-            if ok && (path == "/files/create" || data.len() < 12_288) { trigger_web_scan(cfg, snap, store, username, br); }
+            if ok && (path == "/files/create" || data.len() < 12_288) { trigger_web_scan(cfg, snap, store, username, br, &rel); }
             if path == "/files/upload" {
                 let (st, msg) = if ok { ("200 OK", "{\"ok\":true}\n") } else { ("500 Internal Server Error", "{\"ok\":false}\n") };
                 write_http(stream, st, "application/json", "", msg.as_bytes());
@@ -147,7 +147,8 @@ pub fn handle_post_action(stream: &mut TcpStream, path: &str, body: &str, form: 
             }
             if !rel_i.is_empty() {
                 if fp.is_dir() { let _ = fs::remove_dir_all(&fp); } else { let _ = fs::remove_file(&fp); }
-                trigger_web_scan(cfg, snap, store, username, s_br);
+                let p_rel = rel_i.rsplit_once('/').map_or("", |(p, _)| p);
+                trigger_web_scan(cfg, snap, store, username, s_br, p_rel);
             }
         }
         let u = if br.is_empty() { format!("/?tab={etab}&ok=Item+deleted") } else { format!("/?tab={etab}&browse={br}&sub={sub}&ok=Item+deleted") };
@@ -205,7 +206,7 @@ pub fn handle_post_action(stream: &mut TcpStream, path: &str, body: &str, form: 
                     if sel.contains(&k) { store.device_excluded_folders.remove(&(norm_id.clone(), k)); }
                     else { store.device_excluded_folders.insert((norm_id.clone(), k)); }
                 }
-            }
+            } else { store.device_excluded_folders.retain(|(d, _)| d != &norm_id); }
             store.save(&cfg.portal.database_path)
         });
         match res {

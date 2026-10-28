@@ -212,15 +212,16 @@ pub fn reconcile_server_node(
 }
 
 #[rustfmt::skip]
-pub fn trigger_web_scan(cfg: &crate::fleet_config::FleetConfig, snap: &FleetSnapshot, store: &MeshStore, user: &str, br: &str) {
+pub fn trigger_web_scan(cfg: &crate::fleet_config::FleetConfig, snap: &FleetSnapshot, store: &MeshStore, user: &str, br: &str, sub: &str) {
     let mfid = if let Some(sh) = br.strip_prefix("shared:") {
         syncthing_folder_id(&format!("shared:{}:mesh", sh.to_ascii_lowercase()))
     } else {
         let pf = br.strip_prefix("personal:").or_else(|| br.strip_prefix("personal/")).map(String::from).unwrap_or_else(|| store.folders_for_user(user).into_iter().next().unwrap_or_default());
         syncthing_folder_id(&format!("user:{user}:{}:mesh", pf.to_ascii_lowercase()))
     };
+    let rel = crate::device_store::sanitize_rel_subpath(sub).unwrap_or_default();
     if let Some((srv, st)) = cfg.servers.iter().zip(snap.nodes.iter()).find(|(_, s)| s.online).map(|(srv, s)| (srv.clone(), s.api_key.clone())) {
-        let ep = format!("/rest/db/scan?folder={mfid}");
+        let ep = if rel.is_empty() { format!("/rest/db/scan?folder={mfid}") } else { format!("/rest/db/scan?folder={mfid}&sub={rel}") };
         std::thread::spawn(move || { let _ = ssh_syncthing_rest(&srv, &st, "POST", &ep, None); });
     }
 }
