@@ -9,6 +9,26 @@ use std::fs;
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+/// Build the command for a direct REST call against a peer on this host.
+fn build_direct_command(
+    api_url: &str,
+    api_key: &str,
+    method: &str,
+    endpoint_path: &str,
+    with_body: bool,
+) -> Command {
+    let base = api_url.trim_end_matches('/');
+    let url = format!("{base}{endpoint_path}");
+    let header = format!("X-API-Key:{api_key}");
+    let mut cmd = Command::new("curl");
+    cmd.args(["-fsS", "--max-time", "20", "-X", method, "-H", &header]);
+    if with_body {
+        cmd.args(["-H", "Content-Type:application/json", "--data-binary", "@-"]);
+    }
+    cmd.arg(&url);
+    cmd
+}
+
 /// Perform a Syncthing REST call against a peer on this host.
 pub fn direct_syncthing_rest(
     api_url: &str,
@@ -17,19 +37,14 @@ pub fn direct_syncthing_rest(
     endpoint_path: &str,
     json_body: Option<&str>,
 ) -> Result<String, String> {
-    let base = api_url.trim_end_matches('/');
-    let url = format!("{base}{endpoint_path}");
-    let header = format!("X-API-Key:{api_key}");
-    let mut cmd = Command::new("curl");
-    cmd.args(["-fsS", "--max-time", "20", "-X", method, "-H", &header]);
+    let mut cmd =
+        build_direct_command(api_url, api_key, method, endpoint_path, json_body.is_some());
     let Some(body) = json_body else {
         let out = cmd
             .output()
             .map_err(|e| format!("[local] curl exec failed: {e}"))?;
         return finish(out, method, endpoint_path);
     };
-    cmd.args(["-H", "Content-Type:application/json", "--data-binary", "@-"]);
-    cmd.arg(&url);
     cmd.stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -63,4 +78,48 @@ fn finish(out: std::process::Output, method: &str, endpoint_path: &str) -> Resul
         ));
     }
     Ok(String::from_utf8_lossy(&out.stdout).to_string())
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    fn args(cmd: &Command) -> Vec<String> {
+        cmd.get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn test_direct_command_always_carries_the_url() {
+        // A GET must still be given the URL; leaving it off silently sends a
+        // request with no target and the peer never sees the call.
+        let cmd = build_direct_command(
+            "http://127.0.0.1:8384",
+            "k",
+            "GET",
+            "/rest/system/status",
+            false,
+        );
+        let a = args(&cmd);
+        assert!(a.contains(&"http://127.0.0.1:8384/rest/system/status".to_string()));
+        assert!(a.contains(&"X-API-Key:k".to_string()));
+        assert!(a.contains(&"GET".to_string()));
+    }
+
+    #[test]
+    fn test_direct_command_with_body_reads_stdin() {
+        let cmd = build_direct_command(
+            "http://127.0.0.1:8384",
+            "k",
+            "PUT",
+            "/rest/config/folders/abc",
+            true,
+        );
+        let a = args(&cmd);
+        assert!(a.contains(&"http://127.0.0.1:8384/rest/config/folders/abc".to_string()));
+        assert!(a.contains(&"@-".to_string()));
+        assert!(a.contains(&"Content-Type:application/json".to_string()));
+    }
 }
