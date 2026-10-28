@@ -3,7 +3,7 @@
   <h1>THRALL</h1>
   <p><strong>Tool for Hierarchical Replication And Identity Linking</strong></p>
   <p>
-    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.4.1"><img src="https://img.shields.io/badge/release-v0.4.1-50fa7b?style=flat-square" alt="v0.4.1 Release"></a>
+    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.4.5"><img src="https://img.shields.io/badge/release-v0.4.5-50fa7b?style=flat-square" alt="v0.4.5 Release"></a>
     <a href="https://github.com/UberMetroid/thrall/actions/workflows/ci.yml"><img src="https://github.com/UberMetroid/thrall/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
     <a href="https://ubermetroid.github.io/thrall/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-3fb950?style=flat-square" alt="GitHub Pages"></a>
     <a href="https://ubermetroid.github.io/ahamkara/communion.html"><img src="https://img.shields.io/badge/ahamkara-Wish--Dragon%20Communion-a371f7?style=flat-square" alt="Ahamkara Rite of Communion"></a>
@@ -17,7 +17,61 @@
 
 **THRALL** (`thrall` / `st-mesh-mgr`) is a zero-dependency static Rust control plane and self-service web portal that binds an organization's LDAP directory (RFC 4511) to a distributed multi-server Syncthing fleet.
 
-## Key Capabilities (v0.4.1)
+---
+
+## Fleet Topology: One Control Plane, a Peer on Every Hub
+
+THRALL is a **control plane**, never a peer. It does not bundle, install, or spawn Syncthing. A fleet is therefore deployed as two separate container roles, and the split is enforced by a CI lint gate (`thrall-daemon/tests/lint.rs` fails the build if the control-plane image ever gains a Syncthing stage, package, or binary reference):
+
+| Role | Image | Runs on | Count per fleet |
+|---|---|---|---|
+| **Control plane** — LDAP bind, portal, roster, folder topology, ACLs | `thrall` | one host | **1** |
+| **Peer** — the Syncthing data plane that actually replicates blocks | `thrall-syncthing` | every hub that stores data | **N** |
+
+```text
+    +----------------------------------------------+
+    |         Control-plane host  (ONE per fleet)  |
+    |                                              |
+    |           [ thrall container ]               |
+    |             - RFC 4511 LDAP bind             |
+    |             - 5-tab self-service portal      |
+    |             - roster / topology / ACLs in    |
+    |               /config/mesh-mgr.db            |
+    |             - reconciler: calls each peer    |
+    |               REST API, never its data       |
+    +--------+---------------+---------------+-----+
+             |               |               |
+           REST            REST            REST
+         (direct)         (SSH or         (SSH or
+          local)        Tailscale)      Tailscale)
+             |               |               |
+             v               v               v
+      +------------+  +------------+  +------------+
+      |   hub-a    |  |   hub-b    |  |   hub-c    |
+      | [ syncthing|  | [ syncthing|  | [ syncthing|
+      |  container]|  |  container]|  |  container]|
+      +------------+  +------------+  +------------+
+```
+
+### Do I install THRALL on every hub?
+
+**No — one control plane, peer container on every hub.** Installing the control plane on each hub would duplicate the brain, not multiply the redundancy:
+
+1. **The roster is a single-writer store.** `mesh-mgr.db` holds the users, folder paths, shared-folder ACLs, device enrollments, selective-sync exclusions, share links, and disabled-hub list. `MeshStore::save()` writes that whole file to a temp path and renames it — no lock, no version counter, no merge. Two control planes silently overwrite each other's roster; last writer wins, with no error.
+2. **Every control plane reconciles every hub.** `reconcile_fleet()` iterates over *all* of `fleet.yaml`'s `servers[]` and pushes the local view of the topology into each peer. `N` control planes therefore produce `N x N` reconciliation writes, every instance racing the others into the same peers' folder configuration — a config-flapping loop, not redundancy.
+3. **Portal identity is per-instance.** Each control plane holds its own session secret, its own LDAP bind, and its own portal. `N` control planes behind one edge means `N` portals and `N` sets of credentials to defend.
+
+**If the control-plane host is a single point of failure**, the correct shape is a *warm standby*, not `N` active-active control planes: a second control plane holding a standby copy of `mesh-mgr.db`, promoted deliberately, never reconciling concurrently with the primary. Active-active would additionally require leader election, database replication, and partitioned peer ownership — none of which exist today, and none of which are needed while there is one writer.
+
+### How the control plane reaches a peer
+
+- **`local: true`** — the peer shares the host with the daemon. THRALL calls the peer's REST API directly at `syncthing_api_url`, so it never SSHes into its own machine. The peer's own config file is another container's private state and is never read; give the local peer an explicit `syncthing_api_key`.
+- **otherwise** — THRALL reaches the peer's REST API over SSH. Every SSH-bound value is shell-quoted before it leaves the process, and folder sub-paths are percent-encoded.
+- **Every peer gets its own `syncthing_api_key`** in `fleet.yaml`. Exposing a peer's API on a private overlay network (for example, the host's Tailscale interface) rather than the public internet is the intended direction.
+
+---
+
+## Key Capabilities (v0.4.5)
 
 1. **Symmetric 54px Header & Footer Dock + 8-Bit Rainbow Palette**:
    - Unified 54px top header and bottom footer dock with a pixel-art `THRALL` canvas wordmark, subtitle (**T**ool for **H**ierarchical **R**eplication **A**nd **I**dentity **L**inking), and an interactive 8-Bit Rainbow Palette (`Coral`, `Orange`, `Amber`, `Yellow`, `Emerald`, `Cyan`, `Blue`, `Violet`).
@@ -46,7 +100,7 @@ thrall/
 ├── .github/                   # CI: verification ladder + ghcr.io OCI image publishing
 ├── AGENTS.md                  # Canonical House Laws (16-256 line Page Rule, zero deps)
 ├── Cargo.toml                 # Workspace root (release LTO, panic=abort, strip=true)
-├── Containerfile              # Multi-stage Fedora-minimal Rust + Syncthing OCI build
+├── Containerfile              # Multi-stage Fedora-minimal control-plane OCI build
 ├── Containerfile.syncthing    # Minimal Fedora-minimal Syncthing peer node image
 ├── LICENSE                    # Apache License 2.0
 ├── README.md                  # Architecture & deployment guide
@@ -60,7 +114,7 @@ thrall/
 ├── docs/                      # GitHub Pages landing site (https://ubermetroid.github.io/thrall/)
 ├── quadlet/                   # Hardened rootless/system Podman systemd Quadlet units
 └── thrall-daemon/
-    ├── Cargo.toml             # v0.4.1 — Zero external dependencies (Apache-2.0)
+    ├── Cargo.toml             # v0.4.5 — Zero external dependencies (Apache-2.0)
     ├── src/                   # Modular pages strictly <= 256 lines each
     └── tests/                 # Automated Page Rule & Zero-Shell lint gates
 ```
@@ -96,7 +150,8 @@ sudo systemctl restart syncthing.service thrall.service
 | Image | Ports | `8080` portal (peer image adds `8384` API + `22000` tcp/udp BEP) |
 | Image | Volumes | `/config`, `/users`, `/shared` |
 | Daemon | `THRALL_CONFIG` | `/config/fleet.yaml` |
-| Daemon | `PORTAL_LISTEN_ADDR` / `PORTAL_DATABASE_PATH` / `PORTAL_SESSION_SECRET` | `0.0.0.0:8080` / `/config/mesh-mgr.db` / `change-me` |
+| Daemon | `PORTAL_LISTEN_ADDR` / `PORTAL_DATABASE_PATH` / `PORTAL_SESSION_SECRET` | `0.0.0.0:8080` / `/config/mesh-mgr.db` / generated on first boot |
+| Daemon | `PORTAL_SESSION_SECRET` rejection | the shipped `change-me` placeholder and any secret shorter than 16 characters are refused at startup, so the daemon will not run with a publicly known session secret |
 | Daemon | `LDAP_URL` / `LDAP_BASE_DN` / `LDAP_BIND_DN` / `LDAP_BIND_PASSWORD` / `LDAP_USER_FILTER` / `ADMIN_USERS` | see `assets/default-fleet.yaml` |
 | `fleet.yaml` | `servers[]` | per-server `name`, `local`, `ssh_host`, `ssh_user`, `ssh_key_path`, `syncthing_api_url`, `syncthing_api_key`, `syncthing_wan_addr`, `users_base_path`, `shared_base_path` |
 | `fleet.yaml` | `servers[].local` | `true` when the peer shares the host with the daemon: THRALL then calls its REST API directly and needs no SSH access to the local machine. Set `syncthing_api_key` for it — the peer's config file is another container's private state and is never read. |
