@@ -1,0 +1,31 @@
+# Minimal hardened Fedora-minimal Syncthing peer node image for the THRALL mesh.
+# Replaces the Alpine-based docker.io/syncthing/syncthing image with a
+# Fedora-native supply chain: signed Fedora packages only, and no package
+# manager left in the runtime image (smaller attack surface).
+
+ARG FEDORA_MAJOR=44
+FROM registry.fedoraproject.org/fedora-minimal:${FEDORA_MAJOR}
+# microdnf is shipped by the dnf5 package itself, and dnf5 is protected by
+# default - empty the protection list for this one removal transaction.
+RUN microdnf install -y syncthing curl ca-certificates tzdata \
+    && groupadd -g 1000 thrall \
+    && useradd -u 1000 -g 1000 -M -d /var/syncthing -s /sbin/nologin thrall \
+    && mkdir -p /var/syncthing/config /config /users /shared \
+    && chown -R 1000:1000 /var/syncthing /config /users /shared \
+    && microdnf clean all \
+    && microdnf remove -y --setopt=protected_packages= dnf5 libdnf5 libdnf5-cli \
+    && rm -rf /var/cache/* /var/log/* /tmp/*
+
+ENV HOME=/var/syncthing \
+    STGUIADDRESS=0.0.0.0:8384 \
+    STNOUPGRADE=1
+
+WORKDIR /var/syncthing
+VOLUME ["/var/syncthing/config", "/config", "/users", "/shared"]
+EXPOSE 8384/tcp 22000/tcp 22000/udp
+
+USER 1000:1000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["curl", "-sf", "http://127.0.0.1:8384/rest/noauth/health"]
+
+ENTRYPOINT ["/usr/bin/syncthing"]

@@ -1,6 +1,6 @@
 [package]
 name = "thrall-daemon"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "THRALL — Tool for Hierarchical Replication And Identity Linking (Multi-Server Syncthing LDAP Control Plane)"

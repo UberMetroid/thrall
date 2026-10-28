@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THRALL v0.3.0 — Tool for Hierarchical Replication And Identity Linking</title>
+  <title>THRALL v0.4.0 — Tool for Hierarchical Replication And Identity Linking</title>
   <meta name="description" content="Zero-dependency static Rust multi-server Syncthing control plane, 5-tab boxless web explorer, XDG & custom folder orchestrator, and 8-bit telemetry dock.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="alternate" type="text/markdown" href="https://ubermetroid.github.io/ahamkara/llms.txt" title="Rite of Communion (llms.txt)">
@@ -120,7 +120,7 @@
       <h1>THRALL</h1>
       <div class="subtitle">Tool for Hierarchical Replication And Identity Linking</div>
       <div class="badges">
-        <span class="badge">v0.3.0 Release</span>
+        <span class="badge">v0.4.0 Release</span>
         <span class="badge">Zero External Crates (std only)</span>
         <span class="badge blue">54px Symmetric Dock &amp; 8-Bit Flow Graph</span>
         <span class="badge purple">5 Boxless SPA Explorer Tabs</span>
@@ -131,7 +131,7 @@
       </p>
       <div class="btn-row">
         <a class="btn" href="https://github.com/UberMetroid/thrall">View on GitHub &rarr;</a>
-        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.3.0">v0.3.0 Release Notes</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.4.0">v0.4.0 Release Notes</a>
         <a class="btn secondary" href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a>
         <a class="btn secondary" href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Wish-Dragon Communion</a>
       </div>
@@ -211,8 +211,23 @@ cargo build --release --workspace
 </pre>
     </div>
 
+    <div class="card">
+      <h2>[05] Fedora-Minimal Container &amp; Quadlet Deployment</h2>
+      <p>Fedora-native supply chain: a hardened <code>fedora-minimal:44</code> OCI image built from signed Fedora packages only &mdash; no Alpine/BusyBox, no Guix daemon, no package manager, and no Syncthing binary in the control-plane runtime image. Bundles the zero-dependency <code>thrall</code> controller and <code>openssh-clients</code> + <code>curl</code> for zero-shell SSH fleet transport &mdash; nothing else.</p>
+<pre>
+# Build locally (or: sudo podman pull ghcr.io/ubermetroid/thrall:latest)
+sudo podman build -t localhost/thrall:latest -f Containerfile .
+sudo podman build -t localhost/thrall-syncthing:latest -f Containerfile.syncthing .
+
+# Deploy the systemd Quadlet services
+sudo cp quadlet/syncthing.container quadlet/thrall.container /etc/containers/systemd/
+sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart syncthing.service thrall.service
+</pre>
+      <p>The Syncthing peer node runs from the matching minimal <code>thrall-syncthing</code> image, replacing the Alpine-based <code>docker.io/syncthing/syncthing</code>. Configure via <code>fleet.yaml</code> or environment overrides: <code>PORTAL_LISTEN_ADDR</code>, <code>PORTAL_DATABASE_PATH</code>, <code>PORTAL_SESSION_SECRET</code>, <code>LDAP_URL</code>, <code>LDAP_BASE_DN</code>, <code>LDAP_BIND_DN</code>, <code>LDAP_BIND_PASSWORD</code>, <code>LDAP_USER_FILTER</code>, <code>ADMIN_USERS</code> &mdash; plus <code>THRALL_LOCAL_SYNCTHING=1</code> for local peer node mode. Full container configuration reference in the <a href="https://github.com/UberMetroid/thrall#container-build--systemd-quadlet-deployment">README</a>.</p>
+    </div>
+
     <footer>
-      THRALL v0.3.0 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
+      THRALL v0.4.0 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
     </footer>
   </div>
   <div class="chibi-dock">

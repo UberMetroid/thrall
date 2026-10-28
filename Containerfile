@@ -1,32 +1,37 @@
-# Multi-stage hardened Podman Containerfile for THRALL
+# Multi-stage hardened Fedora-minimal Podman Containerfile for THRALL
 # Bundles:
-#   - /bin/thrall: Zero-dependency static Rust LDAP + Syncthing mesh controller
-#   - /bin/syncthing: Official static Syncthing binary (when container also acts as a local peer node)
-#   - openssh-client & curl: Zero-shell SSH transport for remote fleet management
+#   - /bin/thrall: Zero-dependency Rust LDAP + Syncthing mesh controller (stripped, glibc)
+#   - openssh-clients & curl: Zero-shell SSH transport for remote fleet management
+# The Syncthing peer node is NOT bundled here: it runs from the dedicated
+# thrall-syncthing image (Containerfile.syncthing) via quadlet/syncthing.container.
+# Fedora-native supply chain: signed packages from Fedora repos only - no Alpine/BusyBox, no Guix.
 
-FROM docker.io/rust:1-alpine AS builder
-RUN apk add --no-cache musl-dev
+ARG FEDORA_MAJOR=44
+FROM registry.fedoraproject.org/fedora-minimal:${FEDORA_MAJOR} AS builder
+RUN microdnf install -y rust cargo gcc
 WORKDIR /src
-COPY Cargo.toml ./
-COPY assets ./assets
-COPY Containerfile ./
-COPY quadlet ./quadlet
+COPY Cargo.toml Cargo.lock ./
 COPY thrall-daemon ./thrall-daemon
-RUN cargo build --release --workspace && strip target/release/thrall
+COPY assets ./assets
+RUN cargo build --release --workspace
 
-FROM docker.io/syncthing/syncthing:latest AS syncthing-bin
-
-FROM docker.io/library/alpine:3.21
-RUN apk add --no-cache openssh-client curl ca-certificates tzdata \
-    && adduser -D -u 1000 -g 1000 thrall \
+FROM registry.fedoraproject.org/fedora-minimal:${FEDORA_MAJOR}
+# Strip the package managers from the runtime image (smaller attack surface).
+# /usr/bin/microdnf is shipped by the dnf5 package itself, and dnf5 is a
+# protected package - so empty the protection list for this one transaction.
+RUN microdnf install -y openssh-clients curl ca-certificates tzdata \
+    && groupadd -g 1000 thrall \
+    && useradd -u 1000 -g 1000 -M -d /config -s /sbin/nologin thrall \
     && mkdir -p /config /users /shared/.stfolder \
-    && chown -R 1000:1000 /config /users /shared
+    && chown -R 1000:1000 /config /users /shared \
+    && microdnf clean all \
+    && microdnf remove -y --setopt=protected_packages= dnf5 libdnf5 libdnf5-cli \
+    && rm -rf /var/cache/* /var/log/* /tmp/*
 
-COPY --from=syncthing-bin /bin/syncthing /bin/syncthing
 COPY --from=builder /src/target/release/thrall /bin/thrall
 COPY assets/default-fleet.yaml /config/fleet.yaml
 
-EXPOSE 8080/tcp 8384/tcp 22000/tcp 22000/udp
+EXPOSE 8080/tcp
 VOLUME ["/config", "/users", "/shared"]
 
 USER 1000:1000

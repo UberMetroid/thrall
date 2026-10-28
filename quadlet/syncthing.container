@@ -4,7 +4,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Container]
-Image=docker.io/syncthing/syncthing:latest
+Image=ghcr.io/ubermetroid/thrall-syncthing:latest
 ContainerName=syncthing
 AutoUpdate=registry
 
@@ -35,8 +35,8 @@ DropCapability=ALL
 ReadOnly=true
 Tmpfs=/tmp:rw,noexec,nosuid,nodev,size=64m
 
-# Native Healthcheck & systemd readiness
-HealthCmd=wget -q -O - http://127.0.0.1:8384/rest/noauth/health | grep -q '"status": *"OK"' || exit 1
+# Native Healthcheck & systemd readiness (curl ships in the thrall-syncthing image)
+HealthCmd=curl -s http://127.0.0.1:8384/rest/noauth/health | grep -q '"status": *"OK"' || exit 1
 HealthInterval=15s
 HealthTimeout=5s
 HealthRetries=3
