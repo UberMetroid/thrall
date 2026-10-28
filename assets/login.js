@@ -1246,7 +1246,7 @@
       var rbr = openBtn.getAttribute('data-ret-br') || '';
       var lbl = openBtn.getAttribute('data-label') || '';
 
-      if (kind === 'create-personal-folder') {
+      if (kind === 'create-standard-folder') {
         var existingRaw = (openBtn.getAttribute('data-existing') || '').split(',').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
         var xdgAll = ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos', 'Public', 'Templates'];
         var xdgCommon = ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures', 'Videos'];
@@ -1262,20 +1262,28 @@
           }
         }
         openModal(
-          '<h3>Create Personal Folders</h3>' +
+          '<h3>Add Standard Folders (XDG)</h3>' +
           '<form method="POST" action="/user/folders/create">' +
-          '<div style="font-size:0.78rem;font-weight:700;color:var(--phosphor);font-family:var(--mono);margin-bottom:0.4rem">1. STANDARD XDG FOLDERS (PICK &amp; CHOOSE)</div>' +
-          '<div class="acl-user-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0.6rem">' + xdgHtml + '</div>' +
-          '<div style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.75rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">' +
+          '<div class="acl-user-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0.75rem">' + xdgHtml + '</div>' +
+          '<div style="font-size:0.74rem;color:var(--text-secondary);margin-bottom:0.85rem;display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">' +
           '<span>Sync selected XDG to:</span>' +
           '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="xdg_root" value="home" checked> <code>~/&lt;Folder&gt;</code></label>' +
           '<label style="display:inline-flex;align-items:center;gap:0.3rem;cursor:pointer;font-family:var(--mono)"><input type="radio" name="xdg_root" value="thrall"> <code>~/Thrall/&lt;Folder&gt;</code></label>' +
           '</div>' +
-          '<div style="font-size:0.78rem;font-weight:700;color:var(--phosphor);font-family:var(--mono);margin-bottom:0.4rem;border-top:1px solid var(--border);padding-top:0.65rem">2. CUSTOM PERSONAL FOLDER (OPTIONAL)</div>' +
-          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" placeholder="Or enter a custom folder name (e.g. Projects)"></div>' +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
-          '<button type="submit">Sync Selected / Create</button>' +
+          '<button type="submit">Add Selected Folders</button>' +
+          '</div></form>',
+          false
+        );
+      } else if (kind === 'create-custom-folder' || kind === 'create-personal-folder') {
+        openModal(
+          '<h3>Create Custom Folder</h3>' +
+          '<form method="POST" action="/user/folders/create">' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" required placeholder="Folder Name (e.g. Projects)"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Create Folder</button>' +
           '</div></form>',
           false,
           function (card) {

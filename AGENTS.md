@@ -1,6 +1,6 @@
 # thrall (`st-mesh-mgr`) — House Laws & Agent Engineering Standards
 
-This document is the **single canonical source of truth** for all code, architecture, and system integration standards for `thrall` (**T**ool for **H**ierarchical **R**eplication **A**nd **L**DAP **L**inking — Multi-Server Syncthing LDAP Control Plane & Self-Service Portal). Every human contributor and AI agent must strictly follow these rules without exception.
+This document is the **single canonical source of truth** for all code, architecture, and system integration standards for `thrall` (**T**ool for **H**ierarchical **R**eplication **A**nd **I**dentity **L**inking — Multi-Server Syncthing LDAP Control Plane & Self-Service Portal). Every human contributor and AI agent must strictly follow these rules without exception.
 
 **Precedence:** Where this file and CI disagree, this file wins.
 

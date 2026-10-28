@@ -1,8 +1,9 @@
 <div align="center">
   <img src="assets/icons/icon.svg" alt="THRALL Emblem" width="96" height="96">
   <h1>THRALL</h1>
-  <p><strong>Tool for Hierarchical Replication And LDAP Linking</strong></p>
+  <p><strong>Tool for Hierarchical Replication And Identity Linking</strong></p>
   <p>
+    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-50fa7b?style=flat-square" alt="v0.3.0 Release"></a>
     <a href="https://ubermetroid.github.io/thrall/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-3fb950?style=flat-square" alt="GitHub Pages"></a>
     <a href="https://ubermetroid.github.io/ahamkara/communion.html"><img src="https://img.shields.io/badge/ahamkara-Wish--Dragon%20Communion-a371f7?style=flat-square" alt="Ahamkara Rite of Communion"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-58a6ff?style=flat-square" alt="Apache-2.0 License"></a>
@@ -15,20 +16,25 @@
 
 **THRALL** (`thrall` / `st-mesh-mgr`) is a zero-dependency static Rust control plane and self-service web portal that binds an organization's LDAP directory (RFC 4511) to a distributed multi-server Syncthing fleet.
 
-## Key Capabilities
+## Key Capabilities (v0.3.0)
 
-1. **Option B Per-Top-Level Folder Sync (Zero Dotfiles)**:
-   - Never syncs `~/.config` or hidden dotfiles.
-   - Provisions each user's top-level folders under `/users/<username>/<Folder>` as individual Syncthing folders (`user-<username>-<folder_lowercase>`), initialized with the 8 standard Linux XDG folders (`Desktop`, `Documents`, `Downloads`, `Music`, `Pictures`, `Public`, `Templates`, `Videos`).
-   - Users can create or delete top-level personal folders directly in **Tab 1 (`Personal Folders`)**, browse shared team folders in **Tab 2 (`Shared Folders`)**, and monitor per-device folder acceptance & enrollment in **Tab 3 (`Device setup`)**.
-   - Admins can create, delete, and manage per-user LDAP ACLs for top-level organizational shared folders (`/shared/<Folder>`) in **Tab 4 (`Global Folders`)** and manage regional Mesh Hubs in **Tab 5 (`Mesh`)**.
-2. **Resilient Device ID Normalization & Auto-Assigned Labels**:
+1. **Symmetric 54px Header & Footer Dock + 8-Bit Rainbow Palette**:
+   - Unified 54px top header and bottom footer dock with a pixel-art `THRALL` canvas wordmark, subtitle (**T**ool for **H**ierarchical **R**eplication **A**nd **I**dentity **L**inking), and an interactive 8-Bit Rainbow Palette (`Coral`, `Orange`, `Amber`, `Yellow`, `Emerald`, `Cyan`, `Blue`, `Violet`).
+   - Always-visible real-time browser ↔ server 8-Bit Data Flow Graph (`#footer-upload-graph`) measuring actual HTTP TX/RX throughput and upload progress.
+   - Rotating cached Hive Thrall backgrounds (`/bg-1.jpg` .. `/bg-5.jpg`) on login/logout alongside a Bayer-dithered interactive mesh physics canvas.
+2. **5 Flat Boxless Explorer Tabs with Flash-Free SPA Navigation**:
+   - Located in the Footer Dock (`Personal folders | Shared folders || Device setup || Global folders || Mesh setup`) with instant zero-flash SPA navigation.
+   - **Tab 1 (`Personal folders`)**: Split **`+ Standard Folder`** (pick-and-choose XDG standard folders: `Desktop`, `Documents`, `Downloads`, `Music`, `Pictures`, `Videos`, `Public`, `Templates` with `~/<Folder>` vs `~/Thrall/<Folder>` sync target) and **`+ Custom Folder`** (focused modal for custom personal folders synced to `~/Thrall/<Folder>`).
+   - **Tab 2 (`Shared folders`)**: Browse organizational shared folders granted to your account with expandable `+` / `−` inline directory trees.
+   - **Tab 3 (`Device setup`)**: Pair workstations via a two-way Zero-Trust handshake, inspect per-device folder acceptance badges, and customize per-folder local sync paths (`~/Desktop` vs `~/Thrall/<Folder>`).
+   - **Tab 4 (`Global folders`) & Tab 5 (`Mesh setup`)**: Admin tabs for managing `/shared/<Folder>` per-user ACLs (with a pulsing `Save Access *` unsaved-changes indicator) and regional Syncthing Mesh Hubs.
+3. **Chunked Binary & Recursive Drag-and-Drop Directory Uploads**:
+   - Drag and drop files or entire nested directories directly onto any folder row or table (`POST /files/upload`).
+   - Streams chunked `File.slice` uploads with strict ancestor symlink-jail verification and dotfile rejection.
+   - GitHub-style type-to-confirm deletion modals for folders, files, and devices, plus instant read-only capability share links (`/s/<token>`).
+4. **Resilient Device ID Normalization & Auto-Assigned Labels**:
    - Strips surrounding text, whitespace, hyphens, and invisible Unicode characters when pasting a 56-character Base32 Syncthing Device ID, verifies all 4 Luhn mod 32 check digits, and validates against `/rest/svc/deviceid`.
    - Automatically assigns deterministic device labels (`dev-1-<short_id>`)—no manual label entry required.
-3. **Live Anonymous Telemetry Login HUD & Rotating Hive Thrall Wallpapers**:
-   - The `/login` screen displays a centered **THRALL — Tool for Hierarchical Replication And LDAP Linking** emblem, a live SVG mesh waveform, an IdleScreen-inspired HUD Box Ticker with anonymous BEP metrics (`NODES`, `CONNS`, `SPEED IN`, `SPEED OUT`, `UPTIME`), and 5 rotating asymmetrical dark Hive Thrall backgrounds (`/bg-1.jpg` .. `/bg-4.jpg`, `/bg.jpg`).
-4. **Path-Jailed Web Explorer & Capability Share Links (`/s/<token>`)**:
-   - Browse personal and shared top-level folders in the browser with `Share: ON` / `Share: OFF` read-only capability links and strict symlink-escape / dotfile rejection.
 
 ---
 
@@ -43,16 +49,17 @@ thrall/
 ├── README.md                  # Architecture & deployment guide
 ├── assets/
 │   ├── default-fleet.yaml     # Declarative multi-server fleet configuration template
-│   ├── portal.css             # Dark-mode portal & HUD ticker stylesheet
+│   ├── login.js               # Bayer-dithered canvas, SPA router,modals & upload engine
+│   ├── portal.css             # Dark-mode portal, 54px header/footer dock & 8-bit theme
 │   ├── thrall-bg.jpg          # Primary Hive Thrall background
 │   ├── thrall-bg-1..4.jpg     # 4 asymmetrical off-center Hive Thrall horror backgrounds
 │   └── icons/                 # SVG + 16x16..512x512 PNG + multi-res ICO application icons
 ├── docs/                      # GitHub Pages landing site (https://ubermetroid.github.io/thrall/)
-├── guix/                      # GNU Guix reproducible package & container manifest
+├── guix.scm                   # GNU Guix reproducible package & container manifest
 ├── quadlet/                   # Hardened rootless/system Podman systemd Quadlet units
 └── thrall-daemon/
-    ├── Cargo.toml             # Zero external dependencies (Apache-2.0)
-    ├── src/                   # 11 modular pages strictly <= 256 lines each
+    ├── Cargo.toml             # v0.3.0 — Zero external dependencies (Apache-2.0)
+    ├── src/                   # Modular pages strictly <= 256 lines each
     └── tests/                 # Automated Page Rule & Zero-Shell lint gates
 ```
 

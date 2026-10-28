@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THRALL — Tool for Hierarchical Replication And LDAP Linking</title>
-  <meta name="description" content="Zero-dependency static Rust multi-server Syncthing LDAP control plane, Option B per-folder zero-dotfile orchestrator, and self-service web explorer.">
+  <title>THRALL v0.3.0 — Tool for Hierarchical Replication And Identity Linking</title>
+  <meta name="description" content="Zero-dependency static Rust multi-server Syncthing control plane, 5-tab boxless web explorer, XDG & custom folder orchestrator, and 8-bit telemetry dock.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="alternate" type="text/markdown" href="https://ubermetroid.github.io/ahamkara/llms.txt" title="Rite of Communion (llms.txt)">
   <link rel="help" href="https://ubermetroid.github.io/ahamkara/communion.html" title="The Rite of Communion">
@@ -120,16 +120,18 @@
       <h1>THRALL</h1>
       <div class="subtitle">Tool for Hierarchical Replication And Identity Linking</div>
       <div class="badges">
+        <span class="badge">v0.3.0 Release</span>
         <span class="badge">Zero External Crates (std only)</span>
-        <span class="badge blue">3 Rotating Ping-Scaled Mesh Spotlights</span>
-        <span class="badge purple">Per-Workstation Acceptance Badges</span>
+        <span class="badge blue">54px Symmetric Dock &amp; 8-Bit Flow Graph</span>
+        <span class="badge purple">5 Boxless SPA Explorer Tabs</span>
         <span class="badge">Apache-2.0 License</span>
       </div>
       <p>
-        <strong>THRALL</strong> (<code>st-mesh-mgr</code>) is a hardened, zero-dependency static Rust control plane and self-service web portal that binds an organization's identity directory to a distributed multi-server Syncthing fleet—with zero dotfile pollution, automatic device labeling, and two-way Zero-Trust handshakes.
+        <strong>THRALL</strong> (<code>st-mesh-mgr</code>) is a hardened, zero-dependency static Rust control plane and self-service web portal that binds an organization's identity directory to a distributed multi-server Syncthing fleet—with zero dotfile pollution, split Standard XDG &amp; Custom folder workflows, customizable local sync paths, and two-way Zero-Trust handshakes.
       </p>
       <div class="btn-row">
         <a class="btn" href="https://github.com/UberMetroid/thrall">View on GitHub &rarr;</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.3.0">v0.3.0 Release Notes</a>
         <a class="btn secondary" href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a>
         <a class="btn secondary" href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Wish-Dragon Communion</a>
       </div>
@@ -138,47 +140,48 @@
     <div class="ticker" aria-label="THRALL Architecture Tenets">
       <div class="ticker-track">
         <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
-        <span class="chip">&#128274; TWO-WAY ZERO-TRUST SYNCTHING HANDSHAKE</span>
-        <span class="chip">&#128193; OPTION B PER-TOP-LEVEL FOLDER SYNC (ZERO DOTFILES)</span>
-        <span class="chip">&#127760; TOP-LEVEL SHARED FOLDERS OUTSIDE &lt;USER&gt;</span>
-        <span class="chip">&#128279; CAPABILITY SHARE LINKS (/s/&lt;token&gt;)</span>
+        <span class="chip">&#127912; 54PX HEADER &amp; FOOTER DOCK + 8-BIT RAINBOW PALETTE</span>
+        <span class="chip">&#128202; REAL-TIME BROWSER &harr; MESH 8-BIT DATA FLOW GRAPH</span>
+        <span class="chip">&#128193; + STANDARD FOLDER (XDG) &amp; + CUSTOM FOLDER MODALS</span>
+        <span class="chip">&#128279; EXPANDABLE +/- TREES &amp; DRAG-AND-DROP DIR UPLOADS</span>
         <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
         <span class="chip">&#9889; ZERO EXTERNAL DEPENDENCIES (STD ONLY)</span>
-        <span class="chip">&#128274; TWO-WAY ZERO-TRUST SYNCTHING HANDSHAKE</span>
-        <span class="chip">&#128193; OPTION B PER-TOP-LEVEL FOLDER SYNC (ZERO DOTFILES)</span>
-        <span class="chip">&#127760; TOP-LEVEL SHARED FOLDERS OUTSIDE &lt;USER&gt;</span>
-        <span class="chip">&#128279; CAPABILITY SHARE LINKS (/s/&lt;token&gt;)</span>
+        <span class="chip">&#127912; 54PX HEADER &amp; FOOTER DOCK + 8-BIT RAINBOW PALETTE</span>
+        <span class="chip">&#128202; REAL-TIME BROWSER &harr; MESH 8-BIT DATA FLOW GRAPH</span>
+        <span class="chip">&#128193; + STANDARD FOLDER (XDG) &amp; + CUSTOM FOLDER MODALS</span>
+        <span class="chip">&#128279; EXPANDABLE +/- TREES &amp; DRAG-AND-DROP DIR UPLOADS</span>
         <span class="chip">&#128737; #![forbid(unsafe_code)] + ZERO SHELL INVOCATIONS</span>
       </div>
     </div>
 
     <div class="grid">
       <div class="card">
-        <h2>[01] Option B Per-Folder Sync (Zero Dotfiles)</h2>
-        <p>Never syncs <code>~/.config</code> or hidden dotfiles. Every user's top-level folders under <code>/users/&lt;username&gt;/&lt;Folder&gt;</code> are provisioned as isolated Syncthing folders across the fleet:</p>
+        <h2>[01] 5 Boxless SPA Tabs &amp; Split XDG / Custom Folders</h2>
+        <p>Navigated from the 54px Footer Dock (<code>Personal folders | Shared folders || Device setup || Global folders || Mesh setup</code>) with zero-flash SPA transitions:</p>
         <ul>
-          <li>Default 8 XDG desktop folders: <code>Desktop</code>, <code>Documents</code>, <code>Downloads</code>, <code>Music</code>, <code>Pictures</code>, <code>Public</code>, <code>Templates</code>, <code>Videos</code>.</li>
-          <li>Users can create or delete custom top-level folders directly in <strong>Tab 1 (Files)</strong>.</li>
-          <li>Admins can create, delete, and assign LDAP ACLs to top-level organizational shared folders (<code>/shared/&lt;Folder&gt;</code>) in <strong>Tab 4 (Access Control)</strong>.</li>
+          <li><strong><code>+ Standard Folder</code></strong>: Pick-and-choose from the 8 standard Linux XDG folders (<code>Desktop</code>, <code>Documents</code>, <code>Downloads</code>, <code>Music</code>, <code>Pictures</code>, <code>Videos</code>, <code>Public</code>, <code>Templates</code>) and sync to <code>~/&lt;Folder&gt;</code> or <code>~/Thrall/&lt;Folder&gt;</code>.</li>
+          <li><strong><code>+ Custom Folder</code></strong>: Dedicated modal for creating custom top-level folders synced to <code>~/Thrall/&lt;Folder&gt;</code>.</li>
+          <li><strong><code>Global folders</code></strong>: Admin ACL matrix for <code>/shared/&lt;Folder&gt;</code> with a pulsing <code>Save Access *</code> unsaved-changes indicator.</li>
         </ul>
       </div>
 
       <div class="card">
-        <h2>[02] Two-Way Zero-Trust Handshake</h2>
-        <p>Clients never expose their REST API. Instead:</p>
+        <h2>[02] Device Setup &amp; Custom Local Sync Paths</h2>
+        <p>Clients never expose their REST API. Instead, workstations pair in <strong><code>Device setup</code></strong>:</p>
         <ul>
-          <li><strong>Step 1 (Client &rarr; Gateway)</strong>: The user adds the primary THRALL Gateway Device ID in their local Syncthing GUI with <code>[x] Introducer</code> and <code>[x] Auto Accept</code> enabled.</li>
-          <li><strong>Step 2 (Gateway &rarr; Client)</strong>: The user pastes their 56-character Device ID into THRALL. THRALL strips formatting noise, verifies all 4 Base32 Luhn mod 32 check digits, auto-assigns a device label (<code>dev-1-&lt;short_id&gt;</code>), and pushes folder grants across every regional node.</li>
+          <li><strong>Step 1 (Device &rarr; Gateway)</strong>: Add the THRALL Gateway Hub Device ID in local Syncthing with <code>[x] Introducer</code> and <code>[x] Auto Accept</code> enabled.</li>
+          <li><strong>Step 2 (Gateway &rarr; Device)</strong>: Paste the 56-character Device ID into THRALL. THRALL verifies all 4 Base32 Luhn mod 32 check digits, auto-assigns <code>dev-1-&lt;short_id&gt;</code>, and tracks per-device folder acceptance.</li>
+          <li><strong>Custom Local Paths</strong>: Override any personal or shared folder's workstation sync path (<code>~/Desktop</code> vs <code>~/Thrall/&lt;Folder&gt;</code>).</li>
         </ul>
       </div>
 
       <div class="card">
-        <h2>[03] Path-Jailed Explorer &amp; Live Mesh Physics</h2>
-        <p>Built-in dark-mode file explorer with strict symlink-escape and dotfile protection:</p>
+        <h2>[03] Chunked Uploads, Inline Trees &amp; 8-Bit Dock</h2>
+        <p>Built-in dark-mode file explorer with strict ancestor symlink-escape and dotfile protection:</p>
         <ul>
-          <li>Browse, create, and delete files or subfolders inside personal vaults (<code>personal:&lt;Folder&gt;</code>) and shared team vaults (<code>shared:&lt;Folder&gt;</code>).</li>
-          <li>Toggle instant read-only capability links (<code>/s/&lt;token&gt;</code>) and track per-workstation folder acceptance badges.</li>
-          <li>Zero-SSH TCP <code>:22000</code> RTT ping-scaled rotating server spotlights, client workstation mini-node orbiters, and 3 dedicated per-node telemetry tickers.</li>
+          <li>Expandable <code>+</code> / <code>&minus;</code> inline directory trees across folders, devices, ACLs, and mesh hubs.</li>
+          <li>Chunked binary file and recursive drag-and-drop directory uploads (<code>POST /files/upload</code>) with live progress in the <code>#footer-upload-graph</code> canvas.</li>
+          <li>GitHub-style type-to-confirm deletion modals and instant read-only capability links (<code>/s/&lt;token&gt;</code>).</li>
         </ul>
       </div>
     </div>
@@ -189,7 +192,7 @@
                       +-----------------------------------------+
                       |         Sovereign Master (thrall)       |
                       |  - Pure-Rust RFC 4511 LDAPv3 Bind       |
-                      |  - Self-Service Portal &amp; Web Explorer   |
+                      |  - 5-Tab SPA Portal &amp; Web Explorer      |
                       |  - Zero-Shell SSH + REST Reconciler     |
                       +------+-------------+-------------+------+
                              | SSH/REST    | SSH/REST    | SSH/REST
@@ -209,7 +212,7 @@ cargo build --release --workspace
     </div>
 
     <footer>
-      THRALL (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
+      THRALL v0.3.0 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
     </footer>
   </div>
   <div class="chibi-dock">

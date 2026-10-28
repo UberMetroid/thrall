@@ -191,7 +191,7 @@ mod tests {
         assert!(u_ftr.contains(">Personal folders</a><a href=\"/?tab=2\" class=\"tab-btn\">Shared folders</a><span class=\"footer-tab-sep\" aria-hidden=\"true\">||</span><a href=\"/?tab=3\" class=\"tab-btn\">Device setup</a></nav>"));
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
-        assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-personal-folder\""));
+        assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-standard-folder\"") && user_html.contains("data-modal-open=\"create-custom-folder\""));
         assert!(!user_html.contains("LDAP") && !user_html.contains("ahamkara"));
 
         let common_html = render_dashboard_page("bob", false, &store, &snap, 2, "", "", None, None);

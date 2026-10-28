@@ -18,7 +18,7 @@
 (define-public thrall-daemon
   (package
     (name "thrall")
-    (version "0.2.0")
+    (version "0.3.0")
     (source (local-file "." "thrall-checkout" #:recursive? #t))
     (build-system cargo-build-system)
     (arguments
@@ -40,7 +40,7 @@
     (home-page "https://ubermetroid.github.io/thrall/")
     (synopsis "Zero-dependency Rust Multi-Server Syncthing LDAP Control Plane")
     (description
-     "THRALL (Tool for Hierarchical Replication And LDAP Linking) is a pure-Rust
+     "THRALL (Tool for Hierarchical Replication And Identity Linking) is a pure-Rust
 multi-server Syncthing mesh controller, LDAPv3 authenticator, and web file explorer.")
     (license license:asl2.0)))
 
