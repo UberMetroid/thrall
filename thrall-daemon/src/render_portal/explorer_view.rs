@@ -59,11 +59,11 @@ fn browse_scope(user: &str, store: &MeshStore, br: &str) -> String {
 }
 
 #[rustfmt::skip]
-fn render_share_cells(user: &str, store: &MeshStore, s_br: &str, f_br: &str, sub: &str, item: &str) -> (String, String) {
+fn render_share_cells(user: &str, secret: &str, store: &MeshStore, s_br: &str, f_br: &str, sub: &str, item: &str) -> (String, String) {
     let (sc_br, i_rel) = if s_br.is_empty() { item.split_once('/').unwrap_or((item, "")) } else { (s_br, item.strip_prefix(&format!("{s_br}/")).unwrap_or(item)) };
     let scope = browse_scope(user, store, sc_br);
     let target = if i_rel.is_empty() { scope } else { format!("{scope}/{i_rel}") };
-    let tok = compute_share_token(&target);
+    let tok = compute_share_token(secret, &target);
     let on = store.public_shares.contains_key(&tok);
     let (lbl, cls) = if on { ("Share: ON", "badge-online") } else { ("Share: OFF", "btn-secondary") };
     let link = if on { format!("<a href=\"/s/{tok}\" target=\"_blank\" style=\"color:var(--accent);font-family:var(--mono);font-size:0.76rem\">/s/{tok}</a>") } else { String::new() };
@@ -74,7 +74,7 @@ fn render_share_cells(user: &str, store: &MeshStore, s_br: &str, f_br: &str, sub
 
 #[rustfmt::skip]
 #[allow(clippy::too_many_arguments)]
-fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str, dir_path: &Path, rel: &str, pkey: &str, depth: usize, out: &mut String) {
+fn render_dir_rows(user: &str, secret: &str, store: &MeshStore, br_scope: &str, form_br: &str, dir_path: &Path, rel: &str, pkey: &str, depth: usize, out: &mut String) {
     let etab = if br_scope.starts_with("shared:") { "shared" } else { "personal" };
     let ro = br_scope.strip_prefix("shared:").is_some_and(|sh| store.is_shared_readonly(sh, user));
     let (br_e, fbr_e, rel_e, pk_e) = (escape_html(br_scope), escape_html(form_br), escape_html(rel), escape_html(pkey));
@@ -103,14 +103,14 @@ fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str,
         let next = escape_html(&item_rel);
         let form_it = if form_br.is_empty() { format!("{br_scope}/{item_rel}") } else { item_rel.clone() };
         let fit_e = escape_html(&form_it);
-        let (sh_btn, sh_lnk) = render_share_cells(user, store, br_scope, form_br, &rel_e, &form_it);
+        let (sh_btn, sh_lnk) = render_share_cells(user, secret, store, br_scope, form_br, &rel_e, &form_it);
         let del_f = if ro { String::new() } else { format!(" <button type=\"button\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-del-action=\"/files/delete\" data-del-name=\"{n_esc}\" data-del-browse=\"{fbr_e}\" data-del-sub=\"{rel_e}\" data-del-item=\"{fit_e}\">Delete</button>") };
         if is_dir {
             let ckey = format!("{br_e}:{next}");
             let tbtn = if depth < 3 { format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{ckey}\" aria-expanded=\"false\" aria-label=\"Expand {n_esc}\">+</button>") } else { String::new() };
             let dir_act = if ro { "<span class=\"badge badge-warn\">READ-ONLY</span>".to_string() } else { del_f };
             out.push_str(&format!("<tr{p_attr} data-drop-browse=\"{br_e}\" data-drop-sub=\"{next}\"><td style=\"padding-left:{pad:.2}rem\">{pfx}{tbtn}<a href=\"/?tab={etab}&amp;browse={br_e}&amp;sub={next}\" style=\"color:var(--accent);text-decoration:none;font-weight:600\">&#128193; {n_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\">{dir_act}</td></tr>"));
-            if depth < 3 { render_dir_rows(user, store, br_scope, form_br, &cpath, &item_rel, &ckey, depth + 1, out); }
+            if depth < 3 { render_dir_rows(user, secret, store, br_scope, form_br, &cpath, &item_rel, &ckey, depth + 1, out); }
         } else {
             let sz_s = if sz >= 1024 { format!("{:.1} KiB", sz as f64 / 1024.0) } else { format!("{sz} B") };
             let cf = if name.contains(".sync-conflict-") { " <span class=\"badge badge-warn\" style=\"margin-left:0.35rem\">CONFLICT</span>" } else { "" };
@@ -125,19 +125,19 @@ fn render_dir_rows(user: &str, store: &MeshStore, br_scope: &str, form_br: &str,
 }
 
 #[rustfmt::skip]
-pub fn render_file_explorer(user: &str, store: &MeshStore, tab: u8, browse: &str, sub: &str) -> String {
+pub fn render_file_explorer(user: &str, secret: &str, store: &MeshStore, tab: u8, browse: &str, sub: &str) -> String {
     if browse.is_empty() || browse == "personal" || browse == "shared" {
         if tab == 2 || browse == "shared" {
             let mut s_rows = String::new();
             for (fname, _) in store.shared_folders.iter().filter(|(_, a)| a.contains(user)) {
                 let (f_esc, br_s) = (escape_html(fname), format!("shared:{fname}"));
                 let k_esc = escape_html(&br_s);
-                let (sh_btn, sh_lnk) = render_share_cells(user, store, "", "", "", &br_s);
+                let (sh_btn, sh_lnk) = render_share_cells(user, secret, store, "", "", "", &br_s);
                 let tbtn = format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{k_esc}\" aria-expanded=\"false\" aria-label=\"Expand {f_esc}\">+</button>");
                 let ro_b = if store.is_shared_readonly(fname, user) { "<span class=\"badge badge-warn\">READ-ONLY</span>" } else { "<span style=\"color:var(--muted);font-size:0.76rem\">&mdash;</span>" };
                 s_rows.push_str(&format!("<tr data-drop-browse=\"{k_esc}\" data-drop-sub=\"\"><td>{tbtn}<a href=\"/?tab=shared&amp;browse=shared:{f_esc}\" style=\"color:var(--purple);text-decoration:none;font-weight:700\">&#127760; {f_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\">{ro_b}</td></tr>"));
                 let p = if fname == "Shared" { Path::new("/shared").to_path_buf() } else { Path::new("/shared").join(fname) };
-                render_dir_rows(user, store, &br_s, "", &p, "", &br_s, 1, &mut s_rows);
+                render_dir_rows(user, secret, store, &br_s, "", &p, "", &br_s, 1, &mut s_rows);
             }
             if s_rows.is_empty() {
                 s_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 shared folders assigned to your account.</td></tr>");
@@ -150,12 +150,12 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, tab: u8, browse: &str
         for f in u_list {
             let (f_esc, br_p) = (escape_html(&f), format!("personal:{f}"));
             let k_esc = escape_html(&br_p);
-            let (sh_btn, sh_lnk) = render_share_cells(user, store, "", "", "", &br_p);
+            let (sh_btn, sh_lnk) = render_share_cells(user, secret, store, "", "", "", &br_p);
             let del_f = format!("<button type=\"button\" class=\"btn-danger\" style=\"padding:0.18rem 0.45rem;font-size:0.74rem\" data-del-action=\"/user/folders/delete\" data-del-name=\"{f_esc}\" data-del-browse=\"\" data-del-sub=\"\" data-del-item=\"\">Delete</button>");
             let tbtn = format!("<button type=\"button\" class=\"tree-toggle\" data-target=\"{k_esc}\" aria-expanded=\"false\" aria-label=\"Expand {f_esc}\">+</button>");
             u_rows.push_str(&format!("<tr data-drop-browse=\"{k_esc}\" data-drop-sub=\"\"><td>{tbtn}<a href=\"/?tab=personal&amp;browse=personal:{f_esc}\" style=\"color:var(--accent);text-decoration:none;font-weight:700\">&#128193; {f_esc}/</a></td><td>{sh_btn}</td><td>{sh_lnk}</td><td style=\"text-align:right\">{del_f}</td></tr>"));
             let p = Path::new("/users").join(user).join(&f);
-            render_dir_rows(user, store, &br_p, "", &p, "", &br_p, 1, &mut u_rows);
+            render_dir_rows(user, secret, store, &br_p, "", &p, "", &br_p, 1, &mut u_rows);
         }
         if u_rows.is_empty() {
             u_rows.push_str("<tr><td colspan=\"4\" style=\"color:var(--muted)\">0 folders accessible yet. Create a personal folder above.</td></tr>");
@@ -174,9 +174,9 @@ pub fn render_file_explorer(user: &str, store: &MeshStore, tab: u8, browse: &str
         let (a_esc, s_esc) = (escape_html(&accum), escape_html(seg));
         crumbs.push_str(&format!(" / <a href=\"/?tab={etab}&amp;browse={br_esc}&amp;sub={a_esc}\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;border-radius:4px;text-decoration:none;font-size:0.74rem;text-transform:none\">{s_esc}</a>"));
     }
-    let (dir_sh_btn, dir_sh_lnk) = render_share_cells(user, store, browse, browse, &rel, &rel);
+    let (dir_sh_btn, dir_sh_lnk) = render_share_cells(user, secret, store, browse, browse, &rel, &rel);
     let mut rows = String::new();
-    render_dir_rows(user, store, browse, browse, &dir_path, &rel, "", 0, &mut rows);
+    render_dir_rows(user, secret, store, browse, browse, &dir_path, &rel, "", 0, &mut rows);
     let act_btns = if ro { "<span class=\"badge badge-warn\">READ-ONLY</span>".to_string() } else { format!("<button type=\"button\" class=\"btn-secondary\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"mkdir\" data-browse=\"{br_esc}\" data-sub=\"{rel_esc}\" data-ret-br=\"{br_esc}\" data-label=\"{lbl_esc}\">+ Subfolder</button> <button type=\"button\" style=\"padding:0.14rem 0.48rem;font-size:0.72rem;text-transform:none\" data-modal-open=\"upload-file\" data-browse=\"{br_esc}\" data-sub=\"{rel_esc}\" data-ret-br=\"{br_esc}\" data-label=\"{lbl_esc}\">+ Upload</button>") };
     format!("<table class=\"explorer-table\" data-drop-browse=\"{br_esc}\" data-drop-sub=\"{rel_esc}\"><thead><tr><th>{crumbs} &nbsp;{act_btns}</th><th style=\"width:110px\">{dir_sh_btn}</th><th style=\"width:200px\">{dir_sh_lnk}</th><th style=\"width:180px;text-align:right\">Action</th></tr></thead><tbody>{rows}</tbody></table>")
 }

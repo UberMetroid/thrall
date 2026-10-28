@@ -199,7 +199,7 @@ pub fn render_dashboard_page(
         }
         6 => about_ldap::render_about_pane(),
         4 if is_admin => explorer_view::render_admin_pane(cfg, store, snap),
-        _ => explorer_view::render_file_explorer(username, store, tab, browse, sub),
+        _ => explorer_view::render_file_explorer(username, &cfg.portal.session_secret, store, tab, browse, sub),
     };
     let c = |n: u8, adm: bool| match (tab == n, adm) {
         (true, true) => "body-tab admin-tab active",

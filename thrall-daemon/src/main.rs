@@ -158,14 +158,15 @@ mod tests {
         assert!(resolve_jailed_path("charlie", &store, "shared:Ops", "Reports").is_none());
         assert!(resolve_jailed_path("alice", &store, "personal:Documents", "Notes").is_some());
         assert!(resolve_jailed_path("alice", &store, "personal:UnknownFolder", "").is_none());
-        let tok = compute_share_token("personal:alice:Documents");
+        let cfg = crate::fleet_config::parse_fleet_yaml(crate::fleet_config::DEFAULT_FLEET_YAML).unwrap();
+        let tok = compute_share_token(&cfg.portal.session_secret, "personal:alice:Documents");
+        assert!(tok.len() == 32 && tok != compute_share_token("other-secret", "personal:alice:Documents"));
         store.public_shares.insert(tok.clone(), "personal:alice:Documents".into());
         let p = resolve_share_target("personal:alice:Documents", "spec.txt").unwrap();
         assert_eq!(p.to_str(), Some("/users/alice/Documents/spec.txt"));
         assert_eq!(sanitize_username("Alice@Example.com").unwrap(), "alice");
 
         let mut snap = FleetSnapshot { ldap_users: vec!["alice".into(), "bob".into()], ..FleetSnapshot::default() };
-        let cfg = crate::fleet_config::parse_fleet_yaml(crate::fleet_config::DEFAULT_FLEET_YAML).unwrap();
         store.shared_readonly.insert(("Ops".into(), "bob".into()));
         store.device_excluded_folders.insert((norm_id.clone(), "personal:Projects".into()));
         let rt_ro = MeshStore::parse(&store.serialize());

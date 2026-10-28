@@ -162,7 +162,7 @@ pub fn handle_post_action(stream: &mut TcpStream, path: &str, body: &str, form: 
         if let Some((_, _, clean_item)) = resolve_jailed_path(username, store, s_br, i_rel) {
             let scope = if let Some(pf) = s_br.strip_prefix("personal:").or_else(|| s_br.strip_prefix("personal/")) { format!("personal:{username}:{pf}") } else { s_br.to_string() };
             let target = if clean_item.is_empty() { scope } else { format!("{scope}/{clean_item}") };
-            let tok = compute_share_token(&target);
+            let tok = compute_share_token(&cfg.portal.session_secret, &target);
             if store.public_shares.remove(&tok).is_none() { store.public_shares.insert(tok, target); }
             let _ = store.save(&cfg.portal.database_path);
             let u = if br.is_empty() { format!("/?tab={etab}&ok=Share+mode+updated") } else { format!("/?tab={etab}&browse={br}&sub={sub}&ok=Share+mode+updated") };

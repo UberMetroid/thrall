@@ -149,12 +149,16 @@ pub fn resolve_jailed_path(
     verify_no_symlink_escape(&base, &full).then_some((label, full, rel))
 }
 
-pub fn compute_share_token(target: &str) -> String {
-    let mut h = 0xcbf29ce484222325u64;
-    for &b in target.as_bytes() {
-        h = (h ^ u64::from(b)).wrapping_mul(0x100000001b3);
-    }
-    format!("{:010x}", h & 0x0000_00ff_ffff_ffff)
+/// Derive the public share token for a target scope.
+///
+/// The token is a keyed MAC over the scope: deterministic, so the portal can
+/// tell whether a scope is already shared, but not derivable without the secret.
+pub fn compute_share_token(secret: &str, target: &str) -> String {
+    const DOMAIN_A: u64 = 0x5348_4152_455f_544b; // "SHARE_TK"
+    const DOMAIN_B: u64 = 0x5348_4152_455f_544c; // "SHARE_TL"
+    let h1 = prf_mac64(secret.as_bytes(), target.as_bytes(), DOMAIN_A);
+    let h2 = prf_mac64(secret.as_bytes(), target.as_bytes(), DOMAIN_B);
+    format!("{h1:016x}{h2:016x}")
 }
 
 pub fn syncthing_folder_id(seed: &str) -> String {
