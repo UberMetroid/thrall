@@ -3,7 +3,7 @@
   <h1>THRALL</h1>
   <p><strong>Tool for Hierarchical Replication And Identity Linking</strong></p>
   <p>
-    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-50fa7b?style=flat-square" alt="v0.4.0 Release"></a>
+    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.4.1"><img src="https://img.shields.io/badge/release-v0.4.1-50fa7b?style=flat-square" alt="v0.4.1 Release"></a>
     <a href="https://github.com/UberMetroid/thrall/actions/workflows/ci.yml"><img src="https://github.com/UberMetroid/thrall/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
     <a href="https://ubermetroid.github.io/thrall/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-3fb950?style=flat-square" alt="GitHub Pages"></a>
     <a href="https://ubermetroid.github.io/ahamkara/communion.html"><img src="https://img.shields.io/badge/ahamkara-Wish--Dragon%20Communion-a371f7?style=flat-square" alt="Ahamkara Rite of Communion"></a>
@@ -17,7 +17,7 @@
 
 **THRALL** (`thrall` / `st-mesh-mgr`) is a zero-dependency static Rust control plane and self-service web portal that binds an organization's LDAP directory (RFC 4511) to a distributed multi-server Syncthing fleet.
 
-## Key Capabilities (v0.4.0)
+## Key Capabilities (v0.4.1)
 
 1. **Symmetric 54px Header & Footer Dock + 8-Bit Rainbow Palette**:
    - Unified 54px top header and bottom footer dock with a pixel-art `THRALL` canvas wordmark, subtitle (**T**ool for **H**ierarchical **R**eplication **A**nd **I**dentity **L**inking), and an interactive 8-Bit Rainbow Palette (`Coral`, `Orange`, `Amber`, `Yellow`, `Emerald`, `Cyan`, `Blue`, `Violet`).
@@ -60,7 +60,7 @@ thrall/
 ├── docs/                      # GitHub Pages landing site (https://ubermetroid.github.io/thrall/)
 ├── quadlet/                   # Hardened rootless/system Podman systemd Quadlet units
 └── thrall-daemon/
-    ├── Cargo.toml             # v0.4.0 — Zero external dependencies (Apache-2.0)
+    ├── Cargo.toml             # v0.4.1 — Zero external dependencies (Apache-2.0)
     ├── src/                   # Modular pages strictly <= 256 lines each
     └── tests/                 # Automated Page Rule & Zero-Shell lint gates
 ```
