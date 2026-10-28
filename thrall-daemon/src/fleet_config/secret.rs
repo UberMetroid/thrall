@@ -11,7 +11,8 @@
 //! - a configured secret that is too short is rejected.
 
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Write};
+use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 
 use super::FleetConfig;
 
@@ -20,6 +21,35 @@ pub const PLACEHOLDER_SESSION_SECRET: &str = "change-me";
 
 /// Minimum length enforced for a configured secret.
 pub const MIN_SESSION_SECRET_LEN: usize = 16;
+
+/// Write `contents` to `path` so that only its owner can read it.
+///
+/// The fleet configuration holds a per-peer API key and the roster holds a
+/// share token, so neither may ever be written world-readable. The file is
+/// created with owner-only permissions from the start, written through a
+/// temporary path, and then renamed into place, so a reader never sees a
+/// partially written or a permissive file.
+pub(crate) fn write_private_file(path: &str, contents: &str) -> Result<(), String> {
+    let tmp = format!("{path}.tmp");
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&tmp)
+        .map_err(|e| format!("cannot create {tmp}: {e}"))?;
+    file.write_all(contents.as_bytes())
+        .map_err(|e| format!("cannot write {tmp}: {e}"))?;
+    if let Err(e) = file.set_permissions(fs::Permissions::from_mode(0o600)) {
+        let _ = fs::remove_file(&tmp);
+        return Err(format!("cannot tighten permissions on {tmp}: {e}"));
+    }
+    drop(file);
+    fs::rename(&tmp, path).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("cannot move {tmp} into place at {path}: {e}")
+    })
+}
 
 /// Ensure `cfg.portal.session_secret` is safe to use, generating one when absent.
 ///
@@ -84,7 +114,7 @@ fn persist_secret(path: &str, secret: &str) -> Result<(), String> {
             "no 'session_secret:' entry found in {path}: add one under the 'portal:' section"
         ));
     }
-    fs::write(path, out).map_err(|e| format!("cannot write {path}: {e}"))
+    write_private_file(path, &out)
 }
 
 #[cfg(test)]
@@ -137,6 +167,36 @@ mod tests {
         let written = fs::read_to_string(&path).unwrap();
         assert!(written.contains(&cfg.portal.session_secret));
         assert!(written.contains("listen_addr"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_written_files_are_owner_only() {
+        // The fleet configuration holds a per-peer API key and the roster holds
+        // a share token. Neither may be readable by anyone but the owner.
+        let dir = std::env::temp_dir().join("thrall_private_write_test");
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("secret-holding.yaml");
+        let _ = fs::write(&path, "placeholder\n");
+        write_private_file(path.to_str().unwrap(), "portal:\n  session_secret: \"x\"\n").unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "credential-bearing file must be owner-only");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_write_private_file_replaces_an_existing_permissive_file() {
+        // A file left behind by an older build may still be world-readable.
+        // Rewriting it must tighten the mode, not keep the old one.
+        let dir = std::env::temp_dir().join("thrall_private_write_tighten_test");
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("roster.db");
+        fs::write(&path, "old\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+        write_private_file(path.to_str().unwrap(), "new\n").unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+        assert_eq!(fs::read_to_string(&path).unwrap(), "new\n");
         let _ = fs::remove_dir_all(&dir);
     }
 }

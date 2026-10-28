@@ -4,7 +4,7 @@ use std::env;
 use std::fs;
 
 mod emit;
-mod secret;
+pub(crate) mod secret;
 
 pub use emit::{save_fleet_config, serialize_fleet_yaml};
 
@@ -210,7 +210,7 @@ pub fn load_or_create_fleet_config(path: &str) -> Result<FleetConfig, String> {
     let mut cfg = if let Ok(content) = fs::read_to_string(path) {
         parse_fleet_yaml(&content)?
     } else {
-        let _ = fs::write(path, DEFAULT_FLEET_YAML);
+        let _ = secret::write_private_file(path, DEFAULT_FLEET_YAML);
         parse_fleet_yaml(DEFAULT_FLEET_YAML)?
     };
     secret::ensure_session_secret(&mut cfg, path)?;

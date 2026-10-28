@@ -220,9 +220,7 @@ impl MeshStore {
 
     pub fn save(&self, path: &str) -> Result<(), String> {
         if let Some(parent) = Path::new(path).parent() { let _ = fs::create_dir_all(parent); }
-        let tmp = format!("{path}.tmp");
-        fs::write(&tmp, self.serialize()).map_err(|e| e.to_string())?;
-        fs::rename(&tmp, path).map_err(|e| e.to_string())
+        crate::fleet_config::secret::write_private_file(path, &self.serialize())
     }
 
     pub fn upsert_device(&mut self, user: &str, dev_id: &str, label: &str) -> Result<(), String> {

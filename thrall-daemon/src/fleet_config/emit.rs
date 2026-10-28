@@ -4,8 +4,6 @@
 //! reading configuration, and so the admin portal can write a config back to disk
 //! without pulling the parser's dependencies along.
 
-use std::fs;
-
 use super::FleetConfig;
 
 /// Render a fleet configuration as YAML.
@@ -26,7 +24,7 @@ pub fn serialize_fleet_yaml(cfg: &FleetConfig) -> String {
 
 /// Write a fleet configuration to `path` as YAML.
 pub fn save_fleet_config(path: &str, cfg: &FleetConfig) -> Result<(), String> {
-    fs::write(path, serialize_fleet_yaml(cfg)).map_err(|e| e.to_string())
+    crate::fleet_config::secret::write_private_file(path, &serialize_fleet_yaml(cfg))
 }
 
 #[cfg(test)]
