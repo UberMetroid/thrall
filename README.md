@@ -20,7 +20,7 @@
 1. **Option B Per-Top-Level Folder Sync (Zero Dotfiles)**:
    - Never syncs `~/.config` or hidden dotfiles.
    - Provisions each user's top-level folders under `/users/<username>/<Folder>` as individual Syncthing folders (`user-<username>-<folder_lowercase>`), initialized with the 8 standard Linux XDG folders (`Desktop`, `Documents`, `Downloads`, `Music`, `Pictures`, `Public`, `Templates`, `Videos`).
-   - Users can create or delete top-level personal folders directly in **Tab 1 (`Personal Folder`)**, browse shared team folders in **Tab 2 (`Shared Folders`)**, and monitor per-device folder acceptance & enrollment in **Tab 3 (`Device setup`)**.
+   - Users can create or delete top-level personal folders directly in **Tab 1 (`Personal Folders`)**, browse shared team folders in **Tab 2 (`Shared Folders`)**, and monitor per-device folder acceptance & enrollment in **Tab 3 (`Device setup`)**.
    - Admins can create, delete, and manage per-user LDAP ACLs for top-level organizational shared folders (`/shared/<Folder>`) in **Tab 4 (`Global Folders`)** and manage regional Mesh Hubs in **Tab 5 (`Mesh`)**.
 2. **Resilient Device ID Normalization & Auto-Assigned Labels**:
    - Strips surrounding text, whitespace, hyphens, and invisible Unicode characters when pasting a 56-character Base32 Syncthing Device ID, verifies all 4 Luhn mod 32 check digits, and validates against `/rest/svc/deviceid`.
