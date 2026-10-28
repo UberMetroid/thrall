@@ -126,6 +126,7 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
             "ssh_host",
             "ssh_user",
             "ssh_key_path",
+            "mascot.jpg",
         ] {
             assert!(
                 !content.contains(needle),
@@ -152,6 +153,15 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
         "the default fleet configuration must not carry SSH settings"
     );
 
+    // The archived mascot image belongs to a project THRALL does not ship. It
+    // must not be restored to the image or to the published page.
+    for rel in ["assets/thrall-mascot.jpg", "docs/mascot.jpg"] {
+        assert!(
+            !workspace_root.join(rel).exists(),
+            "the archived mascot image must not be restored: {rel}"
+        );
+    }
+
     let quadlet = fs::read_to_string(workspace_root.join("quadlet/thrall.container"))?;
     assert!(quadlet.contains("NoNewPrivileges=true"));
     assert!(quadlet.contains("DropCapability=ALL"));
@@ -170,7 +180,7 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
     ] {
         all_files.push(workspace_root.join(rel));
     }
-    let banned_hashes: [u64; 18] = [
+    let banned_hashes: [u64; 24] = [
         0xccce_1e1b_c85b_3879,
         0x0e6b_f4fe_abe1_d637,
         0xf6e0_5d31_6661_9706,
@@ -189,6 +199,14 @@ fn test_containerfile_and_quadlet_artifacts() -> Result<(), Box<dyn std::error::
         0x3622_2b99_6a0c_e604,
         0x5f5d_1c20_885b_c3bd,
         0x8ca1_e9d0_63ee_114f,
+        // The external archive the project used to link to. It is not part of
+        // THRALL, so none of its names may appear in a published surface.
+        0x8baa_8108_53ce_3d7b,
+        0x817f_b5b0_59a3_d5d0,
+        0x7104_93a2_1d69_315e,
+        0x037e_2b0d_eb9b_006d,
+        0xbe36_4638_08f3_e590,
+        0xea9e_60ad_81da_16f1,
     ];
     for f in all_files {
         let Ok(txt) = fs::read_to_string(&f) else {

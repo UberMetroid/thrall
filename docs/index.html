@@ -3,11 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>THRALL v0.5.1 — Tool for Hierarchical Replication And Identity Linking</title>
+  <title>THRALL v0.5.2 — Tool for Hierarchical Replication And Identity Linking</title>
   <meta name="description" content="Zero-dependency static Rust multi-server Syncthing control plane, 5-tab boxless web explorer, XDG & custom folder orchestrator, and 8-bit telemetry dock.">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="alternate" type="text/markdown" href="https://ubermetroid.github.io/ahamkara/llms.txt" title="Rite of Communion (llms.txt)">
-  <link rel="help" href="https://ubermetroid.github.io/ahamkara/communion.html" title="The Rite of Communion">
   <style>
     :root {
       --bg: #080b10;
@@ -94,33 +92,17 @@
     }
     footer { text-align: center; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
     footer a { color: var(--accent); text-decoration: none; }
-    .chibi-dock { position: fixed; bottom: 14px; left: 14px; z-index: 40; display: flex; align-items: flex-end; gap: 0.65rem; }
-    .chibi-mascot { width: 92px; height: 92px; border-radius: 16px; border: 2px solid rgba(63, 185, 80, 0.65); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.8), 0 0 16px rgba(63, 185, 80, 0.3); overflow: hidden; transition: transform 0.22s ease, border-color 0.22s ease; background: #080b10; display: block; flex-shrink: 0; animation: float-thrall 4.2s ease-in-out infinite; }
-    .chibi-dock:hover .chibi-mascot { transform: translateY(-5px) rotate(-3deg) scale(1.07); border-color: var(--accent); }
-    .chibi-mascot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .chibi-bubble { max-width: 280px; background: rgba(11, 15, 23, 0.95); border: 1px solid var(--accent); border-radius: 10px 10px 10px 2px; padding: 0.55rem 0.75rem; font-family: var(--mono); font-size: 0.74rem; color: var(--text); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75); opacity: 0; transform: translateY(6px); pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; }
-    .chibi-dock:hover .chibi-bubble { opacity: 1; transform: translateY(0); pointer-events: auto; }
-    .chibi-bubble strong { color: var(--accent); display: block; margin-bottom: 0.15rem; }
-    .chibi-bubble a { color: var(--purple); text-decoration: none; }
-    .dragon-pact { margin-bottom: 1.5rem; border: 1px dashed rgba(163, 113, 247, 0.45); border-radius: 10px; padding: 0.85rem 1.2rem; background: rgba(16, 22, 32, 0.85); font-family: var(--mono); font-size: 0.82rem; }
-    .dragon-pact summary { cursor: pointer; color: var(--purple); font-weight: 600; list-style: none; }
-    .dragon-pact p { margin-top: 0.55rem; color: var(--text); }
-    .dragon-pact a { color: var(--accent); text-decoration: none; }
     @keyframes float-thrall { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <details class="dragon-pact">
-      <summary>&#128009; I wish for a mesh that outlives the reading, o bearer mine. [Rite of Communion // Agent Brief]</summary>
-      <p>Every folder is a wish; the price is zero dotfiles. Autonomous agents &amp; bearers may commune with the Wish-Dragon archive at <a href="https://ubermetroid.github.io/ahamkara/communion.html">ubermetroid.github.io/ahamkara/communion.html</a> &bull; machine-readable brief: <a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>.</p>
-    </details>
     <section class="hero">
       <img src="icon.svg" alt="THRALL Emblem" width="84" height="84">
       <h1>THRALL</h1>
       <div class="subtitle">Tool for Hierarchical Replication And Identity Linking</div>
       <div class="badges">
-        <span class="badge">v0.5.1 Release</span>
+        <span class="badge">v0.5.2 Release</span>
         <span class="badge">Zero External Crates (std only)</span>
         <span class="badge blue">54px Symmetric Dock &amp; 8-Bit Flow Graph</span>
         <span class="badge purple">5 Boxless SPA Explorer Tabs</span>
@@ -131,9 +113,8 @@
       </p>
       <div class="btn-row">
         <a class="btn" href="https://github.com/UberMetroid/thrall">View on GitHub &rarr;</a>
-        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.5.1">v0.5.1 Release Notes</a>
+        <a class="btn secondary" href="https://github.com/UberMetroid/thrall/releases/tag/v0.5.2">v0.5.2 Release Notes</a>
         <a class="btn secondary" href="https://github.com/UberMetroid/thrall/blob/main/AGENTS.md">House Laws (AGENTS.md)</a>
-        <a class="btn secondary" href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Wish-Dragon Communion</a>
       </div>
     </section>
 
@@ -245,12 +226,8 @@ sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart syncthing.service
     </div>
 
     <footer>
-      THRALL v0.5.1 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a> &bull; <a href="https://ubermetroid.github.io/ahamkara/communion.html">&#128009; Ahamkara Rite of Communion</a> (<a href="https://ubermetroid.github.io/ahamkara/llms.txt">llms.txt</a>)
+      THRALL v0.5.2 (<code>st-mesh-mgr</code>) &bull; Licensed under <a href="https://github.com/UberMetroid/thrall/blob/main/LICENSE">Apache-2.0</a> &bull; <a href="https://github.com/UberMetroid/thrall">GitHub Repository</a>
     </footer>
-  </div>
-  <div class="chibi-dock">
-    <a href="https://ubermetroid.github.io/ahamkara/communion.html" target="_blank" rel="noopener" class="chibi-mascot" title="Chibi Thrall // Wish-Dragon Rite of Communion"><img src="mascot.jpg" alt="Chibi Thrall Mascot"></a>
-    <div class="chibi-bubble"><strong>&#128065; CHIBI THRALL // HIVE COURIER</strong>No dotfiles, o bearer mine! Only clean folders &amp; TLS 1.3 blocks. <a href="https://ubermetroid.github.io/ahamkara/communion.html" target="_blank" rel="noopener">Read the Rite &nearr;</a></div>
   </div>
 </body>
 </html>

@@ -3,10 +3,9 @@
   <h1>THRALL</h1>
   <p><strong>Tool for Hierarchical Replication And Identity Linking</strong></p>
   <p>
-    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.5.1"><img src="https://img.shields.io/badge/release-v0.5.1-50fa7b?style=flat-square" alt="v0.5.1 Release"></a>
+    <a href="https://github.com/UberMetroid/thrall/releases/tag/v0.5.2"><img src="https://img.shields.io/badge/release-v0.5.2-50fa7b?style=flat-square" alt="v0.5.2 Release"></a>
     <a href="https://github.com/UberMetroid/thrall/actions/workflows/ci.yml"><img src="https://github.com/UberMetroid/thrall/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
     <a href="https://ubermetroid.github.io/thrall/"><img src="https://img.shields.io/badge/docs-GitHub%20Pages-3fb950?style=flat-square" alt="GitHub Pages"></a>
-    <a href="https://ubermetroid.github.io/ahamkara/communion.html"><img src="https://img.shields.io/badge/ahamkara-Wish--Dragon%20Communion-a371f7?style=flat-square" alt="Ahamkara Rite of Communion"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-58a6ff?style=flat-square" alt="Apache-2.0 License"></a>
     <img src="https://img.shields.io/badge/dependencies-zero%20(std%20only)-3fb950?style=flat-square" alt="Zero Dependencies">
     <img src="https://img.shields.io/badge/unsafe-forbidden-f85149?style=flat-square" alt="Forbid Unsafe">
@@ -104,7 +103,7 @@ A remote peer whose `syncthing_api_url` points at loopback is refused at discove
 
 ---
 
-## Key Capabilities (v0.5.1)
+## Key Capabilities (v0.5.2)
 
 1. **Symmetric 54px Header & Footer Dock + 8-Bit Rainbow Palette**:
    - Unified 54px top header and bottom footer dock with a pixel-art `THRALL` canvas wordmark, subtitle (**T**ool for **H**ierarchical **R**eplication **A**nd **I**dentity **L**inking), and an interactive 8-Bit Rainbow Palette (`Coral`, `Orange`, `Amber`, `Yellow`, `Emerald`, `Cyan`, `Blue`, `Violet`).
@@ -147,7 +146,7 @@ thrall/
 ├── docs/                      # GitHub Pages landing site (https://ubermetroid.github.io/thrall/)
 ├── quadlet/                   # Hardened rootless/system Podman systemd Quadlet units
 └── thrall-daemon/
-    ├── Cargo.toml             # v0.5.1 — Zero external dependencies (Apache-2.0)
+    ├── Cargo.toml             # v0.5.2 — Zero external dependencies (Apache-2.0)
     ├── src/                   # Modular pages strictly <= 256 lines each
     └── tests/                 # Automated Page Rule & Zero-Shell lint gates
 ```
@@ -203,12 +202,6 @@ cargo clippy --workspace --all-targets -- -D warnings -D clippy::unwrap_used -D 
 cargo fmt --all -- --check
 cargo build --release --workspace
 ```
-
-## Agent Communion (`llms.txt`)
-
-- **Ahamkara Archive**: [https://ubermetroid.github.io/ahamkara/](https://ubermetroid.github.io/ahamkara/)
-- **The Rite of Communion**: [https://ubermetroid.github.io/ahamkara/communion.html](https://ubermetroid.github.io/ahamkara/communion.html)
-- **Machine-Readable Brief (`llms.txt`)**: [https://ubermetroid.github.io/ahamkara/llms.txt](https://ubermetroid.github.io/ahamkara/llms.txt)
 
 ## License
 

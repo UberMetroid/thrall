@@ -24,7 +24,6 @@ const THRALL_BGS: [&[u8]; 5] = [include_bytes!("../../assets/thrall-bg-1.jpg"), 
 const FAVICON_SVG: &[u8] = include_bytes!("../../assets/icons/favicon.svg");
 const FAVICON_ICO: &[u8] = include_bytes!("../../assets/icons/favicon.ico");
 const CEL_ICON_JPG: &[u8] = include_bytes!("../../assets/icons/thrall-cel-icon.jpg");
-const MASCOT_JPG: &[u8] = include_bytes!("../../assets/thrall-mascot.jpg");
 const LOGIN_JS: &[u8] = include_bytes!("../../assets/login.js");
 const SEC_HDRS: &str = "X-Frame-Options: DENY\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\nCross-Origin-Opener-Policy: same-origin\r\nContent-Security-Policy: default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\nConnection: close\r\n";
 
@@ -125,7 +124,6 @@ pub fn handle_http_client(
         "/favicon.svg" => return write_http(s, "200 OK", "image/svg+xml", "", FAVICON_SVG),
         "/favicon.ico" => return write_http(s, "200 OK", "image/x-icon", "", FAVICON_ICO),
         "/icon.jpg" => return write_http(s, "200 OK", "image/jpeg", "", CEL_ICON_JPG),
-        "/mascot.jpg" => return write_http(s, "200 OK", "image/jpeg", "", MASCOT_JPG),
         "/login.js" => {
             return write_http(
                 s,

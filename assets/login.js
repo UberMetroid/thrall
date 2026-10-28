@@ -263,7 +263,7 @@
              (noiseTable[y1 * N + x0] * (1 - sx) + noiseTable[y1 * N + x1] * sx) * sy;
     }
 
-    var TEXT_SEL = 'h1,h2,h3,p,pre,code,label,input,button,a,summary,details,.spotlight-card,.tui-screen-mock,.tenets-marquee-wrap,.footer-dock,.chibi-dock';
+    var TEXT_SEL = 'h1,h2,h3,p,pre,code,label,input,button,a,summary,details,.spotlight-card,.tui-screen-mock,.tenets-marquee-wrap,.footer-dock';
 
     function isOverTextElement(target) {
       if (!target || target === document.body || target === document.documentElement || target === canvas) return false;
@@ -891,94 +891,6 @@
     });
 
     syncFromScroll();
-  }
-
-  function initChibiHints() {
-    var tipsByTab = {
-      0: [
-        { title: 'HANDSHAKE', body: 'Sign in above, then go to Tab 3: add the Gateway ID in localhost:8384 and paste your 56-char ID into THRALL.' },
-        { title: 'PRIVACY', body: 'Workstations only connect to regional Thrall Nodes over TLS 1.3 BEP—never directly to other users\' devices.' },
-        { title: 'VAULTS', body: 'THRALL never syncs ~/.config or dotfiles. Only explicit Tab 1 Personal and Tab 2 Common folders replicate.' },
-        { title: 'PALETTE', body: 'Click anywhere for a shockwave ripple, or pick one of the 8-bit color swatches in the footer.' }
-      ],
-      1: [
-        { title: 'ACCEPT SHARES', body: 'When a folder card says PENDING, open http://127.0.0.1:8384 on that workstation to click Accept.' },
-        { title: 'PERSONAL vs. COMMON', body: 'Tab 1 Personal Folders sync only to your devices; Tab 2 Common Folders are multi-user team vaults.' },
-        { title: 'DEVICE BADGES', body: 'Each folder card shows \u2713 accepted vs. \u23F3 unaccepted per workstation so you know which machine needs to accept.' },
-        { title: 'PUBLIC LINKS', body: 'In the Explorer below, click "Share: OFF" on any file or subfolder to generate a read-only /s/<token> link.' },
-        { title: 'FOLDER IDs', body: 'Every folder uses a native 5+5 char Syncthing Folder ID (xxxxx-xxxxx) and rejects dotfiles/symlinks.' }
-      ],
-      2: [
-        { title: 'STEP 1', body: 'Open http://127.0.0.1:8384, click + Add Remote Device, paste the Gateway ID, and check [x] Introducer & [x] Auto Accept.' },
-        { title: 'STEP 2', body: 'In localhost:8384 click Actions -> Show ID, copy your 56-character Device ID, and paste it into Step 2.' },
-        { title: 'AUTO-ACCEPT', body: '[x] Introducer peers you with all regional nodes; [x] Auto Accept mounts your 1A & 1B folders automatically.' },
-        { title: 'PASTE FORMAT', body: 'Spaces or hyphens don\'t matter when pasting your ID—THRALL normalizes and verifies all 4 Luhn check digits.' }
-      ],
-      3: [
-        { title: 'AUTO-NAMES', body: 'Just paste your 56-char Device ID—THRALL automatically learns your workstation\'s hostname when it connects.' },
-        { title: 'MULTI-DEVICE', body: 'Enroll all your workstations here; every 1A Personal and 1B Shared folder pushes to each enrolled device.' },
-        { title: 'FAST REVOKE', body: 'Clicking Revoke purges that device and its folder grants from all regional Thrall Nodes in under a second.' },
-        { title: 'RE-ENROLL', body: 'Pasting an already-enrolled Device ID is safe and refreshes its folder grants across the mesh.' }
-      ],
-      4: [
-        { title: 'TEAM ACCESS', body: 'Check or uncheck users in the aligned columns and click Save Access to grant or revoke Shared Folders.' },
-        { title: 'CHECKMARKS', body: 'A \u2713 next to a username means all of that user\'s enrolled workstations have accepted the shared folder.' },
-        { title: 'ISOLATION', body: 'Shared folders live at /shared/<Folder> outside individual user home directories.' },
-        { title: 'REVOCATION', body: 'Unchecking a user and clicking Save Access immediately removes that share from all of their devices.' }
-      ],
-      5: [
-        { title: 'BACKBONE', body: 'Regional Thrall Hubs form a full mesh over port 22000 while serving Client Devices as hub-and-spoke.' },
-        { title: 'FAST API', body: 'THRALL manages regional hubs over their authenticated REST APIs. No SSH access is required on any machine.' },
-        { title: 'HUB CONTROL', body: 'Click Disconnect to isolate a regional hub from the mesh, or Reconcile for a full fleet refresh.' },
-        { title: 'ADD HUB', body: 'Enter a hub name, its API URL, and its API key to peer a new regional hub into the mesh.' }
-      ]
-    };
-
-    var heroTitle = document.getElementById('chibi-tip-title');
-    var heroBody = document.getElementById('chibi-tip-body');
-    var heroNext = document.getElementById('chibi-next-btn');
-    var heroImg = document.getElementById('chibi-hero-img');
-
-    var dock = document.getElementById('chibi-dock');
-    var dockTitle = document.getElementById('chibi-dock-title');
-    var dockBody = document.getElementById('chibi-dock-body');
-    var dockNext = document.getElementById('chibi-dock-next');
-    var dockBtn = document.getElementById('chibi-mascot-btn');
-
-    if (!heroTitle && !dockTitle) return;
-
-    var curTab = dock ? parseInt(dock.getAttribute('data-tab') || '0', 10) : 0;
-    var pool = tipsByTab[curTab] || tipsByTab[0];
-    var idx = Math.floor(Math.random() * pool.length);
-
-    function renderTip(i) {
-      var t = pool[i % pool.length];
-      var num = ((i % pool.length) + 1) + '/' + pool.length;
-      if (heroTitle && heroBody) {
-        heroTitle.textContent = '\uD83D\uDC41 CHIBI THRALL // TIP ' + num + ' — ' + t.title;
-        heroBody.textContent = t.body;
-      }
-      if (dockTitle && dockBody) {
-        dockTitle.textContent = '[' + t.title + ' ' + num + ']';
-        dockBody.textContent = t.body;
-        dockBody.title = t.body;
-      }
-    }
-
-    function advanceTip() {
-      if (pool.length > 1) {
-        var step = 1 + Math.floor(Math.random() * (pool.length - 1));
-        idx = (idx + step) % pool.length;
-      }
-      renderTip(idx);
-    }
-
-    renderTip(idx);
-    if (heroNext) heroNext.addEventListener('click', advanceTip);
-    if (heroImg) heroImg.addEventListener('click', advanceTip);
-    if (dockNext) dockNext.addEventListener('click', advanceTip);
-    if (dockBtn) dockBtn.addEventListener('click', advanceTip);
-    setInterval(advanceTip, 14000);
   }
 
   function padRight(str, len) {
@@ -2413,7 +2325,6 @@
     renderHeaderWordmark();
     initCanvas();
     initSectionNav();
-    initChibiHints();
     initTelemetryPolling();
     initExplorerTree();
     initExplorerModals();

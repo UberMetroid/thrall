@@ -736,13 +736,6 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   border-color: var(--danger);
   color: #ffaba8;
 }
-.dock-chibi {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
 .dock-mini-btn {
   padding: 2px 7px;
   font-size: 11px;
@@ -896,42 +889,8 @@ details.node-card > summary::-webkit-details-marker { display: none; }
   0%, 100% { transform: scale(1); box-shadow: 0 0 14px rgba(255, 176, 0, 0.65), 0 0 4px #ffe066; }
   50% { transform: scale(1.06); box-shadow: 0 0 24px rgba(255, 212, 71, 0.95), 0 0 8px #fff; }
 }
-.chibi-section { width: 100%; padding: 1.1rem 1.25rem; }
-.chibi-card-body { display: flex; align-items: center; gap: 1rem; }
-.chibi-hero-img { width: 72px; height: 72px; border-radius: 12px; border: 1.5px solid var(--border-accent); box-shadow: 0 0 14px var(--phosphor-dim); object-fit: cover; flex-shrink: 0; }
-.chibi-mascot {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  cursor: pointer;
-  border-radius: 7px;
-  border: 1.5px solid var(--border-accent);
-  box-shadow: 0 0 8px var(--phosphor-dim);
-  overflow: hidden;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  background: #080b10;
-  display: block;
-  flex-shrink: 0;
-}
-.dock-chibi:hover .chibi-mascot { transform: scale(1.06); border-color: var(--phosphor); }
-.chibi-mascot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.chibi-bubble {
-  flex: 1;
-  min-width: 0;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  line-height: 1.25;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.chibi-bubble strong { color: var(--phosphor); font-size: 0.72rem; margin-right: 0.25rem; }
-.chibi-bubble a { color: var(--hot); font-weight: 700; text-decoration: underline; }
-@keyframes float-thrall { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (max-width: 640px) {
   .wordmark-hero { height: 84px; }
-  .chibi-mascot { width: 68px; height: 68px; }
   .site-header, .footer-dock { padding: 0 0.5rem; }
   .site-header-inner, .footer-dock-inner { gap: 0.35rem; }
   .footer-toast { max-width: 150px; padding: 3px 8px; font-size: 10px; }

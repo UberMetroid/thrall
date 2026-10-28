@@ -163,10 +163,30 @@ mod tests {
         assert!(h.contains("data-mesh-rtts=") && h.contains("data-mesh-masses="));
         let tj = crate::render_portal::render_telemetry_json(&snap, &store);
         assert!(tj.contains("\"hubs_total\":") && tj.contains("\"spokes\":1") && !tj.contains("alice") && !tj.contains("dev-1"));
-        for w in ["LDAP", "ahamkara", "dragon-pact", "Wish-Dragon"] {
-            assert!(!h.contains(w));
-        }
-        assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
+        assert!(!h.contains("LDAP"));
+        // The published portal must not carry references to the external
+        // archive. The forbidden tokens are stored as hashes so the names
+        // themselves never appear in this source tree.
+        const ARCHIVE_TOKENS: [u64; 6] = [
+            0x8baa_8108_53ce_3d7b,
+            0x817f_b5b0_59a3_d5d0,
+            0x7104_93a2_1d69_315e,
+            0x037e_2b0d_eb9b_006d,
+            0xbe36_4638_08f3_e590,
+            0xea9e_60ad_81da_16f1,
+        ];
+        let leaked: Vec<&str> = h
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .filter(|w| w.len() >= 4)
+            .filter(|w| {
+                let mut v = 0xcbf2_9ce4_8422_2325u64;
+                for b in w.bytes().map(|b| b.to_ascii_lowercase()) {
+                    v = (v ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
+                }
+                ARCHIVE_TOKENS.contains(&v)
+            })
+            .collect();
+        assert!(leaked.is_empty(), "archive reference leaked into the portal: {leaked:?}");
         let user_html = render_dashboard_page("bob", false, &cfg, &store, &snap, 4, "", "", Some("Share mode updated"), None);
         let (_, u_body) = user_html.split_once("<header class=\"site-header\"").unwrap();
         let (u_hdr, u_rest) = u_body.split_once("</header>").unwrap();
@@ -176,7 +196,6 @@ mod tests {
         assert!(user_html.contains("id=\"footer-status-msg\" class=\"footer-toast\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
         assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-standard-folder\"") && user_html.contains("data-modal-open=\"create-custom-folder\""));
-        assert!(!user_html.contains("ahamkara"));
 
         let common_html = render_dashboard_page("bob", false, &cfg, &store, &snap, 2, "", "", None, None);
         assert!(common_html.contains("&#127760; Ops/") && common_html.contains("READ-ONLY") && !common_html.contains("data-modal-open=\"upload-file\"") && !common_html.contains("Shared / Ops/") && !common_html.contains("class=\"card\""));
