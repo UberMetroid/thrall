@@ -920,12 +920,49 @@
     return s;
   }
 
+  var browserBytesInWindow = 0;
+  function recordBrowserBytes(bytes) {
+    var n = Number(bytes) || 0;
+    if (n > 0) browserBytesInWindow += n;
+  }
+  window.thrallRecordBrowserBytes = recordBrowserBytes;
+
+  var PIXEL_GLYPHS_3X5 = {
+    '0': ['111', '101', '101', '101', '111'],
+    '1': ['010', '110', '010', '010', '111'],
+    '2': ['111', '001', '111', '100', '111'],
+    '3': ['111', '001', '111', '001', '111'],
+    '4': ['101', '101', '111', '001', '001'],
+    '5': ['111', '100', '111', '001', '111'],
+    '6': ['111', '100', '111', '101', '111'],
+    '7': ['111', '001', '001', '010', '010'],
+    '8': ['111', '101', '111', '101', '111'],
+    '9': ['111', '101', '111', '001', '111'],
+    '%': ['101', '001', '010', '100', '101'],
+    'B': ['110', '101', '110', '101', '110'],
+    'K': ['101', '101', '110', '101', '101'],
+    'M': ['101', '111', '111', '101', '101'],
+    '/': ['001', '001', '010', '100', '100'],
+    'S': ['111', '100', '111', '001', '111'],
+    '.': ['000', '000', '000', '000', '010']
+  };
+
   function initTelemetryPolling() {
     function poll() {
       if (document.hidden || typeof window.fetch !== 'function') return;
       fetch('/api/telemetry', { cache: 'no-store', credentials: 'same-origin' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
+        .then(function (r) {
+          return r.ok ? r.text() : null;
+        })
+        .then(function (txt) {
+          if (!txt) return;
+          recordBrowserBytes(txt.length);
+          var d = null;
+          try {
+            d = JSON.parse(txt);
+          } catch (e) {
+            return;
+          }
           if (!d) return;
           if (window.thrallApplyLiveTelemetry) window.thrallApplyLiveTelemetry(d);
           var elHubs = document.getElementById('tui-hubs');
@@ -1277,11 +1314,57 @@
     var graphCanvas = document.getElementById('footer-upload-graph');
     var statusMsg = document.getElementById('footer-status-msg');
     var toastTimer = 0;
-    var historyBars = [];
-    for (var b = 0; b < 24; b++) {
-      historyBars.push(2 + Math.round(Math.abs(Math.sin(b * 0.45)) * 6));
+    var BAR_COUNT = 22;
+    var initialBars = [];
+    for (var b = 0; b < BAR_COUNT; b++) {
+      initialBars.push(0);
     }
-    var uploadGraphState = { active: false, pct: 0, tick: 0 };
+    var uploadGraphState = {
+      active: false,
+      pct: 0,
+      bytesPerSec: 0,
+      bars: initialBars
+    };
+    var perfResourceCursor = 0;
+    if (typeof window.performance === 'object' && typeof performance.getEntriesByType === 'function') {
+      perfResourceCursor = performance.getEntriesByType('resource').length;
+    }
+
+    function formatShortRate(bps) {
+      var n = Math.max(0, Math.round(bps || 0));
+      if (n === 0) return '0B/S';
+      if (n < 1024) return n + 'B/S';
+      if (n < 1048576) return Math.max(1, Math.round(n / 1024)) + 'K/S';
+      return Math.max(1, Math.round(n / 1048576)) + 'M/S';
+    }
+
+    function formatExactRate(bps) {
+      var n = Math.max(0, Math.round(bps || 0));
+      if (n < 1024) return n + ' B/s';
+      if (n < 1048576) return (n / 1024).toFixed(1) + ' KB/s';
+      return (n / 1048576).toFixed(2) + ' MB/s';
+    }
+
+    function drawPixelText3x5(ctx, str, rightX, topY, color) {
+      var s = String(str || '').toUpperCase();
+      var charW = 3, gap = 1;
+      var totalW = s.length > 0 ? (s.length * (charW + gap) - gap) : 0;
+      var startX = rightX - totalW;
+      ctx.fillStyle = color;
+      for (var i = 0; i < s.length; i++) {
+        var g = PIXEL_GLYPHS_3X5[s.charAt(i)];
+        if (!g) continue;
+        var cx = startX + i * (charW + gap);
+        for (var r = 0; r < g.length; r++) {
+          var rowStr = g[r];
+          for (var c = 0; c < rowStr.length; c++) {
+            if (rowStr.charAt(c) === '1') {
+              ctx.fillRect(cx + c, topY + r, 1, 1);
+            }
+          }
+        }
+      }
+    }
 
     function showToast(text, isErr, autoHide) {
       if (!statusMsg) statusMsg = document.getElementById('footer-status-msg');
@@ -1362,8 +1445,11 @@
       }
 
       var barW = 3, gap = 1, startX = 3;
-      for (var i = 0; i < historyBars.length; i++) {
-        var bh = historyBars[i];
+      var bars = uploadGraphState.bars;
+      for (var i = 0; i < bars.length; i++) {
+        var level = bars[i] || 0;
+        var bh = level > 0 ? Math.max(2, Math.min(18, Math.round(level * 18))) : 0;
+        if (bh <= 0) continue;
         var bx = startX + i * (barW + gap);
         for (var py = h - 5; py > h - 5 - bh; py -= 2) {
           var isTop = py <= h - 5 - bh + 2;
@@ -1376,28 +1462,41 @@
 
       ctx.fillStyle = '#14191f';
       ctx.fillRect(2, h - 3, w - 4, 2);
+
+      var bps = uploadGraphState.bytesPerSec || 0;
       if (uploadGraphState.active) {
-        var fillW = Math.round(((w - 4) * Math.max(0, Math.min(100, uploadGraphState.pct))) / 100);
+        var pctClamped = Math.max(0, Math.min(100, Math.round(uploadGraphState.pct)));
+        var fillW = Math.round(((w - 4) * pctClamped) / 100);
         ctx.fillStyle = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
         ctx.fillRect(2, h - 3, fillW, 2);
-        ctx.font = '700 9px ui-monospace, monospace';
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(Math.round(uploadGraphState.pct) + '%', w - 26, 11);
+        drawPixelText3x5(ctx, pctClamped + '%', w - 3, 4, '#ffffff');
+        graphCanvas.title = 'Browser TX/RX: ' + formatExactRate(bps) + ' (Upload ' + pctClamped + '%)';
       } else {
-        var scanX = 2 + ((uploadGraphState.tick * 4) % Math.max(8, w - 18));
-        ctx.fillStyle = 'rgb(' + ar + ',' + ag + ',' + ab + ')';
-        ctx.fillRect(scanX, h - 3, 14, 2);
-        ctx.font = '700 8px ui-monospace, monospace';
-        ctx.fillStyle = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
-        ctx.fillText('LINK', w - 26, 10);
+        if (bps > 0) {
+          var rateRatio = Math.min(1, Math.log10(bps + 1) / 7);
+          var rateFillW = Math.max(4, Math.round((w - 4) * rateRatio));
+          ctx.fillStyle = 'rgb(' + ar + ',' + ag + ',' + ab + ')';
+          ctx.fillRect(2, h - 3, rateFillW, 2);
+        }
+        var labelColor = bps > 0
+          ? '#ffffff'
+          : ('rgb(' + hr + ',' + hg + ',' + hb + ')');
+        drawPixelText3x5(ctx, formatShortRate(bps), w - 3, 4, labelColor);
+        graphCanvas.title = 'Browser TX/RX: ' + formatExactRate(bps);
       }
+    }
+
+    function pushBrowserLevel(level) {
+      uploadGraphState.bars.shift();
+      uploadGraphState.bars.push(Math.max(0, Math.min(1, level)));
     }
 
     function drawPixelGraph(pct, chunkLevel) {
       uploadGraphState.active = true;
       uploadGraphState.pct = pct;
-      historyBars.shift();
-      historyBars.push(Math.max(2, Math.min(18, Math.round(chunkLevel * 18))));
+      if (typeof chunkLevel === 'number' && chunkLevel > 0) {
+        pushBrowserLevel(Math.max(0.08, Math.min(1, chunkLevel)));
+      }
       renderGraphFrame();
     }
 
@@ -1416,26 +1515,38 @@
     window.thrallRenderFooterGraph = renderGraphFrame;
     renderGraphFrame();
 
-    var prevHook = window.thrallApplyLiveTelemetry;
-    var liveTelemetryBoost = 0;
-    window.thrallApplyLiveTelemetry = function (d) {
-      if (typeof prevHook === 'function') prevHook(d);
-      if (d && Array.isArray(d.bps)) {
-        var sum = 0;
-        for (var i = 0; i < d.bps.length; i++) sum += (parseFloat(d.bps[i]) || 0);
-        liveTelemetryBoost = Math.min(0.45, Math.log10(sum + 10) * 0.1);
-      }
-    };
-
     setInterval(function () {
-      if (document.hidden || uploadGraphState.active) return;
-      uploadGraphState.tick += 1;
-      var t = uploadGraphState.tick;
-      var wave = 0.22 + liveTelemetryBoost + 0.18 * Math.sin(t * 0.38) + 0.14 * Math.cos(t * 0.85) + ((t % 7 === 0) ? 0.22 : 0);
-      historyBars.shift();
-      historyBars.push(Math.max(2, Math.min(16, Math.round(wave * 18))));
+      if (document.hidden) return;
+      var perfDelta = 0;
+      if (typeof window.performance === 'object' && typeof performance.getEntriesByType === 'function') {
+        var entries = performance.getEntriesByType('resource');
+        if (entries.length < perfResourceCursor) {
+          perfResourceCursor = 0;
+        }
+        for (var i = perfResourceCursor; i < entries.length; i++) {
+          var en = entries[i];
+          var name = (en && en.name) || '';
+          var isExplicit =
+            name.indexOf('/files/upload') !== -1 ||
+            name.indexOf('/api/telemetry') !== -1;
+          if (!isExplicit) {
+            var sz = (en && (en.transferSize || en.encodedBodySize || en.decodedBodySize)) || 0;
+            if (sz > 0) perfDelta += sz;
+          }
+        }
+        perfResourceCursor = entries.length;
+      }
+      var bytesInTick = browserBytesInWindow + perfDelta;
+      browserBytesInWindow = 0;
+      var bytesPerSec = Math.round(bytesInTick * (1000 / 150));
+      uploadGraphState.bytesPerSec = bytesPerSec;
+      var barHeight = 0;
+      if (bytesInTick > 0) {
+        barHeight = Math.max(0.08, Math.min(1.0, Math.log10(bytesPerSec + 1) / 6.5));
+      }
+      pushBrowserLevel(barHeight);
       renderGraphFrame();
-    }, 140);
+    }, 150);
 
     function readBlobSlice(blob) {
       if (blob && typeof blob.arrayBuffer === 'function') {
@@ -1474,6 +1585,7 @@
             '&filename=' + encodeURIComponent(target.filename) +
             '&append=' + currentAppendix +
             '&hex=' + hex;
+          recordBrowserBytes(body.length);
           return fetch('/files/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1481,8 +1593,11 @@
             credentials: 'same-origin'
           }).then(function (r) {
             if (!r.ok) throw new Error('Upload failed');
-            if (onChunk) onChunk(slice.length);
-            return nextChunk();
+            return r.text().then(function (respTxt) {
+              recordBrowserBytes((respTxt && respTxt.length) || 64);
+              if (onChunk) onChunk(slice.length);
+              return nextChunk();
+            });
           });
         });
       }
@@ -1512,11 +1627,11 @@
       var uploadedBytes = 0;
       var idx = 0;
       uploadGraphStart();
-      drawPixelGraph(2, 0.35);
 
       function nextFile() {
         if (idx >= valid.length) {
-          drawPixelGraph(100, 1.0);
+          uploadGraphState.pct = 100;
+          renderGraphFrame();
           showToast('Uploaded ' + valid.length + ' file(s)', false, true);
           setTimeout(function () {
             uploadGraphStop();
@@ -1536,7 +1651,7 @@
         uploadSingleFile(br, baseSub, cur, function (chunkLen) {
           uploadedBytes += chunkLen;
           var pct = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : (fNum / valid.length) * 100;
-          var activity = 0.35 + 0.65 * Math.min(1, chunkLen / 12288) * (0.65 + 0.35 * Math.random());
+          var activity = 0.08 + 0.92 * Math.min(1, chunkLen / 12288);
           drawPixelGraph(pct, activity);
           showToast('UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(pct) + '%)', false, false);
         })
@@ -1742,10 +1857,12 @@
 
     function spaNavigate(href, pushHistory, keepToast) {
       syncActiveTabFromHref(href);
+      recordBrowserBytes(String(href || '').length);
       return fetch(href, { credentials: 'same-origin' })
         .then(function (r) {
           var finalUrl = r.url || href;
           return r.text().then(function (txt) {
+            recordBrowserBytes((txt && txt.length) || 0);
             applyParsedDoc(txt, finalUrl, pushHistory, keepToast);
           });
         })
@@ -1780,6 +1897,7 @@
       var backdrop = document.getElementById('thrall-modal-backdrop');
       if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
       var bodyParams = new URLSearchParams(new FormData(form)).toString();
+      recordBrowserBytes(bodyParams.length);
       fetch(action, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1789,6 +1907,7 @@
         .then(function (r) {
           var finalUrl = r.url || window.location.href;
           return r.text().then(function (txt) {
+            recordBrowserBytes((txt && txt.length) || 0);
             applyParsedDoc(txt, finalUrl, true, false);
           });
         })

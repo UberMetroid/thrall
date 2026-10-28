@@ -160,7 +160,7 @@ mod tests {
         assert!(h.contains("User or Email") && !h.contains("THRALL MESH DIRECTOR"));
         assert!(h.contains("spotlight-canvas") && h.contains("/login.js"));
         assert!(h.contains("site-header") && h.contains("[ SIGN IN ]"));
-        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\""));
+        assert!(h.contains("footer-dock") && h.contains("id=\"footer-accent-picker\"") && h.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\""));
         assert!(!h.contains("nav-arrow-up") && !h.contains("MESH HUB") && !h.contains("ENROLLED SPOKE") && h.contains("id=\"footer-status-msg\"") && !h.contains("Sign in with your account credentials"));
         let h_err = render_login_page(Some("Invalid credentials"), &snap, &store);
         let (h_err_hdr, h_err_rest) = h_err.split_once("</header>").unwrap();
@@ -195,7 +195,7 @@ mod tests {
         let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
         assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/") && !root_a.contains("class=\"card\""));
         assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\"") && root_a.contains("data-drop-browse=\"personal:Documents\""));
-        assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\"") && root_a.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\""));
+        assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\"") && root_a.contains("<canvas id=\"footer-upload-graph\" class=\"footer-upload-graph\" width=\"128\" height=\"24\" title=\"Browser &lt;-&gt; Mesh Data Flow\""));
         assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("data-modal-open=\"mkdir\"") && root_a.contains("data-modal-open=\"upload-file\""));
         assert!(root_a.contains(&format!(">/s/{tok}</a></td>")) && !root_a.contains("Press + to expand a folder"));
         assert_eq!(crate::render_portal::share_jail::decode_hex("48656c6c6f"), b"Hello");
