@@ -65,6 +65,11 @@ pub fn handle_admin_post_action(
     }
     if path == "/admin/shared/delete" {
         if let Ok(fname) = sanitize_folder_name(fval("folder")) {
+            let c = fval("confirm_name").trim();
+            if !c.is_empty() && c != fname {
+                write_redirect(stream, "/?tab=4&err=Confirmation+name+mismatch", "");
+                return true;
+            }
             store.shared_folders.remove(&fname);
             let _ = store.save(&cfg.portal.database_path);
             let flow = fname.to_ascii_lowercase();

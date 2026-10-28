@@ -1,7 +1,8 @@
 //! Authenticated POST form handlers for THRALL (`st-mesh-mgr`) portal.
 
 use std::collections::BTreeMap;
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::net::TcpStream;
 
 use crate::device_store::{
@@ -9,13 +10,14 @@ use crate::device_store::{
     syncthing_folder_id, MeshStore,
 };
 use crate::fleet_config::FleetConfig;
-use crate::portal_server::{write_html, write_redirect};
+use crate::portal_server::{write_html, write_http, write_redirect};
 use crate::reconcile_mesh::{
     provision_single_folder, purge_device_from_fleet, purge_folder_from_fleet, reconcile_fleet,
     verify_device_id_via_server, FleetSnapshot,
 };
 use crate::render_portal::admin_actions::{handle_admin_post_action, short_id};
 use crate::render_portal::render_dashboard_page;
+use crate::render_portal::share_jail::decode_hex;
 
 #[rustfmt::skip]
 #[allow(clippy::too_many_arguments)]
@@ -89,14 +91,28 @@ pub fn handle_post_action(
         }
         return true;
     }
-    if path == "/files/create" {
+    if path == "/files/upload" || path == "/files/create" {
         let (br, sub, fnm, rbr) = (fval("browse"), fval("sub"), fval("filename").trim(), form.get("ret_br").map(String::as_str).unwrap_or(fval("browse")));
         let etab = if rbr.starts_with("shared:") || br.starts_with("shared:") { 2 } else { 1 };
-        let valid_fn = !fnm.is_empty() && !fnm.starts_with('.') && fnm.len() <= 64 && fnm.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
+        let valid_fn = !fnm.is_empty() && !fnm.starts_with('.') && fnm.len() <= 128 && fnm.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'));
         if let (true, Some((_, base, _))) = (valid_fn, resolve_jailed_path(username, store, br, sub)) {
-            let _ = fs::write(base.join(fnm), fval("content").as_bytes());
-            let u = if rbr.is_empty() { format!("/?tab={etab}&ok=File+saved") } else { format!("/?tab={etab}&browse={rbr}&sub={sub}&ok=File+saved") };
-            write_redirect(stream, &u, "");
+            let _ = fs::create_dir_all(&base);
+            let fpath = base.join(fnm);
+            let data = if !fval("hex").is_empty() { decode_hex(fval("hex")) } else { fval("content").as_bytes().to_vec() };
+            let ok = if fval("append") == "1" {
+                OpenOptions::new().create(true).append(true).open(&fpath).and_then(|mut f| f.write_all(&data)).is_ok()
+            } else {
+                fs::write(&fpath, &data).is_ok()
+            };
+            if path == "/files/upload" {
+                let (st, msg) = if ok { ("200 OK", "{\"ok\":true}\n") } else { ("500 Internal Server Error", "{\"ok\":false}\n") };
+                write_http(stream, st, "application/json", "", msg.as_bytes());
+            } else {
+                let u = if rbr.is_empty() { format!("/?tab={etab}&ok=File+saved") } else { format!("/?tab={etab}&browse={rbr}&sub={sub}&ok=File+saved") };
+                write_redirect(stream, &u, "");
+            }
+        } else if path == "/files/upload" {
+            write_http(stream, "400 Bad Request", "application/json", "", b"{\"ok\":false}\n");
         } else {
             let u = if rbr.is_empty() { format!("/?tab={etab}&err=Invalid+file+name") } else { format!("/?tab={etab}&browse={rbr}&sub={sub}&err=Invalid+file+name") };
             write_redirect(stream, &u, "");
@@ -159,7 +175,8 @@ pub fn handle_post_action(
         return true;
     }
     if path == "/devices/remove" {
-        if let Ok(norm_id) = normalize_and_verify_device_id(raw_id) {
+        let rem_id = if raw_id.is_empty() { fval("item") } else { raw_id };
+        if let Ok(norm_id) = normalize_and_verify_device_id(rem_id) {
             if store.remove_device(username, &norm_id).unwrap_or(false) {
                 let _ = store.save(&cfg.portal.database_path);
                 let sid = short_id(&norm_id);

@@ -30,6 +30,18 @@ pub fn url_decode(input: &str) -> String {
     String::from_utf8_lossy(&out).to_string()
 }
 
+pub fn decode_hex(hex: &str) -> Vec<u8> {
+    let b = hex.trim().as_bytes();
+    let (mut out, mut i) = (Vec::with_capacity(b.len() / 2), 0);
+    while i + 1 < b.len() {
+        if let (Some(h), Some(l)) = ((b[i] as char).to_digit(16), (b[i + 1] as char).to_digit(16)) {
+            out.push(((h << 4) | l) as u8);
+        }
+        i += 2;
+    }
+    out
+}
+
 pub fn parse_form_urlencoded(body: &str) -> BTreeMap<String, String> {
     body.split('&')
         .filter_map(|p| p.split_once('='))

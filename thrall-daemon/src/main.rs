@@ -198,8 +198,8 @@ mod tests {
         }
         assert!(!h.contains("Communion") && !h.contains("llms.txt") && !h.contains("bearer mine"));
         let user_html = render_dashboard_page("bob", false, &store, &snap, 4, "", "", Some("Share mode updated"), None);
-        assert!(!user_html.contains("4. Access Control") && !user_html.contains("5. Mesh Hubs") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
-        assert!(user_html.contains("1. Personal") && user_html.contains("2. Common") && user_html.contains("3. Spokes &amp; Setup"));
+        assert!(!user_html.contains(">Access<") && !user_html.contains(">Hubs<") && !user_html.contains("MESH HUB") && !user_html.contains("ENROLLED SPOKE"));
+        assert!(user_html.contains(">Personal</a>") && user_html.contains(">Shared</a>") && user_html.contains(">Spokes</a>"));
         assert!(user_html.contains("id=\"footer-status-msg\">Share mode updated</span>") && !user_html.contains("class=\"alert"));
         assert!(user_html.contains("<th style=\"width:110px\">Share</th><th style=\"width:200px\">Link</th><th style=\"width:180px;text-align:right\">Action</th>"));
         assert!(user_html.contains("class=\"explorer-table\"") && user_html.contains("data-modal-open=\"create-personal-folder\""));
@@ -215,25 +215,26 @@ mod tests {
 
         let root_a = render_dashboard_page("alice", false, &store, &snap, 1, "", "", None, None);
         assert!(root_a.contains("&#128193; Documents/") && !root_a.contains("Personal / Documents/") && !root_a.contains("class=\"card\""));
-        assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\""));
-        assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\""));
+        assert!(root_a.contains("class=\"tree-toggle\" data-target=\"personal:Documents\"") && root_a.contains("data-drop-browse=\"personal:Documents\""));
+        assert!(root_a.contains("data-del-action=\"/user/folders/delete\" data-del-name=\"Documents\"") && root_a.contains("id=\"footer-upload-graph\""));
         assert!(root_a.contains("class=\"tree-child\" data-parent=\"personal:Documents\"") && root_a.contains("Empty directory") && root_a.contains("data-modal-open=\"mkdir\"") && root_a.contains("data-modal-open=\"upload-file\""));
         assert!(root_a.contains(&format!(">/s/{tok}</a></td>")) && root_a.contains("id=\"footer-status-msg\">Press + to expand a folder"));
+        assert_eq!(crate::render_portal::share_jail::decode_hex("48656c6c6f"), b"Hello");
 
         let br = "personal:Documents";
         let in_h = render_dashboard_page("alice", false, &store, &snap, 1, br, "", None, None);
         assert!(in_h.contains("All Folders") && in_h.contains("Personal / Documents") && !in_h.contains("class=\"card\""));
 
         let s3 = render_dashboard_page("alice", false, &store, &snap, 3, "", "", None, None);
-        assert!(s3.contains("3A. Enrolled Spokes") && s3.contains("3B. Per-Spoke Folder"));
-        assert!(s3.contains("3C. Two-Way Hub &amp; Spoke") && s3.contains("pending-folder") && s3.contains("/?tab=2&amp;browse=shared:Ops"));
+        assert!(s3.contains("class=\"explorer-table\"") && s3.contains("data-modal-open=\"enroll-spoke\"") && !s3.contains("class=\"card\""));
+        assert!(s3.contains("data-target=\"spoke:") && s3.contains("/?tab=2&amp;browse=shared:Ops"));
 
         let acl_html = render_dashboard_page("admin", true, &store, &snap, 4, "", "", None, None);
-        assert!(acl_html.contains("4. Access Control") && acl_html.contains("Apply ACL"));
+        assert!(acl_html.contains("class=\"explorer-table\"") && acl_html.contains("data-modal-open=\"create-shared-folder\"") && acl_html.contains("Apply ACL") && !acl_html.contains("class=\"card\""));
 
         let admin_html = render_dashboard_page("admin", true, &store, &snap, 5, "", "", None, None);
-        assert!(admin_html.contains("4. Access Control") && admin_html.contains("5. Mesh Hubs"));
-        assert!(admin_html.contains("Add Mesh Hub") && !admin_html.contains("LDAP"));
+        assert!(admin_html.contains(">Access</a>") && admin_html.contains(">Hubs</a>") && !admin_html.contains("class=\"card\""));
+        assert!(admin_html.contains("data-modal-open=\"add-mesh-hub\"") && !admin_html.contains("LDAP"));
 
         let tmp_base = std::env::temp_dir().join("thrall_test_jail");
         let _ = std::fs::create_dir_all(&tmp_base);

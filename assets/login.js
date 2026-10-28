@@ -1092,16 +1092,17 @@
         var item = delBtn.getAttribute('data-del-item') || '';
         var html =
           '<h3>Confirm Deletion</h3>' +
-          '<p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem">Type <code style="color:var(--danger);font-weight:700">' + escHtml(name) + '</code> to confirm deleting this item:</p>' +
+          '<p style="font-size:0.84rem;color:var(--text-secondary);margin-bottom:0.75rem">Type <code style="color:var(--danger);font-weight:700">' + escHtml(name) + '</code> to confirm:</p>' +
           '<form method="POST" action="' + escHtml(action) + '">' +
           '<input type="hidden" name="folder" value="' + escHtml(name) + '">' +
           '<input type="hidden" name="browse" value="' + escHtml(browse) + '">' +
           '<input type="hidden" name="sub" value="' + escHtml(sub) + '">' +
           '<input type="hidden" name="item" value="' + escHtml(item) + '">' +
+          '<input type="hidden" name="device_id" value="' + escHtml(item) + '">' +
           '<div style="margin-bottom:0.85rem"><input type="text" name="confirm_name" id="thrall-del-confirm-input" autocomplete="off" required placeholder="Type exact name to confirm"></div>' +
           '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
           '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
-          '<button type="submit" class="btn-danger" id="thrall-del-submit-btn" disabled>Permanently Delete</button>' +
+          '<button type="submit" class="btn-danger" id="thrall-del-submit-btn" disabled>Confirm</button>' +
           '</div></form>';
         openModal(html, true, function (card) {
           var form = card.querySelector('form');
@@ -1148,6 +1149,59 @@
             if (inp) inp.focus();
           }
         );
+      } else if (kind === 'create-shared-folder') {
+        openModal(
+          '<h3>Create Shared Folder</h3>' +
+          '<form method="POST" action="/admin/shared/create">' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="folder" required placeholder="Shared Folder Name (e.g. Engineering)"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Create Shared Folder</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var inp = card.querySelector('input[name="folder"]');
+            if (inp) inp.focus();
+          }
+        );
+      } else if (kind === 'add-mesh-hub') {
+        openModal(
+          '<h3>Add Mesh Hub</h3>' +
+          '<form method="POST" action="/admin/servers/add">' +
+          '<div style="margin-bottom:0.65rem"><input type="text" name="name" required placeholder="Hub Name (e.g. hyperion)"></div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="host" required placeholder="Tailscale IP / Host (e.g. 100.x.y.z)"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Add Hub</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var inp = card.querySelector('input[name="name"]');
+            if (inp) inp.focus();
+          }
+        );
+      } else if (kind === 'enroll-spoke') {
+        var tmpl = document.getElementById('tmpl-enroll-spoke');
+        var gwHtml = tmpl ? tmpl.innerHTML : '';
+        openModal(
+          '<h3>Enroll Spoke (Two-Way Handshake)</h3>' +
+          '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.75rem">' +
+          '<strong>Step 1 (On Your Spoke):</strong> Open <code>http://127.0.0.1:8384</code> &rarr; <strong>+ Add Remote Device</strong>, paste this Gateway Hub ID, and check <code>[x] Introducer</code> &amp; <code>[x] Auto Accept</code>:' +
+          gwHtml +
+          '</div>' +
+          '<form method="POST" action="/devices/add">' +
+          '<div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:0.45rem"><strong>Step 2 (In This Portal):</strong> Paste your Spoke\'s 56-character ID (from <em>Actions &rarr; Show ID</em>):</div>' +
+          '<div style="margin-bottom:0.85rem"><input type="text" name="device_id" required placeholder="Paste 56-Char Syncthing Spoke Device ID"></div>' +
+          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
+          '<button type="submit">Authorize Spoke</button>' +
+          '</div></form>',
+          false,
+          function (card) {
+            var inp = card.querySelector('input[name="device_id"]');
+            if (inp) inp.focus();
+          }
+        );
       } else if (kind === 'mkdir') {
         var subTitle = lbl ? ' <code style="font-size:0.78rem;color:var(--muted)">(' + escHtml(lbl) + ')</code>' : '';
         openModal(
@@ -1170,43 +1224,360 @@
       } else if (kind === 'upload-file') {
         var upTitle = lbl ? ' <code style="font-size:0.78rem;color:var(--muted)">(' + escHtml(lbl) + ')</code>' : '';
         openModal(
-          '<h3>Upload or Create File' + upTitle + '</h3>' +
-          '<form method="POST" action="/files/create">' +
-          '<input type="hidden" name="browse" value="' + escHtml(br) + '">' +
-          '<input type="hidden" name="sub" value="' + escHtml(sb) + '">' +
-          '<input type="hidden" name="ret_br" value="' + escHtml(rbr) + '">' +
-          '<div style="margin-bottom:0.65rem"><label class="field-label" for="thrall-file-picker">Choose Local File (optional)</label><input type="file" id="thrall-file-picker" style="font-family:var(--mono);font-size:0.78rem;color:var(--text-secondary);width:100%"></div>' +
-          '<div style="margin-bottom:0.65rem"><input type="text" name="filename" required placeholder="File name (e.g. note.md)"></div>' +
-          '<div style="margin-bottom:0.85rem"><textarea name="content" rows="4" placeholder="File contents (or pick a file above)"></textarea></div>' +
-          '<div class="row" style="justify-content:flex-end;gap:0.5rem">' +
-          '<button type="button" class="btn-secondary" data-modal-close="1">Cancel</button>' +
-          '<button type="submit">Save File</button>' +
-          '</div></form>',
+          '<h3>Upload Files or Folder' + upTitle + '</h3>' +
+          '<div class="upload-dropzone" id="modal-upload-dropzone" data-drop-browse="' + escHtml(br) + '" data-drop-sub="' + escHtml(sb) + '">' +
+          'Drag &amp; drop files or entire folders here<br><span style="font-size:0.7rem;color:var(--muted)">or use the buttons below</span>' +
+          '</div>' +
+          '<input type="file" id="thrall-file-picker" multiple style="display:none">' +
+          '<input type="file" id="thrall-dir-picker" webkitdirectory directory multiple style="display:none">' +
+          '<div class="row" style="justify-content:space-between;gap:0.5rem">' +
+          '<div class="row" style="gap:0.5rem">' +
+          '<button type="button" id="thrall-pick-files-btn">+ Choose Files</button>' +
+          '<button type="button" class="btn-secondary" id="thrall-pick-dir-btn">+ Choose Folder</button>' +
+          '</div>' +
+          '<button type="button" class="btn-secondary" data-modal-close="1">Close</button>' +
+          '</div>',
           false,
           function (card) {
-            var picker = card.querySelector('#thrall-file-picker');
-            var fnInp = card.querySelector('input[name="filename"]');
-            var txt = card.querySelector('textarea[name="content"]');
-            if (fnInp) fnInp.focus();
-            if (picker && fnInp && txt) {
-              picker.addEventListener('change', function () {
-                var f = picker.files && picker.files[0];
-                if (!f) return;
-                fnInp.value = f.name.replace(/^\.+/, '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 64);
-                if (typeof FileReader !== 'undefined') {
-                  var reader = new FileReader();
-                  reader.onload = function (ev) {
-                    if (ev.target && typeof ev.target.result === 'string') {
-                      txt.value = ev.target.result;
-                    }
-                  };
-                  reader.readAsText(f);
-                }
-              });
+            var fPick = card.querySelector('#thrall-file-picker');
+            var dPick = card.querySelector('#thrall-dir-picker');
+            var fBtn = card.querySelector('#thrall-pick-files-btn');
+            var dBtn = card.querySelector('#thrall-pick-dir-btn');
+            if (fBtn && fPick) fBtn.addEventListener('click', function () { fPick.click(); });
+            if (dBtn && dPick) dBtn.addEventListener('click', function () { dPick.click(); });
+            function handleList(flist) {
+              if (!flist || !flist.length) return;
+              var items = [];
+              for (var i = 0; i < flist.length; i++) {
+                var f = flist[i];
+                var relPath = f.webkitRelativePath || f.name || '';
+                items.push({ file: f, relPath: relPath });
+              }
+              closeModal();
+              if (window.thrallStartBatchUpload) {
+                window.thrallStartBatchUpload(br, sb, items);
+              }
             }
+            if (fPick) fPick.addEventListener('change', function () { handleList(fPick.files); });
+            if (dPick) dPick.addEventListener('change', function () { handleList(dPick.files); });
           }
         );
       }
+    });
+  }
+
+  function initUploadEngine() {
+    var graphCanvas = document.getElementById('footer-upload-graph');
+    var statusMsg = document.getElementById('footer-status-msg');
+    var historyBars = [];
+    for (var b = 0; b < 24; b++) historyBars.push(1);
+
+    function cleanSeg(s, isFile) {
+      var trimmed = String(s || '').replace(/^\.+/, '');
+      var cleaned = isFile
+        ? trimmed.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 128)
+        : trimmed.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 64);
+      return cleaned || (isFile ? 'file' : 'folder');
+    }
+
+    function splitRelPath(baseSub, relPath) {
+      var parts = String(relPath || '').split('/').filter(function (p) {
+        return p && p !== '.' && p !== '..' && p.charAt(0) !== '.';
+      });
+      if (!parts.length) return null;
+      var rawFile = parts.pop();
+      var fileName = cleanSeg(rawFile, true);
+      var subParts = [];
+      if (baseSub) {
+        var bp = String(baseSub).split('/').filter(Boolean);
+        for (var i = 0; i < bp.length; i++) subParts.push(bp[i]);
+      }
+      for (var j = 0; j < parts.length; j++) {
+        subParts.push(cleanSeg(parts[j], false));
+      }
+      return { sub: subParts.join('/'), filename: fileName };
+    }
+
+    function bytesToHex(uint8) {
+      var out = '';
+      for (var i = 0; i < uint8.length; i++) {
+        var h = uint8[i].toString(16);
+        out += h.length === 1 ? '0' + h : h;
+      }
+      return out;
+    }
+
+    function drawPixelGraph(pct, chunkLevel) {
+      if (!graphCanvas || !graphCanvas.getContext) return;
+      graphCanvas.style.display = 'inline-block';
+      var ctx = graphCanvas.getContext('2d');
+      if (!ctx) return;
+      var w = graphCanvas.width, h = graphCanvas.height;
+      ctx.fillStyle = '#06080a';
+      ctx.fillRect(0, 0, w, h);
+
+      historyBars.shift();
+      historyBars.push(Math.max(2, Math.min(h - 6, Math.round(chunkLevel * (h - 6)))));
+
+      var acc = window.thrallCurrentAccent || [80, 250, 123];
+      var ar = acc[0], ag = acc[1], ab = acc[2];
+      var hr = Math.min(255, Math.round(ar + (255 - ar) * 0.45));
+      var hg = Math.min(255, Math.round(ag + (255 - ag) * 0.45));
+      var hb = Math.min(255, Math.round(ab + (255 - ab) * 0.45));
+
+      ctx.fillStyle = 'rgba(' + ar + ',' + ag + ',' + ab + ',0.14)';
+      for (var gy = 3; gy < h - 4; gy += 4) {
+        ctx.fillRect(0, gy, w, 1);
+      }
+
+      var barW = 3, gap = 1, startX = 3;
+      for (var i = 0; i < historyBars.length; i++) {
+        var bh = historyBars[i];
+        var bx = startX + i * (barW + gap);
+        for (var py = h - 5; py > h - 5 - bh; py -= 2) {
+          var isTop = py <= h - 5 - bh + 2;
+          ctx.fillStyle = isTop
+            ? ('rgb(' + hr + ',' + hg + ',' + hb + ')')
+            : ('rgb(' + ar + ',' + ag + ',' + ab + ')');
+          ctx.fillRect(bx, py, barW, 1.5);
+        }
+      }
+
+      ctx.fillStyle = '#14191f';
+      ctx.fillRect(2, h - 3, w - 4, 2);
+      var fillW = Math.round(((w - 4) * Math.max(0, Math.min(100, pct))) / 100);
+      ctx.fillStyle = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
+      ctx.fillRect(2, h - 3, fillW, 2);
+
+      ctx.font = '700 9px ui-monospace, monospace';
+      ctx.fillStyle = '#ffffff';
+      var lbl = Math.round(pct) + '%';
+      ctx.fillText(lbl, w - 28, 11);
+    }
+
+    function readFileBuffer(file) {
+      if (file && typeof file.arrayBuffer === 'function') {
+        return file.arrayBuffer();
+      }
+      return new Promise(function (resolve, reject) {
+        var fr = new FileReader();
+        fr.onload = function () { resolve(fr.result); };
+        fr.onerror = function () { reject(fr.error); };
+        fr.readAsArrayBuffer(file);
+      });
+    }
+
+    function uploadSingleFile(br, baseSub, item, onChunk) {
+      var target = splitRelPath(baseSub, item.relPath || item.file.name);
+      if (!target) return Promise.resolve();
+      return readFileBuffer(item.file).then(function (buf) {
+        var bytes = new Uint8Array(buf || new ArrayBuffer(0));
+        var chunkSize = 12288;
+        var total = bytes.length;
+        var offset = 0;
+        var isFirst = true;
+
+        function nextChunk() {
+          if (offset >= total && !isFirst) return Promise.resolve();
+          var end = Math.min(total, offset + chunkSize);
+          var slice = bytes.subarray(offset, end);
+          var hex = bytesToHex(slice);
+          var body =
+            'browse=' + encodeURIComponent(br) +
+            '&sub=' + encodeURIComponent(target.sub) +
+            '&filename=' + encodeURIComponent(target.filename) +
+            '&append=' + (isFirst ? '0' : '1') +
+            '&hex=' + hex;
+          offset = end;
+          isFirst = false;
+          return fetch('/files/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body,
+            credentials: 'same-origin'
+          }).then(function (r) {
+            if (!r.ok) throw new Error('Upload failed');
+            if (onChunk) onChunk(slice.length);
+            return nextChunk();
+          });
+        }
+        return nextChunk();
+      });
+    }
+
+    function startBatchUpload(br, baseSub, items) {
+      var valid = (items || []).filter(function (it) {
+        var n = (it && it.file && it.file.name) || '';
+        return n && n.charAt(0) !== '.';
+      });
+      if (!valid.length) return;
+      if (!br) {
+        var firstRow = document.querySelector('tr[data-drop-browse]');
+        if (firstRow) br = firstRow.getAttribute('data-drop-browse') || '';
+      }
+      if (!br) {
+        if (statusMsg) statusMsg.textContent = 'Create or select a folder before uploading files.';
+        return;
+      }
+
+      var totalBytes = 0;
+      for (var i = 0; i < valid.length; i++) {
+        totalBytes += (valid[i].file.size || 0);
+      }
+      var uploadedBytes = 0;
+      var idx = 0;
+      drawPixelGraph(2, 0.35);
+
+      function nextFile() {
+        if (idx >= valid.length) {
+          drawPixelGraph(100, 1.0);
+          if (statusMsg) statusMsg.textContent = 'Uploaded ' + valid.length + ' file(s) — refreshing...';
+          setTimeout(function () { window.location.reload(); }, 260);
+          return;
+        }
+        var cur = valid[idx];
+        var fNum = idx + 1;
+        idx += 1;
+        var basePct = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : ((fNum - 1) / valid.length) * 100;
+        if (statusMsg) {
+          statusMsg.textContent = 'UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(basePct) + '%)';
+        }
+        uploadSingleFile(br, baseSub, cur, function (chunkLen) {
+          uploadedBytes += chunkLen;
+          var pct = totalBytes > 0 ? (uploadedBytes / totalBytes) * 100 : (fNum / valid.length) * 100;
+          var activity = 0.35 + 0.65 * Math.min(1, chunkLen / 12288) * (0.65 + 0.35 * Math.random());
+          drawPixelGraph(pct, activity);
+          if (statusMsg) {
+            statusMsg.textContent = 'UPLOADING ' + fNum + '/' + valid.length + ': ' + (cur.relPath || cur.file.name) + ' (' + Math.round(pct) + '%)';
+          }
+        })
+          .then(nextFile)
+          .catch(function () {
+            if (statusMsg) statusMsg.textContent = 'Upload failed on ' + (cur.relPath || cur.file.name);
+          });
+      }
+      nextFile();
+    }
+    window.thrallStartBatchUpload = startBatchUpload;
+
+    function traverseEntry(entry, prefix) {
+      return new Promise(function (resolve) {
+        if (!entry) return resolve([]);
+        if (entry.isFile) {
+          entry.file(function (f) {
+            resolve([{ file: f, relPath: prefix ? (prefix + '/' + f.name) : f.name }]);
+          }, function () { resolve([]); });
+        } else if (entry.isDirectory) {
+          var dirName = entry.name || '';
+          if (dirName.charAt(0) === '.') return resolve([]);
+          var nextPrefix = prefix ? (prefix + '/' + dirName) : dirName;
+          var reader = entry.createReader();
+          var allEntries = [];
+          function readBatch() {
+            reader.readEntries(function (batch) {
+              if (!batch || !batch.length) {
+                Promise.all(allEntries.map(function (c) { return traverseEntry(c, nextPrefix); }))
+                  .then(function (nested) {
+                    var flat = [];
+                    for (var i = 0; i < nested.length; i++) flat = flat.concat(nested[i]);
+                    resolve(flat);
+                  });
+              } else {
+                allEntries = allEntries.concat(Array.prototype.slice.call(batch));
+                readBatch();
+              }
+            }, function () { resolve([]); });
+          }
+          readBatch();
+        } else {
+          resolve([]);
+        }
+      });
+    }
+
+    function collectDataTransferFiles(dt) {
+      if (!dt) return Promise.resolve([]);
+      if (dt.items && dt.items.length) {
+        var entries = [];
+        for (var i = 0; i < dt.items.length; i++) {
+          var it = dt.items[i];
+          if (it.webkitGetAsEntry) {
+            var en = it.webkitGetAsEntry();
+            if (en) entries.push(en);
+          }
+        }
+        if (entries.length) {
+          return Promise.all(entries.map(function (e) { return traverseEntry(e, ''); }))
+            .then(function (lists) {
+              var out = [];
+              for (var k = 0; k < lists.length; k++) out = out.concat(lists[k]);
+              return out;
+            });
+        }
+      }
+      var raw = dt.files || [];
+      var fallback = [];
+      for (var j = 0; j < raw.length; j++) {
+        fallback.push({ file: raw[j], relPath: raw[j].webkitRelativePath || raw[j].name });
+      }
+      return Promise.resolve(fallback);
+    }
+
+    var activeDropEl = null;
+    function clearDropHighlight() {
+      if (activeDropEl) {
+        activeDropEl.classList.remove('drop-active');
+        activeDropEl = null;
+      }
+    }
+
+    document.addEventListener('dragover', function (e) {
+      var t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+      var dropEl = t.closest('[data-drop-browse]') || t.closest('.explorer-table');
+      if (!dropEl) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      if (activeDropEl !== dropEl) {
+        clearDropHighlight();
+        activeDropEl = dropEl;
+        activeDropEl.classList.add('drop-active');
+      }
+    });
+
+    document.addEventListener('dragleave', function (e) {
+      if (activeDropEl && (!e.relatedTarget || !activeDropEl.contains(e.relatedTarget))) {
+        clearDropHighlight();
+      }
+    });
+
+    document.addEventListener('drop', function (e) {
+      var t = e.target;
+      if (!t || typeof t.closest !== 'function') return;
+      var dropEl = t.closest('[data-drop-browse]') || t.closest('.explorer-table');
+      if (!dropEl) return;
+      e.preventDefault();
+      clearDropHighlight();
+      var br = dropEl.getAttribute('data-drop-browse') || '';
+      var sb = dropEl.getAttribute('data-drop-sub') || '';
+      if (!br) {
+        var first = dropEl.querySelector('[data-drop-browse]');
+        if (first) {
+          br = first.getAttribute('data-drop-browse') || '';
+          sb = first.getAttribute('data-drop-sub') || '';
+        }
+      }
+      var backdrop = document.getElementById('thrall-modal-backdrop');
+      if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+      collectDataTransferFiles(e.dataTransfer).then(function (items) {
+        if (items && items.length) {
+          var expandBtn = document.querySelector('.tree-toggle[data-target="' + br + '"]');
+          if (expandBtn && expandBtn.getAttribute('aria-expanded') === 'false') {
+            expandBtn.click();
+          }
+          startBatchUpload(br, sb, items);
+        }
+      });
     });
   }
 
@@ -1219,6 +1590,7 @@
     initTelemetryPolling();
     initExplorerTree();
     initExplorerModals();
+    initUploadEngine();
   }
 
   if (document.readyState === 'loading') {

@@ -103,7 +103,7 @@ pub fn handle_http_client(
 ) {
     let to = Some(Duration::from_secs(5));
     let _ = (stream.set_read_timeout(to), stream.set_write_timeout(to));
-    let mut buf = [0u8; 16_384];
+    let mut buf = [0u8; 65_536];
     let n = read_http_req(&mut stream, &mut buf);
     if n == 0 {
         return;
